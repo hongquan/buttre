@@ -7,8 +7,8 @@
 pub mod ffi;
 
 use crate::PlatformBackend;
-use std::sync::{Arc, Mutex};
-use buttre_core::{Action, Engine};
+use std::sync::{Arc, RwLock};
+use buttre_core::{Action, Keyboard};
 use anyhow::Result;
 
 /// macOS backend implementation
@@ -20,8 +20,8 @@ impl PlatformBackend for MacOSBackend {
     fn new() -> Result<Self> {
         Ok(Self { enabled: false })
     }
-    
-    fn init(&mut self, _engine: Arc<Mutex<Engine>>) -> Result<()> {
+
+    fn init(&mut self, _keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
         tracing::info!("Initializing macOS (IMKit) backend");
         Ok(())
     }

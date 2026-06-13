@@ -20,13 +20,20 @@
 //! these limits a misbehaving local process can exhaust threads or kernel pipe
 //! buffers.
 
-use anyhow::{Context, Result};
-use std::io::{Read, Write};
+use anyhow::Result;
 use std::sync::{Arc, RwLock};
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tracing::{debug, info, warn};
-use buttre_core::Action as EngineAction;
 use buttre_core::Keyboard;
+
+#[cfg(windows)]
+use anyhow::Context;
+#[cfg(windows)]
+use std::io::{Read, Write};
+#[cfg(windows)]
+use tracing::{debug, info, warn};
+#[cfg(windows)]
+use buttre_core::Action as EngineAction;
+#[cfg(windows)]
 use crate::platforms::windows::tsf::ipc::{IpcRequest, IpcResponse, Action, PIPE_NAME, BUFFER_SIZE};
 
 /// Owner-only DACL with low-integrity-level mandatory write block.
@@ -270,6 +277,7 @@ fn handle_client(pipe: &mut std::fs::File, keyboard: Arc<RwLock<Option<Keyboard>
 }
 
 /// Process IPC request
+#[cfg(windows)]
 fn process_request(request: IpcRequest, keyboard: Arc<RwLock<Option<Keyboard>>>) -> IpcResponse {
     // Poison-tolerant lock acquisition: if a previous handler panicked while
     // holding the write lock, recover the data rather than re-panicking here
