@@ -65,10 +65,9 @@ impl Drop for ThreadCountGuard {
 
 /// Run the Named Pipe server
 pub fn run_pipe_server(keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
-    info!("Starting Named Pipe server: {}", PIPE_NAME);
-
     #[cfg(windows)]
     {
+        info!("Starting Named Pipe server: {}", PIPE_NAME);
         use std::os::windows::io::{FromRawHandle, RawHandle};
         use windows::Win32::Foundation::{INVALID_HANDLE_VALUE, GetLastError, CloseHandle};
         use windows::Win32::Storage::FileSystem::PIPE_ACCESS_DUPLEX;
