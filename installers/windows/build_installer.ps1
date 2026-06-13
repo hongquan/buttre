@@ -31,14 +31,13 @@ try {
         $Version = (cargo pkgid -p buttre-platform) -replace '.*#', ''
     }
 
-    # cargo-wix's --install-version takes a SemVer 3-part string (strips pre-release for MSI header).
-    # The artifact filename still uses the full semver string.
-    # WiX internally stores it as MAJOR.MINOR.PATCH.0.
-    $semVer = $Version -replace '-.*$', ''  # e.g. "0.6.3"
+    # --install-version takes SemVer 3-part (strips pre-release suffix).
+    # cargo-wix automatically defines $(var.Version) = this value for product.wxs.
+    # Do NOT also pass -C "-dVersion=..." — candle rejects duplicate variable declarations.
+    $semVer = $Version -replace '-.*$', ''  # e.g. "0.7.0"
 
-    # cargo-wix resolves the `include` paths in [package.metadata.wix] relative to cwd,
-    # so we must run it from the crate directory where include = "../../installers/windows/"
-    # resolves correctly.
+    # cargo-wix resolves `include` paths relative to cwd, so run from the crate directory
+    # where include = "../../installers/windows/product.wxs" resolves correctly.
     $crateDir  = Join-Path $repoRoot "crates\buttre-platform"
     $outputAbs = Join-Path $repoRoot "target\wix\buttre-$Version-x86_64.msi"
     New-Item -ItemType Directory -Force (Join-Path $repoRoot "target\wix") | Out-Null
@@ -50,7 +49,6 @@ try {
         --nocapture `
         --output $outputAbs `
         --install-version $semVer `
-        -C "-dVersion=$semVer.0" `
         @wixArgs
     Pop-Location
 
