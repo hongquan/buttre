@@ -86,7 +86,7 @@ buttre được thiết kế theo kiến trúc modular, dễ bảo trì và mở
 
 ## 🚀 Trạng Thái Dự Án
 
-**Version hiện tại**: `0.6.3-alpha` (Closed Beta)
+**Version hiện tại**: `0.7.0-beta` (Open Beta)
 
 buttre đang trong giai đoạn beta, có nghĩa là:
 - ✅ Các tính năng cơ bản hoạt động ổn định

@@ -21,10 +21,10 @@ pub fn show_help_dialog() {
          • Ctrl+Shift+4 → ...\n\
          \n\
          TÀI LIỆU & MÃ NGUỒN:\n\
-         https://github.com/vi-group/buttre\n\
+         https://github.com/dxsl-org/buttre\n\
          \n\
          BÁO LỖI:\n\
-         https://github.com/vi-group/buttre/issues";
+         https://github.com/dxsl-org/buttre/issues";
 
     // Convert to UTF-16 for Windows API
     let title_wide: Vec<u16> = OsStr::new(title)

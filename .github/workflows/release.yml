@@ -9,7 +9,7 @@ on:
       version:
         description: 'Version without v prefix (e.g. 0.6.3-alpha)'
         required: true
-        default: '0.6.3-alpha'
+        default: '0.7.0-beta'
 
 permissions:
   contents: write
