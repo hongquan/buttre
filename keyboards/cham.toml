@@ -1,0 +1,44 @@
+# Bộ gõ Chăm Latinh (Romanized Cham)
+# Dành cho tiếng Chăm phiên âm Latin theo hệ thống EFEO
+# Tiếng Chăm không có thanh điệu
+
+[metadata]
+id = "cham"
+name = "Chăm (Latinh)"
+language = "cham_latin"
+description = "Bộ gõ tiếng Chăm phiên âm Latinh EFEO - dành cho người Chăm"
+version = "1.0.0"
+
+[transformations]
+# Nguyên âm đặc biệt Chăm (Telex-style)
+"aa" = "â"      # nguyên âm đóng
+"ee" = "ê"
+"oo" = "ô"
+"aw" = "ă"
+"ow" = "ơ"
+"uw" = "ư"
+
+# Biến thể in hoa
+"AA" = "Â"
+"EE" = "Ê"
+"OO" = "Ô"
+"AW" = "Ă"
+"Aw" = "Ă"
+"OW" = "Ơ"
+"Ow" = "Ơ"
+"UW" = "Ư"
+"Uw" = "Ư"
+
+# Phụ âm đặc biệt Chăm
+"ny" = "ñ"      # âm mũi vòm miệng
+"NY" = "Ñ"
+"Ny" = "Ñ"
+
+[tones]
+# Chăm là ngôn ngữ KHÔNG có thanh điệu
+# Để trống
+
+[rules]
+tone_position = "modern"
+validate_syllables = false  # Chấp nhận cấu trúc âm tiết Chăm
+unicode_form = "nfc"

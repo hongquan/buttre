@@ -1,0 +1,156 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version without v prefix (e.g. 0.6.3-alpha)'
+        required: true
+        default: '0.6.3-alpha'
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-windows:
+    name: Build Windows MSI
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install cargo-wix
+        run: cargo install cargo-wix --locked --version "^0.3"
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $v = '${{ github.event.inputs.version }}'
+          } else {
+            $v = '${{ github.ref_name }}' -replace '^v', ''
+          }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build MSI
+        run: ./installers/windows/build_installer.ps1 -Version ${{ steps.ver.outputs.version }}
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          name: buttre ${{ steps.ver.outputs.version }}
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          files: target/wix/buttre-${{ steps.ver.outputs.version }}-x86_64.msi
+          body: |
+            ## buttre v${{ steps.ver.outputs.version }}
+
+            See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details.
+
+            **Windows**: Run the MSI installer. SmartScreen may warn on first run (unsigned build) — click "More info → Run anyway".
+            **Linux**: `sudo dpkg -i buttre_*.deb` (Debian/Ubuntu) or `sudo dnf install buttre-*.rpm` (Fedora/RHEL).
+            **macOS**: Developer artifact only. Extract the zip; strip quarantine with `xattr -d com.apple.quarantine libbuttre_platform.dylib` before linking.
+
+  build-linux:
+    name: Build Linux packages
+    # Use ubuntu-22.04 (glibc 2.35) — ubuntu-latest is 24.04 (glibc 2.39), too new for Ubuntu 22.04 targets.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Install packaging tools
+        run: |
+          cargo install cargo-deb --locked --version "^2.7"
+          cargo install cargo-generate-rpm --locked --version "^0.14"
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build packages
+        run: |
+          chmod +x installers/linux/build_packages.sh \
+                   installers/linux/debian/postinst \
+                   installers/linux/debian/postrm
+          ./installers/linux/build_packages.sh
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          name: buttre ${{ steps.ver.outputs.version }}
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          files: |
+            target/debian/*.deb
+            target/generate-rpm/*.rpm
+
+  build-macos:
+    name: Build macOS dylib artifact
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Resolve version
+        id: ver
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build dylib zip
+        run: |
+          chmod +x installers/macos/build_dylib.sh
+          ./installers/macos/build_dylib.sh ${{ steps.ver.outputs.version }}
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          name: buttre ${{ steps.ver.outputs.version }}
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          files: target/macos/buttre-${{ steps.ver.outputs.version }}-macos-dylib.zip

@@ -1,0 +1,51 @@
+# VNI Input Method Configuration
+# Vietnamese Number Input method
+
+[metadata]
+id = "vni"
+name = "VNI"
+language = "vietnamese"
+description = "Vietnamese Number Input - uses numbers for tones and transformations"
+version = "1.0.0"
+
+# Tone marks (VNI uses numbers 1-5)
+[tones]
+"1" = "acute"      # á
+"2" = "grave"      # à
+"3" = "hook"       # ả
+"4" = "tilde"      # ã
+"5" = "dot"        # ạ
+
+# Character transformations (VNI uses numbers 6-9, 0, [)
+# Format: "base+key" = "result"
+[transformations]
+# Vowel transformations with 'a'
+"a6" = "â"
+"a7" = "ă"
+"A6" = "Â"
+"A7" = "Ă"
+
+# Vowel transformations with 'e'
+"e6" = "ê"
+"E6" = "Ê"
+
+# Vowel transformations with 'o'
+"o6" = "ô"
+"o7" = "ơ"
+"O6" = "Ô"
+"O7" = "Ơ"
+
+# Vowel transformations with 'u'
+"u7" = "ư"
+"U7" = "Ư"
+
+# Consonant transformations
+"dd" = "đ"
+"DD" = "Đ"
+"Dd" = "Đ"
+
+[rules]
+tone_position = "modern"
+validate_syllables = true
+unicode_form = "nfc"
+# Note: Buffer termination keys are handled at engine level (key_utils.rs)

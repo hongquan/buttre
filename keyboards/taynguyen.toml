@@ -1,0 +1,56 @@
+# Bộ gõ Dân tộc Tây Nguyên
+# Dành cho tiếng các dân tộc Tây Nguyên: Êđê, Bana, Jrai, Koho, Xơ-đăng,...
+# Sử dụng hệ thống Telex tương tự tiếng Việt
+
+[metadata]
+id = "taynguyen"
+name = "Tây Nguyên (Êđê, Bana, Jrai,...)"
+language = "vietnamese"
+description = "Bộ gõ tiếng các dân tộc Tây Nguyên - dành cho người Êđê, Bana, Jrai, Koho, Xơ-đăng,..."
+version = "1.0.0"
+
+[transformations]
+# Nguyên âm đôi
+"aa" = "â"
+"ee" = "ê"
+"oo" = "ô"
+
+# Phụ âm đặc biệt
+"dd" = "đ"
+
+# Dấu breve/horn (phím w)
+"aw" = "ă"
+"ow" = "ơ"
+"uw" = "ư"
+
+# Biến thể in hoa
+"AA" = "Â"
+"EE" = "Ê"
+"OO" = "Ô"
+"DD" = "Đ"
+"Dd" = "Đ"
+"AW" = "Ă"
+"Aw" = "Ă"
+"OW" = "Ơ"
+"Ow" = "Ơ"
+"UW" = "Ư"
+"Uw" = "Ư"
+
+# Các ngôn ngữ Tây Nguyên có thêm một số nguyên âm đặc biệt
+# Êđê: ĕ (e breve)
+"ew" = "ĕ"
+"EW" = "Ĕ"
+"Ew" = "Ĕ"
+
+[tones]
+# Hệ thống thanh điệu tương tự tiếng Việt
+"s" = "acute"    # sắc
+"f" = "grave"    # huyền
+"r" = "hook"     # hỏi
+"x" = "tilde"    # ngã
+"j" = "dot"      # nặng
+
+[rules]
+tone_position = "modern"
+validate_syllables = false  # Cho phép cấu trúc âm tiết đa dạng của các ngôn ngữ Tây Nguyên
+unicode_form = "nfc"

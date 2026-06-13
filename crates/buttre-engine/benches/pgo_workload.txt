@@ -1,0 +1,166 @@
+# Vietnamese Typing Corpus for PGO
+# This file contains representative Vietnamese text for profile-guided optimization
+# Each line represents a common typing pattern
+
+# Common greetings and phrases
+xin cha6o
+ca3m o7n ba6n
+he62n ga74p la6i
+chu3c mu7ng na0m mo7i
+ra64t vui du7o7c ga74p ba6n
+
+# Common words with different tone patterns
+vie65t nam
+ha4 no65i
+tha6nh pho61 ho62 chi2 minh
+ngu7o7i2 vie65t
+tiê61ng vie65t
+pha81t triê63n
+kinh tê61
+xa4 ho65i
+va0n ho3a
+gia3o du6c
+
+# Sentences with mixed patterns
+to6i la6 ngu7o7i2 vie65t nam
+ba6n co3 kho3e kho6ng
+ho6m nay tho7i2 tiê61t ra64t de6p
+chu3ng to6i dang ho6c tiê61ng anh
+co6ng ty chu3ng to6i o7 tha6nh pho61
+
+# Technical terms
+ma3y ti3nh
+pha62n mê62m
+u7ng du6ng
+website
+internet
+nha65p liê65u
+xu73 ly3
+ca1u hi6nh
+ca6i da64t
+thi61 nghie65m
+
+# Numbers and mixed content
+windows 10
+office 365
+ba3n 2.0
+phie6n ba3n 1.5
+co3 100 ngu7o7i2
+gia3 250000 do62ng
+na0m 2024
+
+# Common verbs with transformations
+la6m vie65c
+di6 ho6c
+dê61n tru7o7ng
+ve62 nha6
+a6n co7m
+uô61ng nu7o7c
+no3i chuyê65n
+nghe65 nha6c
+xem phim
+vie61t ba6i
+
+# Complex words with multiple transforms
+tru7o7ng ho6c
+ba61c si5 
+ky5 su7 
+gia3o vie6n
+sinh vie6n
+ho6c sinh
+co6ng nha6n
+no6ng da6n
+kiê62n tru3c su7
+ky5 thua65t vie6n
+
+# Proper nouns and locations
+ha4 no65i
+sa6i go6n
+d9a4 na74ng
+nha trang
+ha6 lo6ng
+hua61
+huê61
+ca62n tho7
+biê63n ho3a
+vie65t tri6
+
+# Common adjectives
+de6p
+xâu61
+to61t
+xâu61
+no3ng
+la6nh
+nhanh
+châ65m
+cao
+thâ61p
+
+# Edge cases and corner cases
+aaa
+aa6
+a61
+a6a6
+d9d9
+o7o7
+u7u7
+windows
+linux
+macos
+github
+a68
+a86
+o67
+o76
+
+# Real-world typing errors (intentional)
+wimdows
+tiemg viet
+ngươi
+nguoi
+
+# Long sentences
+trong xu7 ho65i hie65n da6i co6ng nghê65 tho6ng tin dang pha3t triê63n ra64t nhanh va6 ma6nh
+tiê61ng vie65t la6 mo65t trong nhu72ng ngo6n ngu72 co3 nê62n va0n ho3a la65u do7i va6 phong phu3
+chu3ng ta cầ62n co3 nhi62u no7 lu7c ho7n nu72a dê63 bo63 tu62n va0n ho3a va6 tiê61ng no3i cu3a mi6nh
+
+# Repeated patterns for branch prediction
+vie65t vie65t vie65t vie65t vie65t
+nam nam nam nam nam
+ngu7o7i2 ngu7o7i2 ngu7o7i2 ngu7o7i2
+tiê61ng tiê61ng tiê61ng tiê61ng
+a6 a6 a6 a6 a6 a6 a6 a6
+d9 d9 d9 d9 d9 d9 d9 d9
+o7 o7 o7 o7 o7 o7 o7 o7
+u7 u7 u7 u7 u7 u7 u7 u7
+
+# All tone marks on common vowels
+a a1 a2 a3 a4 a5
+a6 a61 a62 a63 a64 a65
+a8 a81 a82 a83 a84 a85
+e e1 e2 e3 e4 e5
+e6 e61 e62 e63 e64 e65
+o o1 o2 o3 o4 o5
+o6 o61 o62 o63 o64 o65
+o7 o71 o72 o73 o74 o75
+u u1 u2 u3 u4 u5
+u7 u71 u72 u73 u74 u75
+i i1 i2 i3 i4 i5
+y y1 y2 y3 y4 y5
+
+# Uppercase patterns
+Vie65t Nam
+Ha4 No65i
+Tha6nh pho61 Ho62 Chi2 Minh
+Ngu7o7i2 Vie65t
+Tiê61ng Vie65t
+Ba61c Si5
+Ky5 Su7
+Gia3o Vie6n
+
+# Mixed case
+VIE65T NAM
+HA4 NO65I
+TIENG VIET
+NGU7O7I2 VIET

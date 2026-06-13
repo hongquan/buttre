@@ -1,0 +1,16 @@
+aaa, aa
+aww, aw
+ddd, dd
+eee, ee
+ooo, oo
+oww, ow
+uww, uw
+tesst, test
+goood, good
+casse, case
+fixx, fix
+disscount, discount
+cissco, cisco
+dessign, design
+toool, tool
+toools, tools

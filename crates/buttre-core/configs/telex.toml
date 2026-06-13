@@ -1,0 +1,34 @@
+# Telex Input Method Configuration
+
+[metadata]
+id = "telex"
+name = "Telex"
+language = "vietnamese"
+version = "2.0.0"
+description = "Vietnamese Telex input method"
+
+[transformations]
+# Double characters
+"aa" = "â"
+"ee" = "ê"
+"oo" = "ô"
+"dd" = "đ"
+
+# Breve/Horn marks (w key)
+"aw" = "ă"
+"ow" = "ơ"
+"uw" = "ư"
+
+[tones]
+# Tone marks
+"s" = "acute"    # sắc (á)
+"f" = "grave"    # huyền (à)
+"r" = "hook"     # hỏi (ả)
+"x" = "tilde"    # ngã (ã)
+"j" = "dot"      # nặng (ạ)
+
+[rules]
+tone_position = "modern"
+validate_syllables = true
+unicode_form = "nfc"
+# Note: Buffer termination keys are handled at engine level (key_utils.rs)

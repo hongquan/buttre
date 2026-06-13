@@ -1,0 +1,103 @@
+# Bộ gõ Khmer (Khơ-me) - NiDA Standard
+# Bộ gõ chuẩn NiDA cho tiếng Khmer
+# Mỗi phím map trực tiếp 1 ký tự, dùng Shift cho ký tự khác
+# Gõ theo thứ tự chính tả: phụ âm đầu → nguyên âm → phụ âm cuối
+
+[metadata]
+id = "khmer"
+name = "Khmer (NiDA)"
+language = "khmer"
+description = "Bộ gõ tiếng Khmer chuẩn NiDA - gõ trực tiếp chữ Khmer"
+version = "1.0.0"
+
+# ===== PHỤ ÂM (Consonants) =====
+[transformations]
+# Row 1: Q-P
+"q" = "ឆ"      # CHA
+"w" = "ឹ"      # vowel sign I (short)
+"e" = "េ"      # vowel sign E
+"r" = "រ"      # RO
+"t" = "ត"      # TA
+"y" = "យ"      # YO
+"u" = "ុ"      # vowel sign U
+"i" = "ិ"      # vowel sign I
+"o" = "ោ"      # vowel sign O
+"p" = "ផ"      # PHA
+
+# Row 2: A-L
+"a" = "ា"      # vowel sign AA
+"s" = "ស"      # SA
+"d" = "ដ"      # DA
+"f" = "ថ"      # THA
+"g" = "ង"      # NGO
+"h" = "ហ"      # HA
+"j" = "្"      # COENG (subscript consonant marker)
+"k" = "ក"      # KA
+"l" = "ល"      # LO
+
+# Row 3: Z-M
+"z" = "ឍ"      # THO
+"x" = "ខ"      # KHA
+"c" = "ច"      # CA
+"v" = "វ"      # VO
+"b" = "ប"      # BA
+"n" = "ន"      # NO
+"m" = "ម"      # MO
+
+# Punctuation and special
+";" = "ើ"      # vowel sign OE
+"'" = "់"      # BANTOC (shortens vowel)
+"[" = "ៀ"      # vowel sign IE
+"]" = "ឿ"      # vowel sign UE
+"\\" = "ឮ"     # independent vowel RY
+
+# ===== PHỤ ÂM VỚI SHIFT =====
+[transformations_shift]
+# Row 1: Q-P (Shift)
+"q" = "ឈ"      # CHO
+"w" = "ឺ"      # vowel sign II (long)
+"e" = "ែ"      # vowel sign AE
+"r" = "ឬ"      # independent vowel RU
+"t" = "ទ"      # THO
+"y" = "ួ"      # vowel sign UO
+"u" = "ូ"      # vowel sign UU
+"i" = "ី"      # vowel sign II
+"o" = "ៅ"      # vowel sign AU
+"p" = "ភ"      # PHO
+
+# Row 2: A-L (Shift)  
+"a" = "ឥ"      # independent vowel I
+"s" = "ឝ"      # SSA
+"d" = "ឌ"      # DO
+"f" = "ធ"      # THO
+"g" = "អ"      # QA (glottal stop)
+"h" = "ះ"      # VISARGA
+"j" = "ញ"      # NYO
+"k" = "គ"      # KO
+"l" = "ឡ"      # LA
+
+# Row 3: Z-M (Shift)
+"z" = "ឋ"      # TTHA
+"x" = "ឃ"      # KHO
+"c" = "ជ"      # CO
+"v" = "េះ"    # vowel sign EH (E + VISARGA)
+"b" = "ព"      # PO
+"n" = "ណ"      # NA
+"m" = "ំ"      # NIKAHIT (anusvara)
+
+# Special (Shift)
+";" = "ោះ"    # vowel sign OH
+"'" = "៉"      # MUUSIKATOAN
+"[" = "ឧ"      # independent vowel U
+"]" = "ឪ"      # independent vowel UU
+"\\" = "ឭ"     # independent vowel LY
+
+[tones]
+# Khmer không có thanh điệu theo nghĩa truyền thống
+# Register được xác định bởi class phụ âm (Series 1 vs Series 2)
+
+[rules]
+tone_position = "modern"
+validate_syllables = false
+unicode_form = "nfc"
+native_script_mode = true

@@ -1,0 +1,53 @@
+# Bộ gõ Hmong (Mông) - RPA Script
+# Romanized Popular Alphabet cho tiếng Hmong/Mông
+# Thanh điệu biểu thị bằng phụ âm cuối, KHÔNG dùng dấu
+
+[metadata]
+id = "hmong"
+name = "Hmong (Mông RPA)"
+language = "hmong"
+description = "Bộ gõ tiếng Hmong RPA - thanh điệu bằng phụ âm cuối, không xử lý dấu tiếng Việt"
+version = "1.0.0"
+
+# Hmong RPA sử dụng chữ Latin tiêu chuẩn
+# Thanh điệu biểu thị bằng phụ âm cuối âm tiết:
+#   b = high (55)
+#   j = high falling (52)  
+#   v = mid rising (24)
+#   s = low (21) - Hmong Daw only
+#   g = mid low (31) - breathiness
+#   m = low glottalized (21ʔ) - creaky
+#   d = low falling (214)
+#   (none) = mid (33)
+
+[transformations]
+# Digraph đặc biệt Hmong
+# Hmong có nhiều digraph/trigraph nhưng chúng là chữ cái tiêu chuẩn
+# KHÔNG cần transform vì RPA đã là Latin thuần
+
+# Ký tự đặc biệt (tùy chọn - một số phương ngữ)
+"nr" = "nr"    # nasal r
+"nk" = "nk"    # prenasalized k
+"nq" = "nq"    # prenasalized q
+"np" = "np"    # prenasalized p
+"nt" = "nt"    # prenasalized t
+"nc" = "nc"    # prenasalized c
+
+# Giữ nguyên các cluster
+"pl" = "pl"
+"pr" = "pr"
+"tx" = "tx"
+"xy" = "xy"
+"hm" = "hm"
+"hn" = "hn"
+"ml" = "ml"
+
+[tones]
+# KHÔNG sử dụng thanh điệu kiểu Việt
+# Hmong RPA dùng phụ âm cuối làm tone markers
+# Để trống section này
+
+[rules]
+tone_position = "modern"
+validate_syllables = false  # Chấp nhận cấu trúc âm tiết Hmong
+unicode_form = "nfc"

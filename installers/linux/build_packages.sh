@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+cd "$REPO_ROOT"
+
+echo "==> Building buttre-platform release..."
+cargo build -p buttre-platform --release
+
+echo "==> Installing packaging tools (skipped if already present)..."
+cargo install cargo-deb --locked --version "^2.7" 2>/dev/null || true
+cargo install cargo-generate-rpm --locked --version "^0.14" 2>/dev/null || true
+
+echo "==> Building .deb..."
+# --no-build: binary already compiled above; run from workspace root so relative paths in [package.metadata.deb] resolve.
+cargo deb --package buttre-platform --no-build --output target/debian/
+
+echo "==> Building .rpm..."
+cargo generate-rpm --package crates/buttre-platform --output target/generate-rpm/
+
+echo ""
+echo "Artifacts:"
+ls -lh target/debian/*.deb target/generate-rpm/*.rpm

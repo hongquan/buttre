@@ -1,0 +1,4 @@
+*.wixobj
+*.wixpdb
+nom-db.wxi
+out/

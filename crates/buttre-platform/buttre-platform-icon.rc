@@ -1,0 +1,4 @@
+// Windows resource file for buttre icon
+#define IDI_ICON1 101
+
+IDI_ICON1 ICON "icons\\buttre.ico"

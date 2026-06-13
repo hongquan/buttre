@@ -1,0 +1,55 @@
+# Bộ gõ Dân tộc Đông & Tây Bắc
+# Dành cho tiếng Mường, Tày, Nùng, Dao,... (sử dụng chữ Latinh có dấu)
+# Sử dụng hệ thống Telex với các ký tự mở rộng
+
+[metadata]
+id = "muong_tay_nung"
+name = "Mường, Tày, Nùng,... (Latinh)"
+language = "vietnamese"
+description = "Bộ gõ tiếng dân tộc Đông & Tây Bắc Latinh - dành cho người Mường, Tày, Nùng, Dao,..."
+version = "1.0.0"
+
+[transformations]
+# Nguyên âm đôi
+"aa" = "â"
+"ee" = "ê"
+"oo" = "ô"
+
+# Phụ âm đặc biệt
+"dd" = "đ"
+
+# Dấu breve/horn (phím w)
+"aw" = "ă"
+"ow" = "ơ"
+"uw" = "ư"
+
+# Tày-Nùng specific: ƀ (b with stroke)
+"bb" = "ƀ"
+
+# Biến thể in hoa
+"AA" = "Â"
+"EE" = "Ê"
+"OO" = "Ô"
+"DD" = "Đ"
+"Dd" = "Đ"
+"AW" = "Ă"
+"Aw" = "Ă"
+"OW" = "Ơ"
+"Ow" = "Ơ"
+"UW" = "Ư"
+"Uw" = "Ư"
+"BB" = "Ƀ"
+"Bb" = "Ƀ"
+
+[tones]
+# Hệ thống 6 thanh như tiếng Việt
+"s" = "acute"    # sắc (á)
+"f" = "grave"    # huyền (à)
+"r" = "hook"     # hỏi (ả)
+"x" = "tilde"    # ngã (ã)
+"j" = "dot"      # nặng (ạ)
+
+[rules]
+tone_position = "modern"
+validate_syllables = false  # Cho phép âm tiết không chuẩn tiếng Việt
+unicode_form = "nfc"

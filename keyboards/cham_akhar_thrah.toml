@@ -1,0 +1,103 @@
+# Bộ gõ Chăm Akhar Thrah (Chữ Chăm bản địa)
+# Theo chuẩn Chamkey - gõ trực tiếp, Shift cho phụ âm aspirated
+# Unicode block: U+AA00–U+AA5F (Eastern Cham)
+# 
+# CÁCH GÕ:
+# - Phím thường: phụ âm/nguyên âm cơ bản
+# - Shift + phím: phụ âm aspirated (kh, gh, th, dh, ph, bh)
+# - Gõ 2 lần: phụ âm cuối (akhar matai)
+
+[metadata]
+id = "cham_akhar_thrah"
+name = "Chăm (Akhar Thrah)"
+language = "cham"
+description = "Bộ gõ chữ Chăm Akhar Thrah theo chuẩn Chamkey - Shift cho phụ âm aspirated"
+version = "1.0.0"
+
+# ===== PHỤ ÂM ĐẦU (Initial Consonants) =====
+[transformations]
+# Phụ âm cơ bản - gõ trực tiếp (không conflict)
+"k" = "ꨆ"      # KA
+"g" = "ꨈ"      # GA  
+"c" = "ꨌ"      # CA
+"j" = "ꨎ"      # JA
+"t" = "ꨓ"      # TA
+"d" = "ꨕ"      # DA
+"n" = "ꨘ"      # NA
+"p" = "ꨚ"      # PA
+"b" = "ꨝ"      # BA
+"m" = "ꨟ"      # MA
+"y" = "ꨢ"      # YA
+"r" = "ꨣ"      # RA
+"l" = "ꨤ"      # LA
+"w" = "ꨥ"      # WA
+"s" = "ꨦ"      # SA
+"h" = "ꨨ"      # HA
+
+# Phụ âm đặc biệt
+"q" = "ꨋ"      # NGA (dùng Q thay vì ng)
+"x" = "ꨑ"      # NYA (dùng X thay vì ny)
+
+# ===== NGUYÊN ÂM (Vowels) =====
+"a" = "ꨀ"      # A
+"i" = "ꨁ"      # I  
+"u" = "ꨂ"      # U
+"e" = "ꨃ"      # E
+"o" = "ꨅ"      # O
+
+# ===== PHỤ ÂM CUỐI (Akhar Matai) - Gõ 2 lần =====
+"kk" = "ꩀ"     # final KA
+"gg" = "ꩁ"     # final GA
+"cc" = "ꩂ"     # final CA
+"jj" = "ꩃ"     # final JA
+"tt" = "ꩄ"     # final TA
+"nn" = "ꩅ"     # final NA
+"pp" = "ꩆ"     # final PA
+"yy" = "ꩇ"     # final YA
+"rr" = "ꩈ"     # final RA
+"ll" = "ꩉ"     # final LA
+"ss" = "ꩊ"     # final SA
+"qq" = "ꩋ"     # final NGA
+"mm" = "ꩌ"     # final MA
+"hh" = "ꩍ"     # final HA
+
+# ===== SỐ (Numbers) =====
+"0" = "꩐"      # digit 0
+"1" = "꩑"      # digit 1
+"2" = "꩒"      # digit 2
+"3" = "꩓"      # digit 3
+"4" = "꩔"      # digit 4
+"5" = "꩕"      # digit 5
+"6" = "꩖"      # digit 6
+"7" = "꩗"      # digit 7
+"8" = "꩘"      # digit 8
+"9" = "꩙"      # digit 9
+
+# ===== PHỤ ÂM ASPIRATED với SHIFT =====
+[transformations_shift]
+"k" = "ꨇ"      # KHA (Shift+K)
+"g" = "ꨉ"      # GHA (Shift+G)
+"c" = "ꨍ"      # CHA (Shift+C)
+"j" = "ꨏ"      # JHA (Shift+J)
+"t" = "ꨔ"      # THA (Shift+T)
+"d" = "ꨖ"      # DHA (Shift+D)
+"p" = "ꨛ"      # PHA (Shift+P)
+"b" = "ꨞ"      # BHA (Shift+B)
+
+# Nguyên âm với Shift
+"a" = "ꨄ"      # AI (Shift+A)
+
+# Nguyên âm phụ thuộc (dependent vowels)
+"i" = "ꨪ"      # vowel sign I (Shift+I)
+"u" = "ꨫ"      # vowel sign U (Shift+U)
+"e" = "ꨬ"      # vowel sign E (Shift+E)
+"o" = "ꨮ"      # vowel sign O (Shift+O)
+
+[tones]
+# Chăm không có thanh điệu
+
+[rules]
+tone_position = "modern"
+validate_syllables = false
+unicode_form = "nfc"
+native_script_mode = true

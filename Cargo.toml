@@ -1,0 +1,78 @@
+[workspace]
+members = [
+    # Core engine
+    "crates/buttre-engine",
+    "crates/buttre-core",
+    # Platform (UI + Backends)
+    "crates/buttre-platform",
+    # Cross-platform testing
+    "crates/buttre-test",
+]
+resolver = "2"
+
+# Workspace-wide dependencies
+[workspace.dependencies]
+unicode-normalization = "0.1"
+lazy_static = "1.4"
+thiserror = "1.0"
+anyhow = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+dirs = "5.0"
+log = "0.4"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Platform-specific dependencies
+windows = "0.62"
+cocoa = "0.25"
+core-graphics = "0.23"
+x11 = { version = "2.21", features = ["xlib", "xtest"] }
+
+[profile.release]
+opt-level = "z"     # Optimize for size
+lto = true          # Enable Link Time Optimization (LTO)
+codegen-units = 1   # Reduce number of codegen units to increase optimizations
+panic = "abort"     # Abort on panic to reduce binary size
+strip = true        # Strip symbols from binary
+
+# =============================================================================
+# CLIPPY CONFIGURATION
+# =============================================================================
+# Workspace-wide clippy lints for code quality
+# Note: Start with essential lints, gradually enable more as code quality improves
+[workspace.lints.clippy]
+# Correctness - these are bugs (MUST fix)
+correctness = { level = "deny", priority = -1 }
+
+# Suspicious - likely bugs or unintended behavior
+suspicious = { level = "warn", priority = -1 }
+
+# Performance - performance issues (important for input method)
+perf = { level = "warn", priority = -1 }
+
+# Style and Complexity - disable for now (too many warnings in existing code)
+# style = { level = "warn", priority = -1 }
+# complexity = { level = "warn", priority = -1 }
+
+# Specific lints we want to enforce (critical for production)
+todo = "warn"                  # No TODOs in committed code
+unimplemented = "warn"         # No unimplemented! in committed code
+dbg_macro = "warn"             # No dbg! in committed code
+
+# Lints we allow (too noisy or not applicable for this project)
+module_name_repetitions = "allow"  # Allow Config in config.rs
+must_use_candidate = "allow"       # Too noisy
+missing_errors_doc = "allow"       # We use anyhow, errors are self-documenting
+missing_panics_doc = "allow"       # We try to avoid panics anyway
+unwrap_used = "allow"              # Too many to fix now, enable later
+expect_used = "allow"              # Too many to fix now, enable later
+print_stdout = "allow"             # Debug logging needed during development
+print_stderr = "allow"             # Debug logging needed during development
+
+[workspace.lints.rust]
+# Rust compiler lints - start minimal
+# unsafe_code = "warn"             # Disable - too many in platform crate
+# missing_docs = "warn"            # Disable - too many missing docs
+rust_2018_idioms = { level = "warn", priority = -1 }

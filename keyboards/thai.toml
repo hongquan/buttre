@@ -1,0 +1,51 @@
+# Bộ gõ Thái (Tai Viet) - Latin Script
+# Dành cho người Thái vùng Tây Bắc (Tai Dam, Tai Dón, Thai Song)
+# Sử dụng chữ Latin mở rộng với hệ thống dấu tương tự tiếng Việt
+
+[metadata]
+id = "thai"
+name = "Thái (Tây Bắc)"
+language = "tai_viet"
+description = "Bộ gõ tiếng Thái Tây Bắc (Tai Viet) - chữ Latin mở rộng với dấu thanh"
+version = "1.0.0"
+
+# Transformations (Telex-style)
+[transformations]
+# Các nguyên âm đôi
+"aa" = "â"
+"ee" = "ê"
+"oo" = "ô"
+
+# Dấu breve/horn (phím w)
+"aw" = "ă"
+"ow" = "ơ"
+"uw" = "ư"
+
+# Phụ âm đặc biệt
+"dd" = "đ"
+
+# Biến thể in hoa
+"AA" = "Â"
+"EE" = "Ê"
+"OO" = "Ô"
+"AW" = "Ă"
+"Aw" = "Ă"
+"OW" = "Ơ"
+"Ow" = "Ơ"
+"UW" = "Ư"
+"Uw" = "Ư"
+"DD" = "Đ"
+"Dd" = "Đ"
+
+[tones]
+# Hệ thống 6 thanh điệu giống tiếng Việt
+"s" = "acute"    # sắc (á)
+"f" = "grave"    # huyền (à)
+"r" = "hook"     # hỏi (ả)
+"x" = "tilde"    # ngã (ã)
+"j" = "dot"      # nặng (ạ)
+
+[rules]
+tone_position = "modern"
+validate_syllables = false  # Cho phép âm tiết linh hoạt của tiếng Thái
+unicode_form = "nfc"

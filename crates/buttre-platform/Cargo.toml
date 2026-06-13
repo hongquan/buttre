@@ -1,0 +1,167 @@
+[package]
+name = "buttre-platform"
+version = "0.6.3-alpha"
+edition = "2021"
+description = "Buttre Platform (UI + Backends)"
+license = "MPL-2.0"
+
+# Platform crate inherits workspace lints
+# Note: unsafe_code is allowed via #![allow(unsafe_code)] in lib.rs for FFI
+[lints]
+workspace = true
+
+[[bin]]
+name = "buttre"
+path = "src/main.rs"
+
+[lib]
+name = "buttre_platform"
+path = "src/lib.rs"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []  # Disable async-queue by default - it has issues with backspace handling
+async-queue = []  # Enable async queue processing for hook optimization
+
+[dependencies]
+# Core dependencies
+buttre-core = { path = "../buttre-core" }
+buttre-engine = { path = "../buttre-engine" }
+log = { workspace = true }
+anyhow = { workspace = true }
+serde = { workspace = true }
+toml = { workspace = true }
+dirs = { workspace = true }
+tray-icon = "0.19"
+muda = "0.15"
+winit = "0.29"
+image = { version = "0.24", default-features = false, features = ["png"] }
+single-instance = "0.3"
+bincode = "1.3"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "env-filter", "ansi", "std"] }
+chrono = "0.4"
+crossbeam = "0.8"
+notify = "6.1"
+
+# Windows-specific dependencies
+[target.'cfg(target_os = "windows")'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+    "Win32_UI_TextServices",
+    "Win32_System_Com",
+    "Win32_System_Registry",
+    "Win32_System_LibraryLoader",
+    "Win32_System_SystemServices",
+    "Win32_System_Ole",
+    "Win32_System_Variant",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_Graphics_Gdi",
+    "Win32_System_Threading",
+    "Win32_Security",
+    "Win32_Security_Authorization",
+    "Win32_System_IO",
+    "Win32_Globalization",
+] }
+windows-core = "0.62"
+windows-sys = { version = "0.52", features = [
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Foundation",
+    "Win32_Storage_FileSystem",
+    "Win32_System_Pipes",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+] }
+winreg = "0.55"
+
+# macOS-specific dependencies
+[target.'cfg(target_os = "macos")'.dependencies]
+cocoa = "0.25"
+core-graphics = "0.23"
+core-foundation = "0.9"
+objc = "0.2"
+
+# Linux-specific dependencies
+[target.'cfg(target_os = "linux")'.dependencies]
+zbus = "3.0"
+tokio = { version = "1.0", features = ["full"] }
+x11 = { version = "2.21", features = ["xlib", "xtest"] }
+
+[build-dependencies]
+embed-resource = "2.4"
+
+# ── Windows MSI (cargo-wix) ──────────────────────────────────────────────────
+[package.metadata.wix]
+# UPGRADE GUID: 8C5B151A-3EAC-4313-ACEA-E85BACB1CA82 — DO NOT CHANGE ACROSS VERSIONS.
+upgrade-guid = "8C5B151A-3EAC-4313-ACEA-E85BACB1CA82"
+path-guid    = "8FF7AFC8-35D6-47FC-BD1E-298572ECCD22"
+license      = false
+eula         = false
+# WiX source lives under installers/windows/ instead of the default wix/ folder.
+include      = ["../../installers/windows/product.wxs"]
+
+# ── Linux .deb (cargo-deb) ───────────────────────────────────────────────────
+[package.metadata.deb]
+name = "buttre"
+maintainer = "buttre project <noreply@buttre.dev>"
+copyright = "2026, buttre project"
+license-file = ["../../LICENSE", "0"]
+extended-description = """\
+buttre is a Vietnamese input method for Linux, providing \
+Telex, VNI, and Nôm typing modes via the IBus framework."""
+section = "x11"
+priority = "optional"
+depends = "ibus (>= 1.5), libc6 (>= 2.31)"
+maintainer-scripts = "../../installers/linux/debian/"
+# NOTE: `target/release/buttre_nom.db` is required for Nôm input mode in production.
+# It is staged by `crates/buttre-platform/build.rs` from one of:
+#   crates/buttre-platform/buttre_nom.db
+#   crates/buttre-core/resources/nom/buttre_nom.db
+#   <workspace_root>/buttre_nom.db
+# If none of those exist at build time the .deb will fail to package — provide the file
+# or remove the buttre_nom.db asset line below if shipping without Nôm support.
+assets = [
+    ["target/release/buttre",                                  "usr/bin/",                              "755"],
+    ["target/release/buttre_nom.db",                           "usr/share/buttre/",                     "644"],
+    ["../../installers/linux/buttre.xml",                      "usr/share/ibus/component/",             "644"],
+    ["../../keyboards/cham.toml",                              "usr/share/buttre/keyboards/",           "644"],
+    ["../../keyboards/cham_akhar_thrah.toml",                  "usr/share/buttre/keyboards/",           "644"],
+    ["../../keyboards/hmong.toml",                             "usr/share/buttre/keyboards/",           "644"],
+    ["../../keyboards/khmer.toml",                             "usr/share/buttre/keyboards/",           "644"],
+    ["../../keyboards/muong_tay_nung.toml",                    "usr/share/buttre/keyboards/",           "644"],
+    ["../../keyboards/taynguyen.toml",                         "usr/share/buttre/keyboards/",           "644"],
+    ["../../keyboards/thai.toml",                              "usr/share/buttre/keyboards/",           "644"],
+    ["../../README.md",                                        "usr/share/doc/buttre/README",           "644"],
+]
+
+# ── Linux .rpm (cargo-generate-rpm) ──────────────────────────────────────────
+[package.metadata.generate-rpm]
+name = "buttre"
+license = "MPL-2.0"
+summary = "Vietnamese input method for Linux"
+# NOTE: see [package.metadata.deb] above re: buttre_nom.db build-time requirement.
+assets = [
+    { source = "target/release/buttre",                        dest = "/usr/bin/buttre",                                        mode = "755" },
+    { source = "target/release/buttre_nom.db",                 dest = "/usr/share/buttre/buttre_nom.db",                        mode = "644" },
+    { source = "../../installers/linux/buttre.xml",            dest = "/usr/share/ibus/component/buttre.xml",                   mode = "644" },
+    { source = "../../keyboards/cham.toml",                    dest = "/usr/share/buttre/keyboards/cham.toml",                  mode = "644" },
+    { source = "../../keyboards/cham_akhar_thrah.toml",        dest = "/usr/share/buttre/keyboards/cham_akhar_thrah.toml",      mode = "644" },
+    { source = "../../keyboards/hmong.toml",                   dest = "/usr/share/buttre/keyboards/hmong.toml",                 mode = "644" },
+    { source = "../../keyboards/khmer.toml",                   dest = "/usr/share/buttre/keyboards/khmer.toml",                 mode = "644" },
+    { source = "../../keyboards/muong_tay_nung.toml",          dest = "/usr/share/buttre/keyboards/muong_tay_nung.toml",        mode = "644" },
+    { source = "../../keyboards/taynguyen.toml",               dest = "/usr/share/buttre/keyboards/taynguyen.toml",             mode = "644" },
+    { source = "../../keyboards/thai.toml",                    dest = "/usr/share/buttre/keyboards/thai.toml",                  mode = "644" },
+    { source = "../../README.md",                              dest = "/usr/share/doc/buttre/README.md",                        mode = "644" },
+]
+
+[package.metadata.generate-rpm.requires]
+ibus = ">= 1.5"
+glibc = ">= 2.31"
+
+[package.metadata.generate-rpm.scripts]
+post = "if command -v ibus >/dev/null 2>&1; then ibus write-cache --system >/dev/null 2>&1 || true; fi"
+postun = "if [ \"$1\" = \"0\" ] && command -v ibus >/dev/null 2>&1; then ibus write-cache --system >/dev/null 2>&1 || true; fi"

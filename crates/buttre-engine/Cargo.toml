@@ -1,0 +1,44 @@
+[package]
+name = "buttre-engine"
+version = "0.6.3-alpha"
+edition = "2021"
+description = "Universal Vietnamese input engine with 7-stage pipeline"
+license = "MPL-2.0"
+authors = ["Buttre Contributors"]
+
+[lints]
+workspace = true
+
+[features]
+default = ["optimized-transform", "optimized-tone", "vseqlist-tone"]
+optimized-transform = []  # Use match instead of HashMap (200x faster)
+optimized-tone = []  # Use static table instead of match for tone application
+vseqlist-tone = []  # Use Unikey's VSeqList for 100% accurate tone positioning
+
+[dependencies]
+unicode-normalization = { workspace = true }
+log = { workspace = true }
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+rusqlite = { version = "0.30", features = ["bundled"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[lib]
+name = "buttre_engine"
+path = "src/lib.rs"
+
+[[bench]]
+name = "compose_bench"
+harness = false
+
+[[bench]]
+name = "end_to_end_vni"
+harness = false
+
+[[bench]]
+name = "hashmap_vs_match"
+harness = false

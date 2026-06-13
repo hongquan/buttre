@@ -1,0 +1,7 @@
+LIBRARY buttre_platform
+EXPORTS
+    DllMain
+    DllGetClassObject
+    DllCanUnloadNow
+    DllRegisterServer
+    DllUnregisterServer
