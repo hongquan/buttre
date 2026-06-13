@@ -1,5 +1,5 @@
 # buttre system context & design rules
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-06-13
 **Audience**: Developers & AI Agents
 
 ---
@@ -10,9 +10,9 @@
 
 | File | Description |
 | --- | --- |
-| `design/01-architecture.md` | System architecture |
-| `design/02-coding-guide.md` | Coding standards and patterns |
-| `design/03-roadmap.md` | Project roadmap and current status |
+| `01-architecture.md` | System architecture |
+| `02-coding-guide.md` | Coding standards and patterns |
+| `ROADMAP.md` | Project roadmap and current status |
 
 ---
 
@@ -22,7 +22,7 @@
 name: buttre
 tagline: Modern Vietnamese Input Method Engine
 type: cross_platform_input_method
-version: 0.6.0-beta.1
+version: 0.6.3-alpha
 status: beta
 
 platforms:
@@ -34,7 +34,7 @@ primary_language: rust
 rust_version: 1.70+
 license: MPL-2.0
 
-repository: https://github.com/vi-group/buttre
+repository: https://github.com/dxsl-org/buttre
 documentation: docs/
 ```
 
@@ -160,16 +160,18 @@ buttre/
 │
 ├── docs/                      # Project documentation
 │   ├── README.md             # Documentation navigation
-│   ├── ARCHITECTURE.md       # System architecture
-│   ├── CODING_GUIDE.md       # Coding standards
+│   ├── 00-context.md        # This file
+│   ├── 01-architecture.md    # System architecture
+│   ├── 02-coding-guide.md    # Coding standards
 │   ├── ROADMAP.md            # Project roadmap
 │   ├── PIPELINE_ARCHITECTURE.md
 │   ├── VIETNAMESE_ACCENT.md
-│   ├── nom/                  # Hán Nôm docs
-│   └── archive/              # Historical docs
+│   ├── MANUAL_TESTING_GUIDE.md
+│   ├── FFI_SAFETY_GUIDE.md
+│   └── journals/             # Development journals
 │
-├── .agent/                    # AI agent artifacts (DEPRECATED)
-│   └── (various analysis and planning docs - now in docs/archive/)
+├── .agents/                   # AI agent artifacts
+│   └── (planning docs, reports, organized by phase)
 │
 ├── .reference/                # Reference implementations
 │   ├── unikey/               # Unikey (C++ reference)
@@ -184,7 +186,7 @@ buttre/
 └── CODE_OF_CONDUCT.md        # Code of conduct
 ```
 
-**Note**: `.agent/` directory is deprecated. All valuable content has been moved to `docs/` or `docs/archive/`.
+**Note**: `.agents/` directory is used for planning and reports; all shipped documentation lives in `docs/`.
 
 ---
 

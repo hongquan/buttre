@@ -1,10 +1,7 @@
 # buttre - Bộ Gõ Tiếng Việt
 
-[![CI](https://github.com/YOUR_USERNAME/buttre/workflows/CI/badge.svg)](https://github.com/YOUR_USERNAME/buttre/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/YOUR_USERNAME/buttre/branch/main/graph/badge.svg)](https://codecov.io/gh/YOUR_USERNAME/buttre)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
-[![Security Audit](https://github.com/YOUR_USERNAME/buttre/workflows/security/badge.svg)](https://github.com/YOUR_USERNAME/buttre/security)
 
 > _Được tạo ra bởi một nhóm dev yêu thích Rust và low-level programming._
 
@@ -61,13 +58,13 @@ _Timeline phụ thuộc vào thời gian rảnh của team, nhưng chúng tôi c
 ## 📦 Cài Đặt
 
 ### Người Dùng Thông Thường
-1. Truy cập [Releases](https://github.com/vi-group/buttre/releases)
+1. Truy cập [Releases](https://github.com/dxsl-org/buttre/releases)
 2. Tải bản build mới nhất
 3. Chạy installer và tận hưởng
 
 ### Developers
 ```bash
-git clone https://github.com/vi-group/buttre.git
+git clone https://github.com/dxsl-org/buttre.git
 cd buttre
 cargo build --release
 ```
@@ -80,21 +77,21 @@ _Lưu ý: Đảm bảo bạn đã cài Rust toolchain và các dependencies cầ
 
 buttre được thiết kế theo kiến trúc modular, dễ bảo trì và mở rộng:
 
-- **`buttre-core`**: Logic core, platform-agnostic
-- **`buttre-vietnamese`**: Engine xử lý tiếng Việt (Telex, VNI, VIQR)
-- **`buttre-windows`**: Integration layer với Windows API
-- **`buttre-nom`**: Module xử lý chữ Nôm (đang phát triển)
+- **`buttre-core`**: Keyboard configuration (Telex, VNI, Nôm), services, events, platform-agnostic
+- **`buttre-engine`**: Core recompute pipeline (compose, tone, validation) - pure Vietnamese/Nôm processing
+- **`buttre-platform`**: OS integration (Windows TSF + hook, Linux ibus, macOS FFI, system tray/UI)
+- **`buttre-test`**: Shared test utilities and fixtures
 
 ---
 
 ## 🚀 Trạng Thái Dự Án
 
-**Version hiện tại**: `0.6.0-beta.1` (Closed Beta)
+**Version hiện tại**: `0.6.3-alpha` (Closed Beta)
 
 buttre đang trong giai đoạn beta, có nghĩa là:
 - ✅ Các tính năng cơ bản hoạt động ổn định
 - ⚠️ Có thể còn một số edge cases chưa được xử lý
-- 🐛 Nếu bạn phát hiện bug, rất mong nhận được feedback lịch sự qua [Issues](https://github.com/vi-group/buttre/issues)
+- 🐛 Nếu bạn phát hiện bug, rất mong nhận được feedback lịch sự qua [Issues](https://github.com/dxsl-org/buttre/issues)
 
 Chúng tôi đánh giá cao mọi đóng góp mang tính xây dựng!
 
@@ -176,8 +173,5 @@ Nếu bạn chia sẻ niềm đam mê này, hãy cùng chúng tôi xây dựng b
 
 **Crafted with ❤️, ☕, and countless hours of debugging**
 
-_by buttre Team_
-
-[Website](https://buttre.dev) • [GitHub](https://github.com/vi-group/buttre) • [Issues](https://github.com/vi-group/buttre/issues)
-
+_by DXSL Team_
 </div>

@@ -71,7 +71,7 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 ```bash
 # Clone repository
-git clone https://github.com/vi-group/buttre
+git clone https://github.com/dxsl-org/buttre
 cd buttre
 
 # Build and install (from repo root)

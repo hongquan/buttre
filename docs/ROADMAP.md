@@ -3,7 +3,7 @@
 > Strategic plan for buttre development across platforms and features
 
 **Last Updated**: 2026-05-19
-**Version**: 0.6.4-alpha
+**Version**: 0.6.3-alpha
 **Status**: Windows Core & Installers Complete, Cross-Platform Expansion In Progress
 
 ---
@@ -21,7 +21,7 @@ Build a **modern, performant, cross-platform Vietnamese input method** that:
 
 ## Current Status
 
-### ✅ Completed (v0.6.4-alpha)
+### ✅ Completed (v0.6.3-alpha)
 
 **Core Engine**:
 - [x] 7-stage processing pipeline (config-driven, recompute-from-raw)
@@ -41,7 +41,7 @@ Build a **modern, performant, cross-platform Vietnamese input method** that:
 - [x] Key event handling
 - [x] Manual testing guide
 
-**Cross-Platform Installers** (v0.6.4-alpha):
+**Cross-Platform Installers** (v0.6.3-alpha):
 - [x] Windows MSI via cargo-wix (perMachine scope, CLSID registration)
 - [x] Linux .deb + .rpm via cargo-deb & cargo-generate-rpm (with IBus integration)
 - [x] macOS dylib artifact (developer release, unsigned)
@@ -63,7 +63,7 @@ Build a **modern, performant, cross-platform Vietnamese input method** that:
 
 **Goal**: Multi-platform signed-less release artifacts
 
-**Completed Tasks** (v0.6.4-alpha):
+**Completed Tasks** (v0.6.3-alpha):
 - [x] Fix CLSID mismatch (E6B8A6C0-1234-5678-9ABC-DEF012345678)
 - [x] Windows MSI via cargo-wix (perMachine, CLSID + profile registration)
 - [x] Linux .deb + .rpm via cargo-deb/cargo-generate-rpm (IBus integration)
@@ -85,7 +85,7 @@ Build a **modern, performant, cross-platform Vietnamese input method** that:
   - [ ] MACOS_README.md (quarantine workaround)
   - [ ] User manual (Vietnamese)
 
-**Deliverable**: buttre 0.6.4-alpha with cross-platform installers; buttre 1.0 for Windows (Q2 2026)
+**Deliverable**: buttre 0.6.3-alpha with cross-platform installers; buttre 1.0 for Windows (Q2 2026)
 
 ---
 
@@ -363,7 +363,7 @@ Build a **modern, performant, cross-platform Vietnamese input method** that:
 
 | Quarter | Focus | Deliverable |
 |---------|-------|-------------|
-| Q1–Q2 2026 | Installers & Windows Polish | buttre 0.6.4-alpha (installers), buttre 1.0 Windows (stable) |
+| Q1–Q2 2026 | Installers & Windows Polish | buttre 0.6.3-alpha (installers), buttre 1.0 Windows (stable) |
 | Q2 2026 | macOS Implementation | buttre 1.0 macOS |
 | Q3 2026 | Linux Implementation | buttre 1.0 Linux (IBus) |
 | Q4 2026 | Hán Nôm Support | buttre 1.5 (all platforms) |
@@ -403,15 +403,15 @@ Interested in contributing to buttre? Here's how:
    - Validate Vietnamese orthography rules
    - Support minority language scripts
 
-**Join us**: [GitHub Discussions](https://github.com/vi-group/buttre/discussions)
+**Join us**: [GitHub Discussions](https://github.com/dxsl-org/buttre/discussions)
 
 ---
 
 ## Contact & Resources
 
-- **GitHub**: [https://github.com/vi-group/buttre](https://github.com/vi-group/buttre)
-- **Issues**: [https://github.com/vi-group/buttre/issues](https://github.com/vi-group/buttre/issues)
-- **Discussions**: [https://github.com/vi-group/buttre/discussions](https://github.com/vi-group/buttre/discussions)
+- **GitHub**: [https://github.com/dxsl-org/buttre](https://github.com/dxsl-org/buttre)
+- **Issues**: [https://github.com/dxsl-org/buttre/issues](https://github.com/dxsl-org/buttre/issues)
+- **Discussions**: [https://github.com/dxsl-org/buttre/discussions](https://github.com/dxsl-org/buttre/discussions)
 - **Documentation**: `docs/` folder in repository
 
 ---

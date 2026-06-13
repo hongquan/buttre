@@ -31,7 +31,7 @@
            │ FFI
     ┌──────▼──────┐
     │   Engine    │  (Rust)
-    │buttre-vietnamese│
+    │buttre-engine│
     └─────────────┘
 ```
 

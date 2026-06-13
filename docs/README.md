@@ -2,7 +2,7 @@
 
 > Complete documentation for developers and contributors
 
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-06-13
 
 ---
 
@@ -10,9 +10,9 @@
 
 **New to buttre?** Read these in order:
 
-1. **[README.md](../README.md)** - Project overview and quick start
-2. **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture and design
-3. **[CODING_GUIDE.md](CODING_GUIDE.md)** - How to write code in this project
+1. **[../README.md](../README.md)** - Project overview and quick start
+2. **[01-architecture.md](01-architecture.md)** - System architecture and design
+3. **[02-coding-guide.md](02-coding-guide.md)** - How to write code in this project
 4. **[ROADMAP.md](ROADMAP.md)** - Project roadmap and future plans
 
 ---
@@ -22,40 +22,45 @@
 ```
 docs/
 ├── README.md                      # This file
-├── ARCHITECTURE.md                # ⭐ System architecture (comprehensive)
-├── CODING_GUIDE.md                # ⭐ Coding standards and patterns
+├── 00-context.md                  # System context & design rules
+├── 01-architecture.md             # ⭐ System architecture (comprehensive)
+├── 02-coding-guide.md             # ⭐ Coding standards and patterns
 ├── ROADMAP.md                     # ⭐ Project roadmap and timeline
 ├── PIPELINE_ARCHITECTURE.md       # Detailed 7-stage pipeline docs
 ├── VIETNAMESE_ACCENT.md           # Vietnamese orthography specification
 ├── MANUAL_TESTING_GUIDE.md        # How to manually test TSF DLL
 ├── FFI_SAFETY_GUIDE.md            # FFI safety patterns (for macOS/Linux)
-├── agent.md                       # AI agent configuration
-├── nom/                           # Hán Nôm documentation
-│   ├── NOM_DATABASE_OPTIMIZATION.md
-│   ├── NOM_DEVELOPER_GUIDE.md
-│   ├── NOM_INPUT_ANALYSIS.md
-│   └── NOM_REFERENCE_ANALYSIS.md
-└── archive/                       # Historical docs (for reference)
-    ├── 4_IME_COMPARISON.md
-    ├── COMPLETE_CRATE_ANALYSIS.md
-    ├── DEPENDENCY_ANALYSIS.md
-    ├── GONHANH_VS_buttre_COMPARISON.md
-    ├── PLATFORM_CRATE_ANALYSIS.md
-    ├── PHASE2_PROGRESS.md
-    ├── TSF_IMPLEMENTATION_PROGRESS.md
-    ├── CONFIG_DRIVEN_ARCHITECTURE.md
-    ├── FOLDER_STRUCTURE_RECOMMENDATION.md
-    ├── LINUX_IMPLEMENTATION_PLAN.md
-    ├── MACOS_IMPLEMENTATION_PLAN.md
-    ├── WINDOWS_MIGRATION_PLAN.md
-    └── STATE_MANAGEMENT_IN_3_CRATES.md
+└── journals/                      # Development journals
 ```
 
 ---
 
 ## Core Documentation
 
-### [ARCHITECTURE.md](ARCHITECTURE.md)
+### [00-context.md](00-context.md)
+
+**What**: System context and design rules for all contributors (including AI agents)
+
+**Contains**:
+- Project metadata (name, version, platforms, tech stack)
+- Crate structure and responsibilities
+- Code quality rules (error handling, unsafe code, type safety)
+- Testing requirements
+- Workflow for AI agents
+- Vietnamese input rules (tone placement, auto-correction)
+- Pipeline architecture overview
+- Build commands
+- Reference implementations
+- Rust coding rules (mandatory)
+
+**When to read**:
+- ⭐ **BEFORE contributing any code**
+- When setting up development environment
+- When onboarding new team members
+
+---
+
+### [01-architecture.md](01-architecture.md)
 
 **What**: Complete architectural overview of buttre
 
@@ -74,7 +79,7 @@ docs/
 
 ---
 
-### [CODING_GUIDE.md](CODING_GUIDE.md)
+### [02-coding-guide.md](02-coding-guide.md)
 
 **What**: Coding standards and patterns extracted from actual codebase
 
@@ -186,79 +191,17 @@ docs/
 
 ---
 
-### [agent.md](agent.md)
-
-**What**: AI agent configuration for Claude Code
-
-**Contains**:
-- Project metadata (tech stack, crate structure)
-- Code quality rules
-- Workflow phases
-- Constraints and conventions
-- Current focus and status
-- Rust coding rules (mandatory)
-
-**When to read**:
-- When using AI agents to assist with development
-- To understand project conventions quickly
-- For AI context setup
-
----
-
-## Specialized Topics
-
-### Hán Nôm Documentation ([nom/](nom/))
-
-Documentation specific to Hán Nôm (chữ Nôm) input support.
-
-**Files**:
-- **[NOM_DEVELOPER_GUIDE.md](nom/NOM_DEVELOPER_GUIDE.md)** - Developer guide for Nôm input
-- **[NOM_DATABASE_OPTIMIZATION.md](nom/NOM_DATABASE_OPTIMIZATION.md)** - Database design and optimization
-- **[NOM_INPUT_ANALYSIS.md](nom/NOM_INPUT_ANALYSIS.md)** - Input method analysis
-- **[NOM_REFERENCE_ANALYSIS.md](nom/NOM_REFERENCE_ANALYSIS.md)** - Analysis of weasel-hannom-keyboard
-
-**When to read**: When working on Phase 4 (Hán Nôm support)
-
----
-
-### Archive ([archive/](archive/))
-
-Historical documentation kept for reference. These docs may be outdated but contain valuable context.
-
-**Analysis & Comparisons**:
-- [4_IME_COMPARISON.md](archive/4_IME_COMPARISON.md) - Comparison of 4 Vietnamese IMEs
-- [GONHANH_VS_buttre_COMPARISON.md](archive/GONHANH_VS_buttre_COMPARISON.md) - GoNhanh pipeline comparison
-- [DEPENDENCY_ANALYSIS.md](archive/DEPENDENCY_ANALYSIS.md) - GoNhanh zero-dependency analysis
-- [COMPLETE_CRATE_ANALYSIS.md](archive/COMPLETE_CRATE_ANALYSIS.md) - 3-crate refactor analysis
-- [PLATFORM_CRATE_ANALYSIS.md](archive/PLATFORM_CRATE_ANALYSIS.md) - buttre-platform crate analysis
-
-**Progress Reports** (outdated):
-- [PHASE2_PROGRESS.md](archive/PHASE2_PROGRESS.md) - Phase 2 progress (2025-12-19)
-- [TSF_IMPLEMENTATION_PROGRESS.md](archive/TSF_IMPLEMENTATION_PROGRESS.md) - TSF progress (Dec 2024)
-
-**Plans** (now consolidated into ROADMAP.md):
-- [LINUX_IMPLEMENTATION_PLAN.md](archive/LINUX_IMPLEMENTATION_PLAN.md) - Linux/IBus implementation
-- [MACOS_IMPLEMENTATION_PLAN.md](archive/MACOS_IMPLEMENTATION_PLAN.md) - macOS/IMKit implementation
-- [WINDOWS_MIGRATION_PLAN.md](archive/WINDOWS_MIGRATION_PLAN.md) - Windows backend migration
-- [CONFIG_DRIVEN_ARCHITECTURE.md](archive/CONFIG_DRIVEN_ARCHITECTURE.md) - Architecture redesign
-- [FOLDER_STRUCTURE_RECOMMENDATION.md](archive/FOLDER_STRUCTURE_RECOMMENDATION.md) - Folder structure
-- [STATE_MANAGEMENT_IN_3_CRATES.md](archive/STATE_MANAGEMENT_IN_3_CRATES.md) - State management design
-
-**When to read**: For historical context or to understand past decisions
-
----
-
 ## Documentation Maintenance
 
 ### When to Update Documentation
 
-**ARCHITECTURE.md**: Update when:
+**01-architecture.md**: Update when:
 - Adding new crates
 - Changing crate responsibilities
 - Modifying pipeline architecture
 - Adding new platforms
 
-**CODING_GUIDE.md**: Update when:
+**02-coding-guide.md**: Update when:
 - Establishing new coding patterns
 - Changing naming conventions
 - Adding new testing guidelines
@@ -335,26 +278,25 @@ Documentation improvements are highly valued!
 
 | Task | Read This |
 |------|-----------|
-| I want to understand buttre's architecture | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| I want to write code for buttre | [CODING_GUIDE.md](CODING_GUIDE.md) |
+| I'm new and want context | [00-context.md](00-context.md) |
+| I want to understand buttre's architecture | [01-architecture.md](01-architecture.md) |
+| I want to write code for buttre | [02-coding-guide.md](02-coding-guide.md) |
 | I want to contribute a feature | [ROADMAP.md](ROADMAP.md) |
 | I'm working on the engine | [PIPELINE_ARCHITECTURE.md](PIPELINE_ARCHITECTURE.md) |
 | I'm fixing tone positioning | [VIETNAMESE_ACCENT.md](VIETNAMESE_ACCENT.md) |
 | I'm testing Windows TSF | [MANUAL_TESTING_GUIDE.md](MANUAL_TESTING_GUIDE.md) |
 | I'm adding macOS/Linux support | [FFI_SAFETY_GUIDE.md](FFI_SAFETY_GUIDE.md) |
-| I'm working on Hán Nôm | [nom/NOM_DEVELOPER_GUIDE.md](nom/NOM_DEVELOPER_GUIDE.md) |
-| I want historical context | [archive/](archive/) |
 
 ---
 
 ## Questions?
 
-- **General questions**: [GitHub Discussions](https://github.com/vi-group/buttre/discussions)
-- **Bug reports**: [GitHub Issues](https://github.com/vi-group/buttre/issues)
-- **Documentation issues**: [GitHub Issues](https://github.com/vi-group/buttre/issues) (label: documentation)
+- **General questions**: [GitHub Discussions](https://github.com/dxsl-org/buttre/discussions)
+- **Bug reports**: [GitHub Issues](https://github.com/dxsl-org/buttre/issues)
+- **Documentation issues**: [GitHub Issues](https://github.com/dxsl-org/buttre/issues) (label: documentation)
 
 ---
 
-**Last Updated**: 2026-01-08
+**Last Updated**: 2026-06-13
 
 _Thank you for reading the documentation! Your attention to detail helps make buttre better._

@@ -2,8 +2,8 @@
 
 > Complete architectural overview of the buttre Vietnamese Input Method Engine
 
-**Last Updated**: 2026-01-08
-**Version**: 0.6.0-beta.1
+**Last Updated**: 2026-06-13
+**Version**: 0.6.3-alpha
 **Status**: Production-Ready Core, Platform Integration In Progress
 
 ---
