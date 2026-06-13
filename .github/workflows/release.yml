@@ -36,6 +36,9 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Install WiX Toolset
+        run: choco install wixtoolset -y
+
       - name: Install cargo-wix
         run: cargo install cargo-wix --locked --version "^0.3"
 
@@ -116,6 +119,46 @@ jobs:
           files: |
             target/debian/*.deb
             target/generate-rpm/*.rpm
+
+  build-windows-hook:
+    name: Build Windows hook ZIP
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch') {
+            $v = '${{ github.event.inputs.version }}'
+          } else {
+            $v = '${{ github.ref_name }}' -replace '^v', ''
+          }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build hook ZIP
+        run: ./installers/windows/build_hook_zip.ps1 -Version ${{ steps.ver.outputs.version }}
+
+      - name: Upload to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
+          name: buttre ${{ steps.ver.outputs.version }}
+          draft: ${{ github.event_name == 'workflow_dispatch' }}
+          files: target/hook-zip/buttre-${{ steps.ver.outputs.version }}-windows-hook.zip
 
   build-macos:
     name: Build macOS dylib artifact

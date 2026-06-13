@@ -31,17 +31,28 @@ try {
         $Version = (cargo pkgid -p buttre-platform) -replace '.*#', ''
     }
 
-    # WiX requires a 4-part numeric version; strip pre-release suffix for the MSI header.
+    # cargo-wix's --install-version takes a SemVer 3-part string (strips pre-release for MSI header).
     # The artifact filename still uses the full semver string.
-    $wixVersion = ($Version -replace '-.*$', '') + ".0"
+    # WiX internally stores it as MAJOR.MINOR.PATCH.0.
+    $semVer = $Version -replace '-.*$', ''  # e.g. "0.6.3"
 
-    Write-Host "==> Building MSI v$Version (WiX version: $wixVersion)..."
+    # cargo-wix resolves the `include` paths in [package.metadata.wix] relative to cwd,
+    # so we must run it from the crate directory where include = "../../installers/windows/"
+    # resolves correctly.
+    $crateDir  = Join-Path $repoRoot "crates\buttre-platform"
+    $outputAbs = Join-Path $repoRoot "target\wix\buttre-$Version-x86_64.msi"
+    New-Item -ItemType Directory -Force (Join-Path $repoRoot "target\wix") | Out-Null
+
+    Push-Location $crateDir
+    Write-Host "==> Building MSI v$Version (install-version: $semVer)..."
     cargo wix `
         --package buttre-platform `
         --nocapture `
-        --output "target\wix\buttre-$Version-x86_64.msi" `
-        -C "-dVersion=$wixVersion" `
+        --output $outputAbs `
+        --install-version $semVer `
+        -C "-dVersion=$semVer.0" `
         @wixArgs
+    Pop-Location
 
     $msiPath = "target\wix\buttre-$Version-x86_64.msi"
     Write-Host ""
