@@ -1,34 +1,34 @@
-# buttre system context & design rules
-**Last Updated**: 2026-06-13
-**Audience**: Developers & AI Agents
+# Bối Cảnh Hệ Thống & Quy Tắc Thiết Kế buttre
+**Cập nhật lần cuối**: 2026-06-14
+**Đối tượng**: Developer & AI Agent
 
 ---
 
-## Quick Start for AI Agents
+## Bắt Đầu Nhanh Cho AI Agent
 
-**Before assisting with any task, read these in order:**
+**Trước khi hỗ trợ bất kỳ nhiệm vụ nào, đọc theo thứ tự sau:**
 
-| File | Description |
+| File | Mô tả |
 | --- | --- |
-| `01-architecture.md` | System architecture |
-| `02-coding-guide.md` | Coding standards and patterns |
-| `ROADMAP.md` | Project roadmap and current status |
+| `01-architecture.md` | Kiến trúc hệ thống |
+| `02-coding-guide.md` | Tiêu chuẩn code và các pattern |
+| `ROADMAP.md` | Lộ trình dự án và trạng thái hiện tại |
 
 ---
 
-## Project Metadata
+## Metadata Dự Án
 
 ```yaml
 name: buttre
 tagline: Modern Vietnamese Input Method Engine
 type: cross_platform_input_method
-version: 0.6.3-alpha
+version: 0.7.0-beta
 status: beta
 
 platforms:
-  - windows (TSF) - ✅ Implemented
-  - macos (IMKit) - 🚧 Planned (Q2 2026)
-  - linux (IBus) - 🚧 Planned (Q3 2026)
+  - windows (TSF) - ✅ Đã hoàn thành
+  - macos (IMKit) - 🚧 Đang lên kế hoạch (Q2 2026)
+  - linux (IBus) - 🚧 Đang lên kế hoạch (Q3 2026)
 
 primary_language: rust
 rust_version: 1.70+
@@ -42,468 +42,461 @@ documentation: docs/
 
 ## Tech Stack
 
-### Core Technologies
+### Công Nghệ Cốt Lõi
 
 ```yaml
 languages:
   rust:
     version: 1.70+
     edition: 2021
-    purpose: Core engine, platform backends
+    purpose: Core engine, platform backend
 
 databases:
   sqlite:
-    purpose: Hán Nôm dictionary (Phase 4)
-    size: ~48,510 entries
+    purpose: Từ điển Hán Nôm (Phase 4)
+    size: ~48.510 entries
     optimization: FTS5 full-text search
 
 frameworks:
   windows-rs:
     version: 0.62.2
-    purpose: Windows TSF COM bindings
+    purpose: Windows TSF COM binding
 
   future_frameworks:
-    cocoa: macOS Objective-C bindings (planned)
-    x11: Linux X11 bindings (planned)
+    cocoa: macOS Objective-C binding (đang lên kế hoạch)
+    x11: Linux X11 binding (đang lên kế hoạch)
 ```
 
 ### Dependencies
 
-**Workspace Dependencies** (from `Cargo.toml`):
+**Workspace Dependencies** (từ `Cargo.toml`):
 ```yaml
 core:
-  - unicode-normalization: 0.1 (NFC/NFD conversion)
-  - lazy_static: 1.4 (static lookups)
-  - thiserror: 1.0 (library errors)
-  - anyhow: 1.0 (application errors)
+  - unicode-normalization: 0.1 (chuyển đổi NFC/NFD)
+  - lazy_static: 1.4 (tra cứu tĩnh)
+  - thiserror: 1.0 (lỗi library)
+  - anyhow: 1.0 (lỗi application)
 
 serialization:
-  - serde: 1.0 (config serialization)
-  - serde_json: 1.0 (JSON handling)
-  - toml: 0.8 (TOML config)
+  - serde: 1.0 (serialization config)
+  - serde_json: 1.0 (xử lý JSON)
+  - toml: 0.8 (config TOML)
 
 utilities:
-  - dirs: 5.0 (platform directories)
+  - dirs: 5.0 (thư mục platform)
   - log: 0.4 (logging facade)
   - tracing: 0.1 (structured logging)
   - tracing-subscriber: 0.3 (tracing backend)
 
 platform_specific:
   - windows: 0.62 (Windows API)
-  - cocoa: 0.25 (macOS - future)
-  - x11: 2.21 (Linux - future)
+  - cocoa: 0.25 (macOS - tương lai)
+  - x11: 2.21 (Linux - tương lai)
 ```
 
 ---
 
-## Crate Structure
+## Cấu Trúc Crate
 
-buttre uses a **multi-crate workspace** architecture:
+buttre dùng kiến trúc **multi-crate workspace**:
 
 ```yaml
 buttre-engine:
-  purpose: Processing pipeline (7-stage config-driven, recompute-from-raw)
+  purpose: Pipeline xử lý (7 giai đoạn, config-driven, recompute-from-raw)
   location: crates/buttre-engine/
-  responsibility: Vietnamese input transformations, tone marks, undo logic
-  status: ✅ Complete (600+ tests passing)
+  responsibility: Biến đổi nhập liệu tiếng Việt, dấu thanh, logic undo
+  status: ✅ Hoàn thành (600+ test đang pass)
   public_api:
     - PipelineExecutor
     - PipelineConfig
     - telex_config(), vni_config(), viqr_config()
 
 buttre-core:
-  purpose: Platform-agnostic keyboard interface
+  purpose: Giao diện bàn phím độc lập nền tảng
   location: crates/buttre-core/
-  responsibility: Keyboard struct, Action types, input method selection
-  status: ✅ Complete
+  responsibility: Struct Keyboard, kiểu Action, chọn phương thức nhập
+  status: ✅ Hoàn thành
   public_api:
     - Keyboard::new(InputMethod)
     - Keyboard::process(char) -> Vec<Action>
-    - Action enum (DoNothing, Commit, Replace, etc.)
+    - Action enum (DoNothing, Commit, Replace, ...)
 
 buttre-platform:
-  purpose: Platform-specific backends
+  purpose: Backend đặc thù từng nền tảng
   location: crates/buttre-platform/
   responsibility: Windows TSF, macOS IMKit, Linux IBus
-  status: ✅ Windows TSF complete, others planned
+  status: ✅ Windows TSF hoàn thành, các nền tảng khác đang lên kế hoạch
   components:
-    - platforms/windows/tsf/ (TSF implementation)
-    - platforms/macos/ (planned)
-    - platforms/linux/ (planned)
+    - platforms/windows/tsf/ (cài đặt TSF)
+    - platforms/macos/ (đang lên kế hoạch)
+    - platforms/linux/ (đang lên kế hoạch)
 
 buttre-test:
-  purpose: Testing utilities
+  purpose: Tiện ích kiểm thử
   location: crates/buttre-test/
-  responsibility: Batch testing, benchmarks, test data
-  status: ✅ Complete
+  responsibility: Kiểm thử hàng loạt, benchmark, dữ liệu test
+  status: ✅ Hoàn thành
 ```
 
-**Deprecated/Legacy Crates** (mentioned in old docs, now consolidated):
-- `buttre-app` → Merged into `buttre-platform`
-- `buttre-hotkey` → Merged into `buttre-platform`
-- `buttre-vietnamese` → Now `buttre-engine` (universal pipeline)
-- `buttre-hannom` → Planned as Phase 4 (Q4 2026)
-- `buttre-custom` → Planned as future enhancement
-- `buttre-windows`, `buttre-windows-hook`, `buttre-windows-common`, `buttre-windows-tsf` → Consolidated into `buttre-platform/platforms/windows/`
+**Crate Cũ/Legacy** (được đề cập trong tài liệu cũ, nay đã hợp nhất):
+- `buttre-app` → Đã gộp vào `buttre-platform`
+- `buttre-hotkey` → Đã gộp vào `buttre-platform`
+- `buttre-vietnamese` → Nay là `buttre-engine` (pipeline toàn diện)
+- `buttre-hannom` → Kế hoạch Phase 4 (Q4 2026)
+- `buttre-windows`, `buttre-windows-hook`, `buttre-windows-common`, `buttre-windows-tsf` → Đã hợp nhất vào `buttre-platform/platforms/windows/`
 
 ---
 
-## Directory Structure
+## Cấu Trúc Thư Mục
 
 ```
 buttre/
 ├── crates/                    # Rust workspace
-│   ├── buttre-engine/         # 7-stage processing pipeline
-│   ├── buttre-core/           # Platform-agnostic interface
-│   ├── buttre-platform/       # Platform backends
-│   └── buttre-test/           # Testing utilities
+│   ├── buttre-engine/         # Pipeline xử lý 7 giai đoạn
+│   ├── buttre-core/           # Giao diện độc lập nền tảng
+│   ├── buttre-platform/       # Backend nền tảng
+│   └── buttre-test/           # Tiện ích kiểm thử
 │
-├── docs/                      # Project documentation
-│   ├── README.md             # Documentation navigation
-│   ├── 00-context.md        # This file
-│   ├── 01-architecture.md    # System architecture
-│   ├── 02-coding-guide.md    # Coding standards
-│   ├── ROADMAP.md            # Project roadmap
+├── docs/                      # Tài liệu dự án
+│   ├── README.md             # Điều hướng tài liệu
+│   ├── 00-context.md        # File này
+│   ├── 01-architecture.md    # Kiến trúc hệ thống
+│   ├── 02-coding-guide.md    # Tiêu chuẩn code
+│   ├── ROADMAP.md            # Lộ trình dự án
 │   ├── PIPELINE_ARCHITECTURE.md
 │   ├── VIETNAMESE_ACCENT.md
 │   ├── MANUAL_TESTING_GUIDE.md
 │   ├── FFI_SAFETY_GUIDE.md
-│   └── journals/             # Development journals
+│   └── journals/             # Nhật ký phát triển
 │
-├── .agents/                   # AI agent artifacts
-│   └── (planning docs, reports, organized by phase)
+├── .agents/                   # Tài liệu AI agent
+│   └── (tài liệu lên kế hoạch, báo cáo, phân chia theo phase)
 │
-├── .reference/                # Reference implementations
-│   ├── unikey/               # Unikey (C++ reference)
-│   ├── openkey/              # OpenKey reference
-│   ├── ibus-bamboo/          # IBus Bamboo (Go reference)
-│   └── weasel/               # Weasel Hán Nôm reference
+├── .reference/                # Cài đặt tham chiếu
+│   ├── unikey/               # Unikey (tham chiếu C++)
+│   ├── openkey/              # Tham chiếu OpenKey
+│   ├── ibus-bamboo/          # IBus Bamboo (tham chiếu Go)
+│   └── weasel/               # Tham chiếu Weasel Hán Nôm
 │
-├── CLAUDE.md                  # This file (AI agent config)
-├── README.md                  # Project overview
-├── Cargo.toml                 # Workspace configuration
-├── LICENSE                    # MPL-2.0 license
-└── CODE_OF_CONDUCT.md        # Code of conduct
+├── CLAUDE.md                  # Cấu hình AI agent
+├── README.md                  # Tổng quan dự án
+├── Cargo.toml                 # Cấu hình workspace
+├── LICENSE                    # Giấy phép MPL-2.0
+└── CODE_OF_CONDUCT.md        # Quy tắc ứng xử
 ```
 
-**Note**: `.agents/` directory is used for planning and reports; all shipped documentation lives in `docs/`.
+**Lưu ý**: Thư mục `.agents/` dùng cho lên kế hoạch và báo cáo; tất cả tài liệu chính thức đều nằm trong `docs/`.
 
 ---
 
-## Code Quality Rules
+## Quy Tắc Chất Lượng Code
 
-### Mandatory Rules (MUST Follow)
+### Quy Tắc Bắt Buộc (PHẢI Tuân Theo)
 
 ```yaml
 error_handling:
-  NEVER_use:
-    - unwrap() (on Option/Result - causes panic!)
-    - expect() (in library code - only in main/tests)
-    - panic!() (use Result/Option instead)
-    - todo!() (in committed code)
-    - unimplemented!() (in committed code)
+  KHÔNG_ĐƯỢC_dùng:
+    - unwrap() (trên Option/Result — gây panic!)
+    - expect() (trong library code — chỉ dùng trong main/test)
+    - panic!() (dùng Result/Option thay thế)
+    - todo!() (trong code đã commit)
+    - unimplemented!() (trong code đã commit)
 
-  ALWAYS_use:
-    - Result<T, E> for fallible operations
-    - Option<T> for optional values
-    - ? operator for error propagation
-    - anyhow::Context for human-readable error chains
-    - thiserror for domain-specific errors
+  PHẢI_dùng:
+    - Result<T, E> cho các thao tác có thể thất bại
+    - Option<T> cho các giá trị tùy chọn
+    - Toán tử ? để truyền lỗi
+    - anyhow::Context cho error chain có thể đọc được
+    - thiserror cho lỗi đặc thù domain
 
 unsafe_code:
   rules:
-    - buttre-engine: MUST be 100% safe Rust (no unsafe)
-    - buttre-core: MUST be 100% safe Rust (no unsafe)
-    - buttre-platform: Unsafe ONLY for FFI, minimized scope
-    - MUST document safety invariants with // SAFETY: comments
+    - buttre-engine: PHẢI là Rust an toàn 100% (không unsafe)
+    - buttre-core: PHẢI là Rust an toàn 100% (không unsafe)
+    - buttre-platform: Chỉ unsafe cho FFI, giảm thiểu phạm vi
+    - PHẢI ghi lại safety invariant bằng comment // SAFETY:
 
 type_safety:
-  - Use newtypes for domain concepts (UserId, not u64)
-  - Use enums instead of strings for types
-  - Avoid stringly-typed code
-  - Prefer explicit type annotations for complex expressions
+  - Dùng newtype cho khái niệm domain (UserId, không phải u64)
+  - Dùng enum thay vì string cho các kiểu
+  - Tránh stringly-typed code
+  - Ưu tiên type annotation tường minh cho biểu thức phức tạp
 
 code_organization:
-  - Follow existing patterns (see docs/CODING_GUIDE.md)
-  - Self-documenting names (no abbreviations)
-  - Modular design (single responsibility)
-  - Test critical logic (unit + integration tests)
+  - Tuân theo các pattern hiện có (xem docs/02-coding-guide.md)
+  - Tên tự mô tả (không viết tắt)
+  - Thiết kế module (single responsibility)
+  - Test logic quan trọng (unit + integration test)
 ```
 
-### Testing Requirements
+### Yêu Cầu Kiểm Thử
 
 ```yaml
-required:
-  - unit_tests: Every public function
-  - integration_tests: Key workflows (see buttre-engine/tests/)
-  - edge_cases: Empty, max, Unicode, special chars
-  - error_paths: Test all error conditions
+bắt_buộc:
+  - unit_tests: Mọi hàm public
+  - integration_tests: Các luồng chính (xem buttre-engine/tests/)
+  - edge_cases: Rỗng, tối đa, Unicode, ký tự đặc biệt
+  - error_paths: Test tất cả điều kiện lỗi
 
-test_naming: "test_<function>_<scenario>_<expected>"
+đặt_tên_test: "test_<function>_<scenario>_<expected>"
 
-examples:
-  good:
+ví_dụ:
+  tốt:
     - test_process_key_valid_input_returns_action
     - test_apply_tone_empty_buffer_returns_none
-  bad:
+  xấu:
     - test_1
     - it_works
 ```
 
 ---
 
-## Workflow for AI Agents
+## Quy Trình Làm Việc Cho AI Agent
 
-### Development Cycle
+### Chu Kỳ Phát Triển
 
-When assisting with development, follow this cycle:
+Khi hỗ trợ phát triển, tuân theo chu kỳ này:
 
 ```yaml
 phases:
   1. Research:
-      - Read relevant documentation
-      - Understand existing patterns
-      - Check reference implementations (.reference/)
+      - Đọc tài liệu liên quan
+      - Hiểu các pattern hiện có
+      - Kiểm tra cài đặt tham chiếu (.reference/)
 
   2. Analyze:
-      - Identify affected components
-      - Review current code
-      - Understand dependencies
+      - Xác định các component bị ảnh hưởng
+      - Review code hiện tại
+      - Hiểu dependencies
 
   3. Plan:
-      - Design solution approach
-      - Consider edge cases
-      - Plan tests
+      - Thiết kế hướng tiếp cận giải pháp
+      - Cân nhắc edge case
+      - Lên kế hoạch test
 
   4. Code:
-      - Write implementation following coding guide
-      - Add comprehensive tests
-      - Document public APIs
+      - Viết cài đặt theo coding guide
+      - Thêm test toàn diện
+      - Tài liệu hóa public API
 
   5. Verify:
-      - Run cargo check
-      - Run cargo test
-      - Run cargo clippy
-      - Verify all tests pass
+      - Chạy cargo check
+      - Chạy cargo test
+      - Chạy cargo clippy
+      - Xác minh tất cả test pass
 
   6. Document:
-      - Update relevant documentation
-      - Add inline comments for complex logic
-      - Update CHANGELOG.md if needed
+      - Cập nhật tài liệu liên quan
+      - Thêm comment inline cho logic phức tạp
+      - Cập nhật CHANGELOG.md nếu cần
 
 execution: sequential_one_at_a_time
 retry_policy: auto_retry_until_exit_conditions
 ```
 
-### Constraints
+### Ràng Buộc
 
 ```yaml
-NEVER:
-  - Skip steps in the development cycle
-  - Write abbreviated/incomplete code
-  - Leave work half-done
-  - Use unsafe code without justification + documentation
-  - Assume behavior without testing
+KHÔNG_BAO_GIỜ:
+  - Bỏ qua bước trong chu kỳ phát triển
+  - Viết code viết tắt/không đầy đủ
+  - Để công việc làm nửa chừng
+  - Dùng unsafe code không có lý do + tài liệu
+  - Giả định hành vi mà không test
 
-ALWAYS:
-  - Understand project structure first (read docs/)
-  - Confirm before making major modifications
-  - Complete full scope of assigned task
-  - Track progress (use TodoWrite tool)
-  - Ask user to continue if task is large
-  - Optimize token usage (focused, concise)
+LUÔN_LUÔN:
+  - Hiểu cấu trúc dự án trước (đọc docs/)
+  - Xác nhận trước khi thực hiện thay đổi lớn
+  - Hoàn thành toàn bộ phạm vi nhiệm vụ được giao
+  - Theo dõi tiến độ (dùng TodoWrite tool)
+  - Hỏi người dùng để tiếp tục nếu nhiệm vụ lớn
+  - Tối ưu token usage (tập trung, súc tích)
 
-IMPORTANT:
-  - Use semantic versioning (x.y.z)
-  - Update CHANGELOG.md with changes
-  - Commit before major changes (backup)
-  - Prefer small, incremental changes
-  - Reuse existing code, avoid duplicates
-  - Document breaking changes + update callers
-  - Summarize progress if task fails mid-way
+QUAN_TRỌNG:
+  - Dùng semantic versioning (x.y.z)
+  - Cập nhật CHANGELOG.md với thay đổi
+  - Commit trước khi thay đổi lớn (backup)
+  - Ưu tiên thay đổi nhỏ, tăng dần
+  - Tái sử dụng code hiện có, tránh trùng lặp
+  - Tài liệu hóa breaking change + cập nhật caller
+  - Tóm tắt tiến độ nếu task thất bại giữa chừng
 ```
 
 ---
 
-## Current Focus
+## Trọng Tâm Hiện Tại
 
-**Active Phase**: Windows Stability & Polish (Q1 2026)
+**Phase Đang Hoạt Động**: Ổn Định & Hoàn Thiện Windows (Q1 2026)
 
 ```yaml
 active_crate: buttre-engine
 current_status:
-  - Core engine: ✅ Complete (7-stage pipeline, recompute-from-raw)
-  - Windows TSF: ✅ Implemented
-  - Tests: ✅ 600+ passing (3 known failures)
-  - Documentation: ✅ Comprehensive (docs/ reorganized)
+  - Core engine: ✅ Hoàn thành (pipeline 7 giai đoạn, recompute-from-raw)
+  - Windows TSF: ✅ Đã cài đặt
+  - Tests: ✅ 600+ đang pass (3 lỗi đã biết)
+  - Documentation: ✅ Toàn diện (docs/ đã tổ chức lại)
 
 next_steps:
   immediate:
-    - Manual testing in Notepad, Word, browsers
-    - Fix 3 pre-existing test failures
-    - Rebuild TSF DLL for testing
+    - Kiểm thử thủ công trong Notepad, Word, trình duyệt
+    - Sửa 3 lỗi test có sẵn
+    - Build lại TSF DLL để kiểm thử
 
   short_term:
-    - Installer improvements (silent install, upgrade path)
-    - User manual (Vietnamese)
-    - Video tutorials
+    - Cải thiện installer (cài im lặng, nâng cấp)
+    - Hướng dẫn sử dụng (tiếng Việt)
+    - Video hướng dẫn
 
   medium_term:
-    - buttre 1.0 Windows stable release
-    - Begin macOS implementation (Q2 2026)
-
-progress:
-  - 600+ tests passing
-  - Build status: success (warnings only)
-  - Test status: manual_testing_required
-  - UX optimization: ✅ Complete (free accent, tone repositioning, auto-correction)
+    - buttre 1.0 Windows ổn định
+    - Bắt đầu cài đặt macOS (Q2 2026)
 ```
 
-### Known Issues
+### Vấn Đề Đã Biết
 
-**Pre-existing Test Failures** (3 tests):
+**Lỗi Test Có Sẵn** (3 test):
 
 1. **test_find_best_permutation_thuwowfngf**
    - File: `crates/buttre-engine/src/pipeline/stages/stage6_permutation.rs`
-   - Cause: Duplicate transform mark handling appends extra 'w'
-   - Priority: Medium (affects edge case)
-   - Fix: Improve permutation duplicate detection
+   - Nguyên nhân: Xử lý transform mark trùng lặp thêm 'w' thừa
+   - Ưu tiên: Trung bình (ảnh hưởng edge case)
+   - Cách sửa: Cải thiện phát hiện trùng lặp trong permutation
 
 2. **test_telex_settings**
    - File: `crates/buttre-engine/src/pipeline/presets.rs`
-   - Cause: Test expects ToneStyle::New but preset uses ToneStyle::Old
-   - Priority: Low (test vs preset mismatch)
-   - Fix: Align test expectations with preset defaults
+   - Nguyên nhân: Test expect ToneStyle::New nhưng preset dùng ToneStyle::Old
+   - Ưu tiên: Thấp (không khớp giữa test và preset)
+   - Cách sửa: Đồng bộ expectation test với default preset
 
 3. **test_vni_settings**
    - File: `crates/buttre-engine/src/pipeline/presets.rs`
-   - Cause: Same as test_telex_settings
-   - Priority: Low
-   - Fix: Align test expectations with preset defaults
+   - Nguyên nhân: Giống test_telex_settings
+   - Ưu tiên: Thấp
+   - Cách sửa: Đồng bộ expectation test với default preset
 
 ---
 
-## Vietnamese Input Rules
+## Quy Tắc Nhập Liệu Tiếng Việt
 
-**Critical domain knowledge for working on the engine**:
+**Kiến thức domain quan trọng khi làm việc trên engine**:
 
-### Tone Placement Rules
+### Quy Tắc Vị Trí Dấu Thanh
 
 ```yaml
-priority_order:
-  1. super_vowel:
-      chars: [ă, â, ê, ô, ơ, ư]
-      rule: Always receive tone
-      example: "tuấn" (tone on â)
+thứ_tự_ưu_tiên:
+  1. nguyên_âm_đặc_biệt:
+      ký_tự: [ă, â, ê, ô, ơ, ư]
+      quy_tắc: Luôn nhận dấu
+      ví_dụ: "tuấn" (dấu trên â)
 
-  2. three_vowel:
-      rule: Tone on middle vowel
-      example: "uoi → uòi"
+  2. ba_nguyên_âm:
+      quy_tắc: Dấu trên nguyên âm giữa
+      ví_dụ: "uoi → uòi"
 
-  3. two_vowel_closed:
-      rule: Tone on 2nd vowel when final consonant present
-      example: "toán" (tone on á, final consonant n)
+  3. hai_nguyên_âm_khép:
+      quy_tắc: Dấu trên nguyên âm thứ 2 khi có phụ âm cuối
+      ví_dụ: "toán" (dấu trên á, phụ âm cuối n)
 
-  4. two_vowel_open:
-      ia_ua_ưa: Tone on 1st vowel
-      oa_oe_uy: Depends on ToneStyle (Old=1st, New=2nd)
-      others: Tone on 1st vowel
+  4. hai_nguyên_âm_mở:
+      ia_ua_ưa: Dấu trên nguyên âm thứ 1
+      oa_oe_uy: Phụ thuộc ToneStyle (Old=1, New=2)
+      còn_lại: Dấu trên nguyên âm thứ 1
 
-  5. single_vowel:
-      rule: Tone on that vowel
-      example: "á"
+  5. một_nguyên_âm:
+      quy_tắc: Dấu trên nguyên âm đó
+      ví_dụ: "á"
 
 tone_styles:
-  old: "óa, úy (traditional, default)"
-  new: "oá, uý (modern)"
+  old: "óa, úy (truyền thống, mặc định)"
+  new: "oá, uý (hiện đại)"
 ```
 
-### Auto-Correction
+### Tự Động Sửa
 
 ```yaml
 uo_to_ươ:
-  trigger: Applying tone to syllable containing 'uo'
-  result: "'uo' → 'ươ' before tone application"
-  example: "nguoif → người (not nguòi)"
-  config: auto_correct_uo (default: false)
+  kích_hoạt: Đặt dấu trên âm tiết chứa 'uo'
+  kết_quả: "'uo' → 'ươ' trước khi đặt dấu"
+  ví_dụ: "nguoif → người (không phải nguòi)"
+  config: auto_correct_uo (mặc định: false)
 ```
 
-### English Fallback
+### Chế Độ Tiếng Anh Fallback
 
 ```yaml
 temp_english_mode:
-  trigger: After undo operation (double-key)
-  behavior: Next alphabetic key is raw (not Vietnamese)
-  reset_on: Non-alphabetic character or word boundary
-  example: "Aaron" (aa → â → a [undo] → r → o → n [raw])
+  kích_hoạt: Sau thao tác undo (nhấn phím đôi)
+  hành_vi: Phím chữ cái tiếp theo là raw (không phải tiếng Việt)
+  reset_khi: Ký tự không phải chữ cái hoặc ranh giới từ
+  ví_dụ: "Aaron" (aa → â → a [undo] → r → o → n [raw])
 ```
 
 ---
 
-## Pipeline Architecture
+## Kiến Trúc Pipeline
 
-**7-Stage Processing Pipeline** (config-driven, recompute-from-raw):
+**Pipeline Xử Lý 7 Giai Đoạn** (config-driven, recompute-from-raw):
 
 ```yaml
 stage1_normalization:
-  purpose: Normalize input, push CharInfo to char_buffer
+  purpose: Chuẩn hóa input, đẩy CharInfo vào char_buffer
   input: char
-  output: CharInfo (lowercase ch + uppercase flag)
+  output: CharInfo (ch chữ thường + flag chữ hoa)
 
 stage2_gatekeeper:
-  purpose: Route non-Vietnamese input
+  purpose: Định tuyến input không phải tiếng Việt
   checks: temp_english_mode, non-alphabetic
   decision: Continue | PassThrough
 
 stage3_compose:
-  purpose: Recompute syllable from raw char_buffer (pure function)
+  purpose: Tái tính toán âm tiết từ char_buffer thô (pure function)
   internal_steps:
-    fallback: Undo / toggle / English-fallback detection
-    segment: Raw keys → base + transform marks + tone keys
-    transform: Apply diacritic marks (validation-gated)
-    assemble: Place tone mark on vowel nucleus
-  output: syllable_buffer; temp_english flag
+    fallback: Phát hiện undo / toggle / English-fallback
+    segment: Phím thô → base + transform marks + tone keys
+    transform: Áp dụng dấu phụ âm (có validation)
+    assemble: Đặt dấu thanh lên nhân nguyên âm
+  output: syllable_buffer; flag temp_english
 
 stage4_orthography:
-  purpose: Normalize tone position + Unicode
+  purpose: Chuẩn hóa vị trí dấu thanh + Unicode
   apply: ToneStyle (Old/New)
-  convert: To NFC (canonical composition)
+  convert: Sang NFC (canonical composition)
 
 stage5_learning:
-  purpose: User pattern tracking (future, currently no-op)
+  purpose: Theo dõi pattern người dùng (tương lai, hiện là no-op)
 
 stage6_lookup:
-  purpose: Optional Hán Nôm dictionary lookup
-  output: candidates in TypingContext
+  purpose: Tra cứu từ điển Hán Nôm tùy chọn
+  output: candidates trong TypingContext
 
 stage7_output:
-  purpose: Generate final actions
+  purpose: Tạo action cuối cùng
   algorithm: Diff last_output vs syllable_buffer → Replace{backspace_count, text}
 ```
 
-**Key Types**:
+**Các Kiểu Chính**:
 ```rust
 struct TypingContext {
-    raw_buffer: Vec<char>,           // Raw input history
-    current_syllable: Syllable,      // Current syllable
-    temp_english_mode: bool,         // English fallback
+    raw_buffer: Vec<char>,           // Lịch sử nhập thô
+    current_syllable: Syllable,      // Âm tiết hiện tại
+    temp_english_mode: bool,         // Chế độ tiếng Anh fallback
     last_transformation: Option<TransformRecord>,
-    last_output: String,             // For incremental updates
+    last_output: String,             // Cho cập nhật tăng dần
     tone_config: ToneConfig,
-    candidates: Vec<Candidate>,      // For Hán Nôm
+    candidates: Vec<Candidate>,      // Cho Hán Nôm
 }
 
 struct ToneConfig {
-    free_marking: bool,              // Allow tone before transformation
-    auto_correct_uo: bool,           // uo → ươ before tone
-    max_modify_length: usize,        // Max backtrack length
+    free_marking: bool,              // Cho phép dấu trước transform
+    auto_correct_uo: bool,           // uo → ươ trước dấu
+    max_modify_length: usize,        // Độ dài backtrack tối đa
 }
 
 enum ToneStyle { Old, New }          // óa vs oá
 enum ToneMark { None, Acute, Grave, Hook, Tilde, Dot }
 ```
 
-**Key Methods** (in `buttre-engine`):
+**Các Method Chính** (trong `buttre-engine`):
 ```rust
 fn find_main_vowel(text: &str) -> Option<usize>
 fn auto_correct_uo(syllable: &mut Syllable)
@@ -513,94 +506,94 @@ fn move_tone(text: &mut String, from: usize, to: usize)
 
 ---
 
-## Build Commands
+## Lệnh Build
 
 ### Development
 
 ```bash
-# Check code
+# Kiểm tra code
 cargo check
 cargo check --package buttre-engine
 
-# Run tests
+# Chạy test
 cargo test
 cargo test --package buttre-engine
 cargo test --package buttre-engine -- --skip test_find_best_permutation
 
 # Build
 cargo build                    # Debug
-cargo build --release          # Release (optimized)
+cargo build --release          # Release (đã tối ưu)
 
-# Code quality
+# Chất lượng code
 cargo fmt                      # Format code
-cargo clippy --all-targets --all-features  # Lints
+cargo clippy --all-targets --all-features  # Linting
 ```
 
-### Windows TSF Deployment
+### Triển Khai Windows TSF
 
 ```powershell
-# Rebuild TSF DLL (requires Admin)
+# Build lại TSF DLL (yêu cầu Admin)
 ./rebuild-tsf.ps1
 
-# Rebuild TSF DLL (debug mode)
+# Build lại TSF DLL (chế độ debug)
 ./rebuild-tsf-debug.ps1
 
-# Register DLL (requires Admin)
+# Đăng ký DLL (yêu cầu Admin)
 regsvr32 target/release/buttre_platform.dll
 
-# Unregister DLL (requires Admin)
+# Hủy đăng ký DLL (yêu cầu Admin)
 regsvr32 /u target/release/buttre_platform.dll
 ```
 
 ---
 
-## Reference Implementations
+## Cài Đặt Tham Chiếu
 
-**Unikey** (C++ reference for Vietnamese algorithms):
+**Unikey** (tham chiếu C++ cho thuật toán tiếng Việt):
 ```yaml
 location: .reference/unikey/
 key_files:
   - vietkey.cpp:
       functions: putToneMark, putBreveMark, doubleChar, tempVietOff
-      purpose: Tone application, character transformations, English fallback
+      purpose: Áp dụng dấu thanh, biến đổi ký tự, English fallback
 
   - ukengine.cpp:
       functions: processTone, getTonePosition, VSeqList, processRoof, processHook
-      purpose: Tone positioning logic, vowel sequence detection
-      data: VSeqList (70 predefined Vietnamese vowel sequences)
+      purpose: Logic vị trí dấu thanh, phát hiện chuỗi nguyên âm
+      data: VSeqList (70 chuỗi nguyên âm tiếng Việt được định nghĩa sẵn)
 
 usage:
-  - Tone placement algorithms
-  - Vowel sequence detection
-  - Buffer management (tempVietOff = temp English mode)
-  - Auto-correction (uo → ươ on tone application)
-  - ToneStyle support (Old/New)
+  - Thuật toán đặt dấu thanh
+  - Phát hiện chuỗi nguyên âm
+  - Quản lý buffer (tempVietOff = chế độ tiếng Anh tạm thời)
+  - Tự động sửa (uo → ươ khi đặt dấu)
+  - Hỗ trợ ToneStyle (Old/New)
 ```
 
-**Other References**:
-- **OpenKey**: `.reference/openkey/` (alternative Vietnamese IME)
-- **IBus Bamboo**: `.reference/ibus-bamboo/` (Go-based IBus engine)
-- **Weasel**: `.reference/weasel/` (Hán Nôm Rime engine)
+**Tham Chiếu Khác**:
+- **OpenKey**: `.reference/openkey/` (IME tiếng Việt thay thế)
+- **IBus Bamboo**: `.reference/ibus-bamboo/` (engine IBus dựa trên Go)
+- **Weasel**: `.reference/weasel/` (engine Rime cho Hán Nôm)
 
 ---
 
-## Rust Coding Rules
+## Quy Tắc Code Rust
 
-### Error Handling (CRITICAL)
+### Xử Lý Lỗi (QUAN TRỌNG)
 
-**❌ FORBIDDEN** (will cause panics in production):
+**❌ BỊ CẤM** (sẽ gây panic trong production):
 ```rust
-// NEVER do this:
-let value = result.unwrap();              // PANIC on Err
-let value = option.expect("message");     // PANIC on None
-panic!("error");                           // Always crashes
-todo!();                                   // Not implemented
-unimplemented!();                          // Not implemented
+// KHÔNG BAO GIỜ làm thế này:
+let value = result.unwrap();              // PANIC khi Err
+let value = option.expect("message");     // PANIC khi None
+panic!("error");                           // Luôn crash
+todo!();                                   // Chưa cài đặt
+unimplemented!();                          // Chưa cài đặt
 ```
 
-**✅ CORRECT**:
+**✅ ĐÚNG**:
 ```rust
-// Use Result for fallible operations
+// Dùng Result cho các thao tác có thể thất bại
 pub fn parse_config(path: &Path) -> Result<Config, ConfigError> {
     let content = std::fs::read_to_string(path)
         .map_err(|e| ConfigError::IoError { path: path.into(), source: e })?;
@@ -608,50 +601,50 @@ pub fn parse_config(path: &Path) -> Result<Config, ConfigError> {
         .map_err(|e| ConfigError::ParseError { source: e })
 }
 
-// Use Option for optional values
+// Dùng Option cho giá trị tùy chọn
 pub fn find_vowel(text: &str) -> Option<char> {
     text.chars().find(|c| is_vowel(*c))
 }
 
-// Use ? for error propagation
+// Dùng ? để truyền lỗi
 pub fn load_config() -> anyhow::Result<Config> {
-    let path = get_config_path()?;  // Propagate error
-    let config = parse_config(&path)?;  // Propagate error
+    let path = get_config_path()?;
+    let config = parse_config(&path)?;
     Ok(config)
 }
 ```
 
 ### Type Safety
 
-**✅ Use newtypes**:
+**✅ Dùng newtype**:
 ```rust
-// GOOD - Type-safe
+// TỐT — Type-safe
 struct UserId(u64);
 struct TonePosition(usize);
 enum InputMethod { Telex, Vni, Viqr }
 
-// BAD - No type safety
+// XẤU — Không có type safety
 type UserId = u64;
 let method = "telex";  // Stringly typed
 ```
 
-### Performance
+### Hiệu Năng
 
-**✅ Avoid allocations in hot paths**:
+**✅ Tránh allocation trong hot path**:
 ```rust
-// GOOD - No allocation
+// TỐT — Không allocation
 fn find_vowel(text: &str) -> Option<usize> {
     text.chars().position(|c| is_vowel(c))
 }
 
-// BAD - Unnecessary allocation
+// XẤU — Allocation không cần thiết
 fn find_vowel(text: &str) -> Option<usize> {
     let chars: Vec<char> = text.chars().collect();  // Allocation!
     chars.iter().position(|c| is_vowel(*c))
 }
 ```
 
-**✅ Use static lookups**:
+**✅ Dùng static lookup**:
 ```rust
 use lazy_static::lazy_static;
 use std::collections::HashSet;
@@ -660,37 +653,37 @@ lazy_static! {
     static ref VOWELS: HashSet<char> = {
         ['a', 'e', 'i', 'o', 'u', 'y',
          'à', 'á', 'ả', 'ã', 'ạ',
-         // ... more vowels
+         // ... thêm nguyên âm
         ].iter().copied().collect()
     };
 }
 
 pub fn is_vowel(c: char) -> bool {
-    VOWELS.contains(&c)  // O(1) lookup
+    VOWELS.contains(&c)  // Tra cứu O(1)
 }
 ```
 
 ---
 
-## Documentation Standards
+## Tiêu Chuẩn Tài Liệu
 
-### Public API Documentation
+### Tài Liệu Public API
 
-**Required for all public functions**:
+**Bắt buộc cho tất cả hàm public**:
 ```rust
-/// Process a keystroke through the pipeline.
+/// Xử lý một phím bấm qua pipeline.
 ///
 /// # Arguments
 ///
-/// * `key` - The character to process
+/// * `key` — Ký tự cần xử lý
 ///
 /// # Returns
 ///
-/// A vector of actions to perform on the text buffer
+/// Vector các action để thực hiện trên text buffer
 ///
 /// # Errors
 ///
-/// Returns an error if... (describe error conditions)
+/// Trả về lỗi nếu... (mô tả điều kiện lỗi)
 ///
 /// # Example
 ///
@@ -705,146 +698,32 @@ pub fn process(&mut self, key: char) -> anyhow::Result<Vec<Action>> {
 }
 ```
 
-### Module Documentation
+### Tài Liệu Module
 
 ```rust
-//! Pipeline Module — 7-Stage Input Processing Pipeline
+//! Pipeline Module — Pipeline Xử Lý 7 Giai Đoạn
 //!
-//! This module implements a config-driven, 7-stage pipeline for processing
-//! Vietnamese input methods (Telex, VNI, etc.).
+//! Module này cài đặt pipeline config-driven, 7 giai đoạn để xử lý
+//! phương thức nhập liệu tiếng Việt (Telex, VNI, v.v.).
 //!
-//! ## Architecture
+//! ## Kiến Trúc
 //!
-//! The pipeline consists of 7 stages:
-//! 1. Normalization
+//! Pipeline gồm 7 giai đoạn:
+//! 1. Chuẩn hóa
 //! 2. Gatekeeper
 //! 3. Compose (recompute-from-raw)
-//! 4. Orthography
-//! 5. Learning (future)
-//! 6. Lookup
-//! 7. Output
+//! 4. Chính tả
+//! 5. Học (tương lai)
+//! 6. Tra cứu
+//! 7. Đầu ra
 ```
 
 ---
 
-## Common Patterns
-
-### Pipeline Stage Pattern
-
-```rust
-use super::super::{PipelineStage, StageResult, TypingContext};
-
-/// Stage 4: Transformation
-pub struct Stage4Transform;
-
-impl PipelineStage for Stage4Transform {
-    fn name(&self) -> &'static str {
-        "Transform"
-    }
-
-    fn process(&self, key: char, ctx: &mut TypingContext) -> StageResult {
-        // 1. Check transformation key
-        // 2. Apply transformation
-        // 3. Update context
-        // 4. Return Continue
-
-        StageResult::Continue
-    }
-}
-```
-
-### Action Enum Pattern
-
-```rust
-#[derive(Debug, Clone, PartialEq)]
-pub enum Action {
-    DoNothing,
-    Commit(String),
-    Replace { backspace_count: usize, text: String },
-    UpdateComposition { text: String, cursor: usize },
-    ShowCandidates { candidates: Vec<Candidate>, input: String },
-    HideCandidates,
-}
-```
-
----
-
-## AI Agent Best Practices
-
-### Before Starting Any Task
-
-1. **Read Documentation**:
-   - `CLAUDE.md` (this file) for context
-   - `docs/ARCHITECTURE.md` for architecture
-   - `docs/CODING_GUIDE.md` for coding standards
-   - `docs/ROADMAP.md` for current status
-
-2. **Understand Scope**:
-   - What crate(s) are affected?
-   - What existing patterns should be followed?
-   - What tests need to be written?
-
-3. **Check Current Status**:
-   - What's the current phase? (See "Current Focus")
-   - Any known issues to avoid? (See "Known Issues")
-   - Any related work in progress?
-
-### During Development
-
-1. **Follow Patterns**:
-   - Use existing patterns from `docs/CODING_GUIDE.md`
-   - Look at similar code for reference
-   - Don't reinvent the wheel
-
-2. **Write Tests**:
-   - Unit tests for new functions
-   - Integration tests for workflows
-   - Test edge cases and error paths
-
-3. **Track Progress**:
-   - Use TodoWrite tool for multi-step tasks
-   - Mark tasks complete as you finish
-   - Keep user informed
-
-### After Completion
-
-1. **Verify Quality**:
-   ```bash
-   cargo fmt
-   cargo clippy --all-targets
-   cargo test --all
-   cargo build --release
-   ```
-
-2. **Update Documentation**:
-   - Add/update inline docs
-   - Update relevant docs/ files
-   - Update CHANGELOG.md if needed
-
-3. **Summarize Work**:
-   - What was done
-   - What tests were added
-   - Any known limitations
-
----
-
-## Resources
-
-### Documentation
-
-- **Main Docs**: `docs/README.md` - Navigation guide
-- **Architecture**: `docs/ARCHITECTURE.md` - Complete system architecture
-- **Coding**: `docs/CODING_GUIDE.md` - How to code in buttre
-- **Roadmap**: `docs/ROADMAP.md` - Project roadmap and timeline
-- **Pipeline**: `docs/PIPELINE_ARCHITECTURE.md` - Detailed pipeline docs
-- **Vietnamese**: `docs/VIETNAMESE_ACCENT.md` - Orthography rules
-
-### External Resources
+## Tài Nguyên
 
 - **Rust**: https://doc.rust-lang.org/
 - **windows-rs**: https://github.com/microsoft/windows-rs
-- **Unicode**: https://unicode.org/reports/tr15/ (NFC/NFD normalization)
-- **Vietnamese**: Vietnamese orthography standards
+- **Unicode**: https://unicode.org/reports/tr15/ (chuẩn hóa NFC/NFD)
 
-
-_This configuration file ensures AI agents have complete context to assist effectively with buttre development._
+_File này đảm bảo AI agent có đầy đủ bối cảnh để hỗ trợ phát triển buttre hiệu quả._

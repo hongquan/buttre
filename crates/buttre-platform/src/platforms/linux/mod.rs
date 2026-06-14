@@ -7,8 +7,8 @@
 pub mod ibus;
 
 use crate::PlatformBackend;
-use std::sync::{Arc, Mutex};
-use buttre_core::{Action, Engine};
+use std::sync::{Arc, RwLock};
+use buttre_core::{Action, Keyboard};
 use anyhow::Result;
 
 /// Linux backend — spawns the IBus engine in a background thread.
@@ -27,7 +27,7 @@ impl PlatformBackend for LinuxBackend {
         })
     }
 
-    fn init(&mut self, _engine: Arc<Mutex<Engine>>) -> Result<()> {
+    fn init(&mut self, _keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
         tracing::info!("Initializing Linux (IBus) backend");
 
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();

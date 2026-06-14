@@ -1,53 +1,53 @@
-# buttre Architecture Documentation
+# Tài Liệu Kiến Trúc buttre
 
-> Complete architectural overview of the buttre Vietnamese Input Method Engine
+> Tổng quan kiến trúc đầy đủ của buttre Vietnamese Input Method Engine
 
-**Last Updated**: 2026-06-13
-**Version**: 0.6.3-alpha
-**Status**: Production-Ready Core, Platform Integration In Progress
-
----
-
-## Table of Contents
-
-1. [System Overview](#system-overview)
-2. [Crate Architecture](#crate-architecture)
-3. [Pipeline Architecture](#pipeline-architecture)
-4. [State Management](#state-management)
-5. [Data Flow](#data-flow)
-6. [Platform Integration](#platform-integration)
-7. [Design Principles](#design-principles)
+**Cập nhật lần cuối**: 2026-06-14
+**Phiên bản**: 0.7.0-beta
+**Trạng thái**: Core sẵn sàng production, Tích hợp platform đang thực hiện
 
 ---
 
-## System Overview
+## Mục Lục
 
-buttre is a cross-platform Vietnamese input method engine written in Rust, designed for:
-- **Performance**: Sub-millisecond keystroke processing
-- **Correctness**: 100% compliant with Vietnamese orthography rules
-- **Flexibility**: Support for Telex, VNI, VIQR, and Hán Nôm input methods
-- **Cross-platform**: Windows (TSF), macOS (IMKit), Linux (IBus/Fcitx5)
+1. [Tổng Quan Hệ Thống](#tổng-quan-hệ-thống)
+2. [Kiến Trúc Crate](#kiến-trúc-crate)
+3. [Kiến Trúc Pipeline](#kiến-trúc-pipeline)
+4. [Quản Lý State](#quản-lý-state)
+5. [Luồng Dữ Liệu](#luồng-dữ-liệu)
+6. [Tích Hợp Platform](#tích-hợp-platform)
+7. [Nguyên Tắc Thiết Kế](#nguyên-tắc-thiết-kế)
 
-### High-Level Architecture
+---
+
+## Tổng Quan Hệ Thống
+
+buttre là engine bộ gõ tiếng Việt đa nền tảng được viết bằng Rust, được thiết kế cho:
+- **Hiệu năng**: Xử lý phím bấm dưới mili-giây
+- **Độ chính xác**: Tuân thủ 100% quy tắc chính tả tiếng Việt
+- **Linh hoạt**: Hỗ trợ Telex, VNI, VIQR và phương thức nhập Hán Nôm
+- **Đa nền tảng**: Windows (TSF), macOS (IMKit), Linux (IBus/Fcitx5)
+
+### Kiến Trúc Cấp Cao
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     Platform Layer                              │
+│                     Tầng Platform                               │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │  │ Windows TSF  │  │  macOS IMKit │  │ Linux IBus   │          │
 │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
 └─────────┼──────────────────┼──────────────────┼─────────────────┘
           │                  │                  │
 ┌─────────┼──────────────────┼──────────────────┼─────────────────┐
-│         │      buttre-core (Platform Agnostic)│                  │
+│         │      buttre-core (Độc Lập Nền Tảng) │                  │
 │         └──────────────────┴──────────────────┘                 │
-│              Keyboard Interface + Action Types                  │
+│              Giao Diện Keyboard + Kiểu Action                   │
 └─────────────────────────┬───────────────────────────────────────┘
                           │
 ┌─────────────────────────┴───────────────────────────────────────┐
 │                   buttre-engine (Pipeline)                        │
 │  ┌────────────────────────────────────────────────────────┐    │
-│  │   7-Stage Processing Pipeline (Config-Driven)           │    │
+│  │   Pipeline Xử Lý 7 Giai Đoạn (Config-Driven)           │    │
 │  │   Telex | VNI | VIQR | Hán Nôm                         │    │
 │  └────────────────────────────────────────────────────────┘    │
 └──────────────────────────────────────────────────────────────────┘
@@ -55,88 +55,88 @@ buttre is a cross-platform Vietnamese input method engine written in Rust, desig
 
 ---
 
-## Crate Architecture
+## Kiến Trúc Crate
 
-buttre uses a workspace-based multi-crate architecture for separation of concerns:
+buttre dùng kiến trúc multi-crate workspace để tách biệt các mối quan tâm:
 
-### Core Crates
+### Các Crate Cốt Lõi
 
-#### 1. `buttre-engine` - Processing Pipeline
+#### 1. `buttre-engine` — Pipeline Xử Lý
 
-**Purpose**: Universal, config-driven input processing pipeline
+**Mục đích**: Pipeline xử lý nhập liệu universal, config-driven
 
-**Location**: `crates/buttre-engine/`
+**Vị trí**: `crates/buttre-engine/`
 
-**Responsibilities**:
-- Implements the 7-stage processing pipeline
-- Handles Vietnamese input transformations (aa→â, aw→ă, etc.)
-- Tone mark application and positioning
-- Undo/redo logic
-- Dictionary lookup (Hán Nôm)
-- Generates processing actions
+**Trách nhiệm**:
+- Cài đặt pipeline xử lý 7 giai đoạn
+- Xử lý biến đổi nhập liệu tiếng Việt (aa→â, aw→ă, v.v.)
+- Áp dụng và vị trí dấu thanh
+- Logic undo/redo
+- Tra cứu từ điển (Hán Nôm)
+- Tạo action xử lý
 
-**Key Modules**:
+**Các Module Chính**:
 ```
 buttre-engine/
 ├── src/
 │   ├── pipeline/
-│   │   ├── config.rs          # Pipeline configuration
-│   │   ├── context.rs         # Typing context state
-│   │   ├── executor.rs        # Pipeline executor (7 stages)
-│   │   ├── presets.rs         # Telex/VNI/VIQR presets
+│   │   ├── config.rs          # Cấu hình pipeline
+│   │   ├── context.rs         # State typing context
+│   │   ├── executor.rs        # Pipeline executor (7 giai đoạn)
+│   │   ├── presets.rs         # Preset Telex/VNI/VIQR
 │   │   └── stages/
 │   │       ├── stage1_normalization.rs
 │   │       ├── stage2_gatekeeper.rs
-│   │       ├── compose_stage.rs    # Stage 3: recompute-from-raw
+│   │       ├── compose_stage.rs    # Giai đoạn 3: recompute-from-raw
 │   │       ├── stage9_orthography.rs
 │   │       ├── stage10_learning.rs
 │   │       ├── stage11_lookup.rs
 │   │       └── stage12_output.rs
-│   ├── compose/               # Pure recompute engine
-│   │   ├── mod.rs             # compose() entry point + ComposeOpts
-│   │   ├── segment.rs         # Raw keys → base + marks + tones
-│   │   ├── transform.rs       # Apply diacritic marks (validation-gated)
-│   │   ├── assemble.rs        # Place tone mark on vowel nucleus
-│   │   └── fallback.rs        # Undo / toggle / English-fallback detection
-│   ├── types.rs               # Action types
+│   ├── compose/               # Engine tái tính toán thuần túy
+│   │   ├── mod.rs             # Điểm vào compose() + ComposeOpts
+│   │   ├── segment.rs         # Phím thô → base + marks + tones
+│   │   ├── transform.rs       # Áp dụng dấu phụ âm (có validation)
+│   │   ├── assemble.rs        # Đặt dấu thanh lên nhân nguyên âm
+│   │   └── fallback.rs        # Phát hiện undo / toggle / English-fallback
+│   ├── types.rs               # Kiểu Action
 │   └── lib.rs
-└── tests/                     # Integration tests
+└── tests/                     # Integration test
 ```
 
 **Public API**:
 ```rust
-// Create pipeline executor
+// Tạo pipeline executor
 let config = telex_config();
 let mut executor = PipelineExecutor::new(config);
 
-// Process keystroke
-let actions = executor.process('a');  // Returns Vec<Action>
+// Xử lý phím bấm
+let actions = executor.process('a');  // Trả về Vec<Action>
 ```
 
 ---
 
-#### 2. `buttre-core` - Platform-Agnostic Interface
+#### 2. `buttre-core` — Giao Diện Độc Lập Nền Tảng
 
-**Purpose**: Platform-independent keyboard interface and action types
+**Mục đích**: Giao diện keyboard và kiểu action độc lập nền tảng
 
-**Location**: `crates/buttre-core/`
+**Vị trí**: `crates/buttre-core/`
 
-**Responsibilities**:
-- Defines the `Keyboard` interface
-- Defines action types (DoNothing, Commit, Replace, etc.)
-- Wraps `buttre-engine` with a clean API
-- Input method selection (Telex/VNI/VIQR/Nôm)
+**Trách nhiệm**:
+- Định nghĩa giao diện `Keyboard`
+- Định nghĩa kiểu action (DoNothing, Commit, Replace, v.v.)
+- Bọc `buttre-engine` với API sạch
+- Chọn phương thức nhập (Telex/VNI/VIQR/Nôm)
 
-**Key Modules**:
+**Các Module Chính**:
 ```
 buttre-core/
 ├── src/
 │   ├── keyboard/
-│   │   ├── keyboard.rs        # Main Keyboard struct
-│   │   ├── telex/             # Telex-specific logic
-│   │   ├── vni/               # VNI-specific logic
-│   │   └── nom/               # Hán Nôm logic
-│   ├── action.rs              # Action enum
+│   │   ├── keyboard.rs        # Struct Keyboard chính
+│   │   ├── telex/             # Logic đặc thù Telex
+│   │   ├── vni/               # Logic đặc thù VNI
+│   │   └── nom/               # Logic Hán Nôm
+│   ├── action.rs              # Enum Action
 │   └── lib.rs
 └── tests/
 ```
@@ -145,18 +145,18 @@ buttre-core/
 ```rust
 use buttre_core::{Keyboard, InputMethod, Action};
 
-// Create keyboard
+// Tạo keyboard
 let mut keyboard = Keyboard::new(InputMethod::Telex)?;
 
-// Process keystroke
+// Xử lý phím bấm
 let actions = keyboard.process('a')?;
 
-// Handle actions
+// Xử lý action
 for action in actions {
     match action {
         Action::DoNothing => { /* buffer */ }
-        Action::Commit(text) => { /* send text */ }
-        Action::Replace { backspace_count, text } => { /* replace */ }
+        Action::Commit(text) => { /* gửi text */ }
+        Action::Replace { backspace_count, text } => { /* thay thế */ }
         _ => {}
     }
 }
@@ -164,140 +164,140 @@ for action in actions {
 
 ---
 
-#### 3. `buttre-platform` - Platform Backends
+#### 3. `buttre-platform` — Backend Nền Tảng
 
-**Purpose**: Platform-specific implementations (Windows TSF, macOS, Linux)
+**Mục đích**: Cài đặt đặc thù nền tảng (Windows TSF, macOS, Linux)
 
-**Location**: `crates/buttre-platform/`
+**Vị trí**: `crates/buttre-platform/`
 
-**Responsibilities**:
-- Windows: TSF (Text Services Framework) implementation
-- macOS: IMKit integration (planned)
-- Linux: IBus/Fcitx5 integration (planned)
-- System tray UI
-- Settings management
+**Trách nhiệm**:
+- Windows: Cài đặt TSF (Text Services Framework)
+- macOS: Tích hợp IMKit (đang lên kế hoạch)
+- Linux: Tích hợp IBus/Fcitx5 (đang lên kế hoạch)
+- UI system tray
+- Quản lý cài đặt
 
-**Key Modules**:
+**Các Module Chính**:
 ```
 buttre-platform/
 ├── src/
 │   ├── platforms/
 │   │   └── windows/
 │   │       └── tsf/
-│   │           ├── com.rs                      # COM utilities (DllMain, ref count)
+│   │           ├── com.rs                      # Tiện ích COM (DllMain, ref count)
 │   │           ├── factory.rs                  # COM class factory
-│   │           ├── registration.rs             # TSF registration
-│   │           ├── text_ops.rs                 # Text manipulation
-│   │           ├── ipc.rs                      # Inter-process communication
+│   │           ├── registration.rs             # Đăng ký TSF
+│   │           ├── text_ops.rs                 # Thao tác text
+│   │           ├── ipc.rs                      # Giao tiếp liên tiến trình
 │   │           ├── logging.rs                  # Debug logging
 │   │           ├── text_service/
 │   │           │   ├── text_service_stub.rs    # ITfTextInputProcessorEx + ITfKeyEventSink
-│   │           │   ├── composition.rs          # Composition state
-│   │           │   ├── edit_session.rs         # Edit session handling
-│   │           │   ├── display_attribute.rs    # Display attributes
-│   │           │   ├── candidate_ui.rs         # Candidate window
-│   │           │   ├── vietnamese_engine.rs    # Vietnamese processing
+│   │           │   ├── composition.rs          # State composition
+│   │           │   ├── edit_session.rs         # Xử lý edit session
+│   │           │   ├── display_attribute.rs    # Thuộc tính hiển thị
+│   │           │   ├── candidate_ui.rs         # Cửa sổ candidate
+│   │           │   ├── vietnamese_engine.rs    # Xử lý tiếng Việt
 │   │           │   └── mod.rs
 │   │           └── mod.rs
 │   └── lib.rs
 └── Cargo.toml
 ```
 
-**Platform Integration**:
-- **Windows**: Compiled as DLL, registered via `regsvr32`
-- **macOS**: Framework bundle with Objective-C bridge (planned)
-- **Linux**: Shared object loaded by IBus (planned)
+**Tích Hợp Platform**:
+- **Windows**: Biên dịch thành DLL, đăng ký qua `regsvr32`
+- **macOS**: Bundle framework với Objective-C bridge (đang lên kế hoạch)
+- **Linux**: Shared object được IBus tải (đang lên kế hoạch)
 
 ---
 
-#### 4. `buttre-test` - Testing Utilities
+#### 4. `buttre-test` — Tiện Ích Kiểm Thử
 
-**Purpose**: Cross-platform testing infrastructure
+**Mục đích**: Hạ tầng kiểm thử đa nền tảng
 
-**Location**: `crates/buttre-test/`
+**Vị trí**: `crates/buttre-test/`
 
-**Responsibilities**:
-- Batch testing from text files
-- Performance benchmarking
-- Test data management
+**Trách nhiệm**:
+- Kiểm thử hàng loạt từ file text
+- Benchmark hiệu năng
+- Quản lý dữ liệu test
 
 ---
 
-## Pipeline Architecture
+## Kiến Trúc Pipeline
 
-### 7-Stage Processing Pipeline
+### Pipeline Xử Lý 7 Giai Đoạn
 
-The engine uses a **7-stage pipeline** for processing Vietnamese input.
-The core innovation is **Stage 3: Compose** — a pure recompute-from-raw engine
-that replaces the former incremental Transform/Tone/Permutation/Reconciliation/Retrofix
-stages with a single deterministic function call.
+Engine dùng **pipeline 7 giai đoạn** để xử lý nhập liệu tiếng Việt.
+Đổi mới cốt lõi là **Giai Đoạn 3: Compose** — engine tái tính toán thuần túy từ raw
+thay thế các giai đoạn Transform/Tone/Permutation/Reconciliation/Retrofix incremental cũ
+bằng một lời gọi hàm deterministic duy nhất.
 
 ```
-Input Key
+Phím Đầu Vào
     ↓
 ┌────────────────────────────────────────────┐
-│ Stage 1: NORMALIZATION                     │
-│ • Normalize case; push CharInfo to buffer  │
+│ Giai Đoạn 1: CHUẨN HÓA                    │
+│ • Chuẩn hóa chữ hoa/thường; đẩy CharInfo  │
 └────────────────┬───────────────────────────┘
                  ↓
 ┌────────────────────────────────────────────┐
-│ Stage 2: GATEKEEPER                        │
+│ Giai Đoạn 2: GATEKEEPER                   │
 │ • temp_english_mode → PassThrough          │
-│ • Non-alphabetic → PassThrough             │
-│ • Otherwise → Continue                     │
+│ • Không phải chữ cái → PassThrough         │
+│ • Ngược lại → Continue                     │
 └────────────────┬───────────────────────────┘
                  ↓
 ┌────────────────────────────────────────────┐
-│ Stage 3: COMPOSE  (recompute-from-raw)     │
-│ Internal steps (compose/mod.rs):           │
-│  1. fallback — undo/toggle detection       │
+│ Giai Đoạn 3: COMPOSE  (recompute-from-raw) │
+│ Các bước nội bộ (compose/mod.rs):          │
+│  1. fallback — phát hiện undo/toggle       │
 │  2. segment — base + transforms + tones   │
-│  3. transform — apply diacritics (gated)  │
-│  4. assemble — place tone on nucleus      │
-│ Writes syllable_buffer; sets temp_english  │
+│  3. transform — áp dụng dấu phụ (gated)  │
+│  4. assemble — đặt tone lên nucleus       │
+│ Ghi syllable_buffer; đặt temp_english     │
 └────────────────┬───────────────────────────┘
                  ↓
 ┌────────────────────────────────────────────┐
-│ Stage 4: ORTHOGRAPHY                       │
-│ • Normalize tone position                  │
-│ • Apply ToneStyle (Old: óa, New: oá)       │
-│ • Convert to NFC                           │
+│ Giai Đoạn 4: CHÍNH TẢ                      │
+│ • Chuẩn hóa vị trí dấu thanh              │
+│ • Áp dụng ToneStyle (Old: óa, New: oá)    │
+│ • Chuyển sang NFC                          │
 └────────────────┬───────────────────────────┘
                  ↓
 ┌────────────────────────────────────────────┐
-│ Stage 5: LEARNING  (no-op, future)         │
-│ • User pattern tracking                    │
+│ Giai Đoạn 5: HỌC  (no-op, tương lai)       │
+│ • Theo dõi pattern người dùng              │
 └────────────────┬───────────────────────────┘
                  ↓
 ┌────────────────────────────────────────────┐
-│ Stage 6: LOOKUP                            │
-│ • Hán Nôm dictionary candidates            │
+│ Giai Đoạn 6: TRA CỨU                       │
+│ • Candidates từ điển Hán Nôm               │
 └────────────────┬───────────────────────────┘
                  ↓
 ┌────────────────────────────────────────────┐
-│ Stage 7: OUTPUT                            │
+│ Giai Đoạn 7: ĐẦU RA                        │
 │ • Diff last_output vs syllable_buffer      │
-│ • Emit Replace{backspace_count, text}      │
+│ • Phát Replace{backspace_count, text}      │
 └────────────────┬───────────────────────────┘
                  ↓
-                Output Actions
+                Action Đầu Ra
 ```
 
-### Stage Results
+### Kết Quả Giai Đoạn
 
-Each stage returns a `StageResult`:
+Mỗi giai đoạn trả về `StageResult`:
 
 ```rust
 pub enum StageResult {
-    Continue,              // Proceed to next stage
-    PassThrough,           // Stop, send input as-is
-    Output(Vec<Action>),   // Stop, return actions
+    Continue,              // Tiếp tục sang giai đoạn tiếp theo
+    PassThrough,           // Dừng, gửi input nguyên vẹn
+    Output(Vec<Action>),   // Dừng, trả về các action này
 }
 ```
 
-### Pipeline Configuration
+### Cấu Hình Pipeline
 
-The pipeline is **config-driven**, allowing easy addition of new input methods:
+Pipeline được **config-driven**, dễ dàng thêm phương thức nhập mới:
 
 ```rust
 pub struct PipelineConfig {
@@ -309,72 +309,72 @@ pub struct PipelineConfig {
 }
 ```
 
-**Preset Configurations**:
-- `telex_config()` - Telex input method
-- `vni_config()` - VNI input method
-- `viqr_config()` - VIQR input method
-- `nom_config()` - Hán Nôm input method
+**Preset Có Sẵn**:
+- `telex_config()` — Phương thức nhập Telex
+- `vni_config()` — Phương thức nhập VNI
+- `viqr_config()` — Phương thức nhập VIQR
+- `nom_config()` — Phương thức nhập Hán Nôm
 
 ---
 
-## State Management
+## Quản Lý State
 
 ### Typing Context
 
-The pipeline maintains mutable state in `TypingContext`:
+Pipeline duy trì state có thể thay đổi trong `TypingContext`:
 
 ```rust
 pub struct TypingContext {
-    /// Raw input history (for undo/redo)
+    /// Lịch sử nhập thô (cho undo/redo)
     pub raw_buffer: Vec<char>,
 
-    /// Current syllable being built
+    /// Âm tiết đang được xây dựng
     pub current_syllable: Syllable,
 
-    /// English fallback mode (after undo)
+    /// Chế độ tiếng Anh fallback (sau undo)
     pub temp_english_mode: bool,
 
-    /// Last transformation applied
+    /// Biến đổi cuối cùng được áp dụng
     pub last_transformation: Option<TransformRecord>,
 
-    /// Last output (for incremental updates)
+    /// Đầu ra cuối cùng (cho cập nhật tăng dần)
     pub last_output: String,
 
-    /// Tone configuration
+    /// Cấu hình dấu thanh
     pub tone_config: ToneConfig,
 
-    /// Candidates (for Hán Nôm)
+    /// Candidates (cho Hán Nôm)
     pub candidates: Vec<Candidate>,
 }
 ```
 
-### State Evolution Example
+### Ví Dụ Tiến Triển State
 
-Typing "người" (nguwowif):
+Gõ "người" (nguwowif):
 
 ```
-Key → Raw Buffer   → Syllable → Output
+Phím → Raw Buffer   → Âm tiết  → Đầu ra
 ──────────────────────────────────────────
-n   → [n]         → n        → "n"
-g   → [ng]        → ng       → "ng"
-u   → [ngu]       → ngu      → "ngu"
-w   → [nguw]      → ngư      → "ngư"       (u→ư)
-o   → [nguwo]     → ngưo     → "ngưo"
-w   → [nguwow]    → người    → "người"     (uo→ươ)
-i   → [nguwowi]   → người    → "người"
-f   → [nguwowif]  → người    → "người"     (tone)
+n   → [n]          → n         → "n"
+g   → [ng]         → ng        → "ng"
+u   → [ngu]        → ngu       → "ngu"
+w   → [nguw]       → ngư       → "ngư"       (u→ư)
+o   → [nguwo]      → ngưo      → "ngưo"
+w   → [nguwow]     → người     → "người"     (uo→ươ)
+i   → [nguwowi]    → người     → "người"
+f   → [nguwowif]   → người     → "người"     (dấu thanh)
 ```
 
 ---
 
-## Data Flow
+## Luồng Dữ Liệu
 
-### Keystroke Processing Flow
+### Luồng Xử Lý Phím Bấm
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ 1. Platform Layer (Windows TSF/macOS/Linux)             │
-│    Captures raw keystroke from OS                        │
+│ 1. Tầng Platform (Windows TSF/macOS/Linux)              │
+│    Bắt phím thô từ OS                                    │
 └───────────────────────┬──────────────────────────────────┘
                         ↓
 ┌──────────────────────────────────────────────────────────┐
@@ -386,134 +386,130 @@ f   → [nguwowif]  → người    → "người"     (tone)
 │ 3. buttre-engine::PipelineExecutor                        │
 │    executor.process(key) → Vec<Action>                   │
 │    ┌──────────────────────────────────────────────────┐ │
-│    │ Stage 1 → Stage 2 → ... → Stage 7               │ │
-│    │ (Each stage returns Continue/PassThrough/Output)│ │
+│    │ Giai đoạn 1 → 2 → ... → 7                       │ │
+│    │ (Mỗi giai đoạn trả về Continue/PassThrough/Output)│ │
 │    └──────────────────────────────────────────────────┘ │
 └───────────────────────┬──────────────────────────────────┘
                         ↓
 ┌──────────────────────────────────────────────────────────┐
-│ 4. Action Processing (back to buttre-core)                │
+│ 4. Xử Lý Action (về buttre-core)                         │
 │    DoNothing | Commit | Replace | UpdateComposition     │
 └───────────────────────┬──────────────────────────────────┘
                         ↓
 ┌──────────────────────────────────────────────────────────┐
-│ 5. Platform Layer                                        │
-│    - Replace: Send backspaces + text                     │
-│    - Commit: Send text directly                          │
-│    - UpdateComposition: Update composition string (TSF)  │
+│ 5. Tầng Platform                                         │
+│    - Replace: Gửi backspace + text                       │
+│    - Commit: Gửi text trực tiếp                          │
+│    - UpdateComposition: Cập nhật composition string (TSF)│
 └──────────────────────────────────────────────────────────┘
 ```
 
-### Action Types
+### Các Kiểu Action
 
 ```rust
 pub enum Action {
-    DoNothing,                              // No output
-    Commit(String),                         // Append text
-    Replace { backspace_count: usize, text: String },  // Replace
-    UpdateComposition { text: String, cursor: usize }, // TSF composition
-    ConfirmComposition(String),             // Confirm composition
+    DoNothing,                              // Không có đầu ra
+    Commit(String),                         // Thêm text
+    Replace { backspace_count: usize, text: String },  // Thay thế
+    UpdateComposition { text: String, cursor: usize }, // Composition TSF
+    ConfirmComposition(String),             // Xác nhận composition
     ShowCandidates { candidates: Vec<Candidate>, input: String }, // Hán Nôm
-    HideCandidates,                         // Hide candidates
+    HideCandidates,                         // Ẩn candidates
 }
 ```
 
 ---
 
-## Platform Integration
+## Tích Hợp Platform
 
 ### Windows TSF (Text Services Framework)
 
-**Status**: ✅ Implemented and Working
+**Trạng thái**: ✅ Đã cài đặt và hoạt động
 
-**Architecture**:
-- COM DLL registered as Text Input Processor (TIP)
-- Implements `ITfTextInputProcessorEx` interface
-- Implements `ITfKeyEventSink` for keystroke capture
-- Uses composition string for incremental updates
+**Kiến trúc**:
+- COM DLL được đăng ký là Text Input Processor (TIP)
+- Cài đặt giao diện `ITfTextInputProcessorEx`
+- Cài đặt `ITfKeyEventSink` để bắt phím
+- Dùng composition string cho cập nhật tăng dần
 
-**Registration**:
+**Đăng ký**:
 ```powershell
 # Build DLL
 cargo build --release --package buttre-platform
 
-# Register (requires Admin)
+# Đăng ký (yêu cầu Admin)
 regsvr32 target/release/buttre_platform.dll
 ```
 
-**Key Files**:
-- `crates/buttre-platform/src/platforms/windows/tsf/text_service/text_service_stub.rs` (839 lines) - Implements both ITfTextInputProcessorEx and ITfKeyEventSink
-- `crates/buttre-platform/src/platforms/windows/tsf/com.rs` - Contains DllMain entry point and COM utilities
+**File Chính**:
+- `crates/buttre-platform/src/platforms/windows/tsf/text_service/text_service_stub.rs` — Cài đặt ITfTextInputProcessorEx và ITfKeyEventSink
+- `crates/buttre-platform/src/platforms/windows/tsf/com.rs` — Điểm vào DllMain và tiện ích COM
 
 ---
 
 ### macOS IMKit
 
-**Status**: 🚧 Planned
+**Trạng thái**: Đang lên kế hoạch
 
-**Architecture**:
-- Framework bundle with Objective-C bridge
-- Uses `InputMethodKit` framework
-- Rust core wrapped by Objective-C wrapper
-
-**Reference**: See `docs/MACOS_IMPLEMENTATION_PLAN.md`
+**Kiến trúc**:
+- Bundle framework với Objective-C bridge
+- Dùng framework `InputMethodKit`
+- Core Rust được bọc bởi wrapper Objective-C
 
 ---
 
 ### Linux IBus/Fcitx5
 
-**Status**: 🚧 Planned
+**Trạng thái**: Đang lên kế hoạch
 
-**Architecture**:
-- Shared object (.so) loaded by IBus/Fcitx5
-- D-Bus communication
-- Rust core exposed via C FFI
-
-**Reference**: See `docs/LINUX_IMPLEMENTATION_PLAN.md`
+**Kiến trúc**:
+- Shared object (.so) được IBus/Fcitx5 tải
+- Giao tiếp D-Bus
+- Core Rust expose qua C FFI
 
 ---
 
-## Design Principles
+## Nguyên Tắc Thiết Kế
 
-### 1. **Config-Driven Architecture**
+### 1. **Kiến Trúc Config-Driven**
 
-All input methods are defined via configuration, not hardcoded logic:
+Tất cả phương thức nhập được định nghĩa qua cấu hình, không hardcode logic:
 
 ```rust
-// Adding a new input method is just configuration
+// Thêm phương thức nhập mới chỉ là cấu hình
 let custom_config = PipelineConfig {
     input_method_type: InputMethodType::Custom,
     transform_rules: vec![
         TransformRule { pattern: "aa", result: "â", ... },
-        // ... more rules
+        // ... thêm quy tắc
     ],
     // ...
 };
 ```
 
-### 2. **Zero Unsafe in Core**
+### 2. **Zero Unsafe Trong Core**
 
-- `buttre-engine`: 100% safe Rust
-- `buttre-core`: 100% safe Rust
-- Unsafe code only in `buttre-platform` for FFI (minimized)
+- `buttre-engine`: 100% Rust an toàn
+- `buttre-core`: 100% Rust an toàn
+- Unsafe code chỉ trong `buttre-platform` cho FFI (giảm thiểu)
 
-### 3. **Testability**
+### 3. **Khả Năng Kiểm Thử**
 
-- **Unit tests**: Each module has comprehensive unit tests
-- **Integration tests**: 600+ tests in `buttre-engine/tests/`
-- **Property-based tests**: Fuzzing for edge cases
-- **Test coverage**: >85%
+- **Unit test**: Mỗi module có unit test toàn diện
+- **Integration test**: 600+ test trong `buttre-engine/tests/`
+- **Property-based test**: Fuzzing cho edge case
+- **Độ phủ test**: >85%
 
-### 4. **Performance**
+### 4. **Hiệu Năng**
 
-- **Zero-allocation hot paths**: Fixed-size buffers
-- **O(1) lookups**: Static tone maps, hash tables
-- **Incremental updates**: Only send changed portions
-- **Lazy evaluation**: Delay expensive operations
+- **Zero-allocation hot path**: Buffer kích thước cố định
+- **Tra cứu O(1)**: Tone map tĩnh, bảng băm
+- **Cập nhật tăng dần**: Chỉ gửi phần thay đổi
+- **Lazy evaluation**: Trì hoãn các thao tác tốn kém
 
-### 5. **Incremental Development**
+### 5. **Phát Triển Tăng Dần**
 
-Each stage can be tested independently:
+Mỗi giai đoạn có thể được kiểm thử độc lập:
 
 ```rust
 #[test]
@@ -529,20 +525,20 @@ fn test_stage4_transform() {
 
 ---
 
-## Summary
+## Tóm Tắt
 
-**buttre Architecture** provides:
+**Kiến trúc buttre** cung cấp:
 
-✅ **Separation of Concerns**: Engine ← Core ← Platform
-✅ **Config-Driven**: Easy to add new input methods
-✅ **Testability**: Each component tested independently
-✅ **Performance**: Sub-ms processing, zero-allocation hot paths
-✅ **Cross-Platform**: Same core for Windows/macOS/Linux
-✅ **Maintainability**: Clean architecture, clear boundaries
+✅ **Tách biệt mối quan tâm**: Engine ← Core ← Platform
+✅ **Config-Driven**: Dễ thêm phương thức nhập mới
+✅ **Khả năng kiểm thử**: Mỗi component được kiểm thử độc lập
+✅ **Hiệu năng**: Xử lý dưới ms, zero-allocation hot path
+✅ **Đa nền tảng**: Cùng core cho Windows/macOS/Linux
+✅ **Bảo trì**: Kiến trúc sạch, ranh giới rõ ràng
 
-**Key Files**:
-- `crates/buttre-engine/src/pipeline/executor.rs` - Pipeline execution
-- `crates/buttre-core/src/keyboard/keyboard.rs` - Keyboard interface
-- `crates/buttre-platform/src/platforms/windows/tsf/` - Windows TSF
-- `docs/PIPELINE_ARCHITECTURE.md` - Detailed pipeline docs
-- `docs/VIETNAMESE_ACCENT.md` - Vietnamese orthography rules
+**File Chính**:
+- `crates/buttre-engine/src/pipeline/executor.rs` — Thực thi pipeline
+- `crates/buttre-core/src/keyboard/keyboard.rs` — Giao diện keyboard
+- `crates/buttre-platform/src/platforms/windows/tsf/` — Windows TSF
+- `docs/PIPELINE_ARCHITECTURE.md` — Tài liệu pipeline chi tiết
+- `docs/VIETNAMESE_ACCENT.md` — Quy tắc chính tả tiếng Việt

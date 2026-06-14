@@ -1,234 +1,233 @@
-# buttre Engine — 7-Stage Processing Pipeline
+# buttre Engine — Pipeline Xử Lý 7 Giai Đoạn
 
-**Last Updated**: 2026-06-13
+**Cập nhật lần cuối**: 2026-06-14
 
-## Overview
+## Tổng Quan
 
-buttre Engine uses a 7-stage config-driven pipeline to process Vietnamese input.
-Each stage has a single responsibility and returns a `StageResult` that either
-continues, short-circuits to passthrough, or emits output actions directly.
+buttre Engine dùng pipeline config-driven 7 giai đoạn để xử lý nhập liệu tiếng Việt.
+Mỗi giai đoạn có một trách nhiệm duy nhất và trả về `StageResult` để tiếp tục,
+short-circuit sang passthrough, hoặc phát ra output action trực tiếp.
 
-The pipeline replaced a former dual-engine design (incremental Transform/Tone
-stages + Permutation/Reconciliation/Retrofix stages) with a single
-**recompute-from-raw** `ComposeStage`.  Every keystroke recomputes the syllable
-from the full raw buffer — no accumulated stage-to-stage state is carried forward
-inside the composition logic.
+Pipeline thay thế thiết kế dual-engine cũ (incremental Transform/Tone giai đoạn 4-5
++ Permutation/Reconciliation/Retrofix giai đoạn 6) bằng một `ComposeStage`
+**recompute-from-raw** duy nhất. Mỗi phím bấm tái tính toán âm tiết từ toàn bộ
+raw buffer — không có state tích lũy giữa các giai đoạn bên trong logic composition.
 
 ---
 
-## Stage Diagram
+## Sơ Đồ Giai Đoạn
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                    INPUT CHARACTER                   │
+│                    KÝ TỰ ĐẦU VÀO                     │
 │                         ↓                            │
 │  ┌────────────────────────────────────────────────┐  │
-│  │  Stage 1: NORMALIZATION                        │  │
-│  │  • Normalize case; push CharInfo to buffer     │  │
+│  │  Giai đoạn 1: CHUẨN HÓA                       │  │
+│  │  • Chuẩn hóa chữ hoa/thường; đẩy CharInfo     │  │
 │  └────────────────────────────────────────────────┘  │
 │                         ↓                            │
 │  ┌────────────────────────────────────────────────┐  │
-│  │  Stage 2: GATEKEEPER                           │  │
-│  │  • Check temp_english_mode → PassThrough       │  │
-│  │  • Non-alphabetic → PassThrough (commit word)  │  │
+│  │  Giai đoạn 2: GATEKEEPER                       │  │
+│  │  • Kiểm tra temp_english_mode → PassThrough    │  │
+│  │  • Không phải chữ cái → PassThrough (commit)   │  │
 │  └────────────────────────────────────────────────┘  │
 │                         ↓                            │
 │  ┌────────────────────────────────────────────────┐  │
-│  │  Stage 3: COMPOSE  (recompute-from-raw)        │  │
+│  │  Giai đoạn 3: COMPOSE  (recompute-from-raw)    │  │
 │  │  • segment: base + transform marks + tone keys │  │
-│  │  • transform: apply diacritic marks, gated by  │  │
-│  │    Vietnamese syllable validator               │  │
-│  │  • tone: place tone mark on vowel nucleus      │  │
-│  │  • fallback: undo / toggle / English detection │  │
-│  │  Writes syllable_buffer; sets temp_english     │  │
+│  │  • transform: áp dụng dấu phụ âm, kiểm tra    │  │
+│  │    tính hợp lệ của âm tiết tiếng Việt          │  │
+│  │  • tone: đặt dấu thanh lên nhân nguyên âm      │  │
+│  │  • fallback: phát hiện undo / toggle / English  │  │
+│  │  Ghi syllable_buffer; đặt temp_english         │  │
 │  └────────────────────────────────────────────────┘  │
 │                         ↓                            │
 │  ┌────────────────────────────────────────────────┐  │
-│  │  Stage 4: ORTHOGRAPHY                          │  │
-│  │  • Normalize tone position (old/new style)     │  │
-│  │  • Unicode NFC normalization                   │  │
+│  │  Giai đoạn 4: CHÍNH TẢ                         │  │
+│  │  • Chuẩn hóa vị trí dấu thanh (old/new)        │  │
+│  │  • Chuẩn hóa Unicode NFC                        │  │
 │  └────────────────────────────────────────────────┘  │
 │                         ↓                            │
 │  ┌────────────────────────────────────────────────┐  │
-│  │  Stage 5: LEARNING  (no-op until future phase) │  │
-│  │  • Track completed syllables for adaptation    │  │
+│  │  Giai đoạn 5: HỌC (no-op cho đến phase sau)    │  │
+│  │  • Theo dõi âm tiết đã hoàn thành để thích nghi│  │
 │  └────────────────────────────────────────────────┘  │
 │                         ↓                            │
 │  ┌────────────────────────────────────────────────┐  │
-│  │  Stage 6: LOOKUP                               │  │
-│  │  • Optional Hán Nôm dictionary lookup          │  │
-│  │  • Populates TypingContext::candidates          │  │
+│  │  Giai đoạn 6: TRA CỨU                          │  │
+│  │  • Tra cứu từ điển Hán Nôm tùy chọn            │  │
+│  │  • Điền TypingContext::candidates               │  │
 │  └────────────────────────────────────────────────┘  │
 │                         ↓                            │
 │  ┌────────────────────────────────────────────────┐  │
-│  │  Stage 7: OUTPUT                               │  │
-│  │  • Diff last_output vs syllable_buffer         │  │
-│  │  • Emit Replace{backspace_count, text} action  │  │
+│  │  Giai đoạn 7: ĐẦU RA                           │  │
+│  │  • Diff last_output vs syllable_buffer          │  │
+│  │  • Phát Replace{backspace_count, text} action   │  │
 │  └────────────────────────────────────────────────┘  │
 │                         ↓                            │
-│                    OUTPUT ACTIONS                    │
+│                    ACTION ĐẦU RA                     │
 └──────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Flow Control
+## Điều Khiển Luồng
 
-Each stage returns a `StageResult`:
+Mỗi giai đoạn trả về `StageResult`:
 
 ```rust
 enum StageResult {
-    Continue,              // Proceed to next stage
-    PassThrough,           // Commit any in-progress composition; commit raw char; reset
-    Output(Vec<Action>),   // Short-circuit; return these actions immediately
+    Continue,              // Tiếp tục sang giai đoạn tiếp theo
+    PassThrough,           // Commit composition đang có; commit ký tự thô; reset
+    Output(Vec<Action>),   // Short-circuit; trả về các action này ngay lập tức
 }
 ```
 
 ---
 
-## Stage Detail
+## Chi Tiết Từng Giai Đoạn
 
-### Stage 1: Normalization
+### Giai Đoạn 1: Chuẩn Hóa
 
-**Purpose**: Normalize the input character and add it to the char buffer.
+**Mục đích**: Chuẩn hóa ký tự đầu vào và thêm vào char buffer.
 
-- Converts the input character to lowercase (stores uppercase flag in `CharInfo`).
-- Appends `CharInfo` to `TypingContext::char_buffer`.
-- Always returns `Continue`.
-
----
-
-### Stage 2: Gatekeeper
-
-**Purpose**: Route non-Vietnamese input without touching the composition logic.
-
-- If `temp_english_mode` is true → `PassThrough` (sends raw char as-is).
-- If the character is non-alphabetic (space, punctuation, digit) → `PassThrough`
-  (commits any pending syllable, then sends the character).
-- Otherwise → `Continue`.
+- Chuyển ký tự đầu vào sang chữ thường (lưu flag chữ hoa trong `CharInfo`).
+- Thêm `CharInfo` vào `TypingContext::char_buffer`.
+- Luôn trả về `Continue`.
 
 ---
 
-### Stage 3: ComposeStage (recompute-from-raw)
+### Giai Đoạn 2: Gatekeeper
 
-**Purpose**: Rebuild the entire syllable from `char_buffer` on every keystroke.
+**Mục đích**: Định tuyến input không phải tiếng Việt mà không chạm vào logic composition.
 
-This is the heart of the pipeline.  It calls `compose::compose(raw, opts)` and
-writes the result to `context.syllable_buffer`.
+- Nếu `temp_english_mode` là true → `PassThrough` (gửi ký tự thô nguyên vẹn).
+- Nếu ký tự không phải chữ cái (dấu cách, dấu câu, số) → `PassThrough`
+  (commit âm tiết đang chờ, sau đó gửi ký tự).
+- Ngược lại → `Continue`.
 
-#### Internal steps of `compose()`
+---
 
-| Step | Module | What it does |
-|------|--------|--------------|
-| 1 | `fallback::check_fallback` | Detect undo / toggle patterns from key counts.  Returns early if handled. |
-| 2 | `segment::segment` | Split raw buffer into (base chars, transform mark keys, tone keys). |
-| 3 | `transform::apply_transforms` | Apply diacritic marks to base; gated by Vietnamese syllable validator. |
-| 4 | `assemble::apply_tone` | Place and apply the last tone mark onto the vowel nucleus. |
+### Giai Đoạn 3: ComposeStage (recompute-from-raw)
 
-#### Superset model
+**Mục đích**: Tái tạo toàn bộ âm tiết từ `char_buffer` sau mỗi phím bấm.
 
-| Axis | Options |
-|------|---------|
-| `SegmentMode` | `MarkBased` (Telex/VNI) · `DirectMap` (native scripts) |
+Đây là trái tim của pipeline. Nó gọi `compose::compose(raw, opts)` và
+ghi kết quả vào `context.syllable_buffer`.
+
+#### Các bước nội bộ của `compose()`
+
+| Bước | Module | Chức năng |
+|------|--------|-----------|
+| 1 | `fallback::check_fallback` | Phát hiện pattern undo / toggle từ số lần nhấn phím. Trả về sớm nếu được xử lý. |
+| 2 | `segment::segment` | Tách raw buffer thành (ký tự base, transform mark key, tone key). |
+| 3 | `transform::apply_transforms` | Áp dụng dấu phụ âm lên base; kiểm tra bằng Vietnamese syllable validator. |
+| 4 | `assemble::apply_tone` | Đặt và áp dụng dấu thanh cuối cùng lên nhân nguyên âm. |
+
+#### Mô hình Superset
+
+| Trục | Tùy chọn |
+|------|----------|
+| `SegmentMode` | `MarkBased` (Telex/VNI) · `DirectMap` (native script) |
 | `Validator` | `Vietnamese` · `Hmong` · `Custom` · `None` |
-| `tone_enabled` | `true` when tone_map is non-empty; `false` skips tone step |
-| `ToneStyle` | `Old` (óa placement) · `New` (oá placement, default) |
+| `tone_enabled` | `true` khi tone_map không rỗng; `false` bỏ qua bước tone |
+| `ToneStyle` | `Old` (đặt óa) · `New` (đặt oá, mặc định) |
 
-`ComposeStage` also applies a case mask after `compose()` returns: uppercase flags
-from `char_buffer` are mapped back onto the output text.
-
----
-
-### Stage 4: Orthography
-
-**Purpose**: Ensure the syllable is in canonical Unicode form.
-
-- Applies `ToneStyle`-based tone position normalization when the config requests it.
-- Converts to NFC (Unicode Canonical Composition) for correct rendering.
-- Always returns `Continue` (modifies `syllable_buffer` in-place).
+`ComposeStage` cũng áp dụng case mask sau khi `compose()` trả về: flag chữ hoa
+từ `char_buffer` được ánh xạ lại lên text đầu ra.
 
 ---
 
-### Stage 5: Learning
+### Giai Đoạn 4: Chính Tả
 
-**Purpose**: Future user-pattern adaptation (currently a no-op).
+**Mục đích**: Đảm bảo âm tiết ở dạng Unicode canonical.
 
-- Will track user-confirmed syllables for personalized frequency re-ranking.
-- Always returns `Continue`.
-
----
-
-### Stage 6: Lookup
-
-**Purpose**: Optional Hán Nôm (chữ Nôm) dictionary lookup.
-
-- If a Nôm dictionary is configured and the syllable matches entries, candidates
-  are populated in `TypingContext::candidates`.
-- Always returns `Continue`; candidates are consumed by the UI layer.
+- Áp dụng chuẩn hóa vị trí dấu thanh theo `ToneStyle` khi config yêu cầu.
+- Chuyển sang NFC (Unicode Canonical Composition) để hiển thị đúng.
+- Luôn trả về `Continue` (sửa đổi `syllable_buffer` tại chỗ).
 
 ---
 
-### Stage 7: Output
+### Giai Đoạn 5: Học
 
-**Purpose**: Generate the final `Vec<Action>` describing what the IME must do.
+**Mục đích**: Thích nghi pattern người dùng trong tương lai (hiện là no-op).
 
-- Diffs `context.last_output` against `context.syllable_buffer`.
-- Finds the first differing character position.
-- Emits `Action::Replace { backspace_count, text }` for the changed suffix.
-- Updates `context.last_output` to match the new syllable.
+- Sẽ theo dõi các âm tiết đã xác nhận để xếp hạng tần suất cá nhân hóa.
+- Luôn trả về `Continue`.
 
 ---
 
-## Typing State
+### Giai Đoạn 6: Tra Cứu
 
-The pipeline maintains state in `TypingContext`:
+**Mục đích**: Tra cứu từ điển Hán Nôm (chữ Nôm) tùy chọn.
+
+- Nếu từ điển Nôm được cấu hình và âm tiết khớp với entries, candidates
+  được điền vào `TypingContext::candidates`.
+- Luôn trả về `Continue`; candidates được tiêu thụ bởi UI layer.
+
+---
+
+### Giai Đoạn 7: Đầu Ra
+
+**Mục đích**: Tạo `Vec<Action>` cuối cùng mô tả IME cần làm gì.
+
+- Diff `context.last_output` với `context.syllable_buffer`.
+- Tìm vị trí ký tự khác nhau đầu tiên.
+- Phát `Action::Replace { backspace_count, text }` cho phần suffix đã thay đổi.
+- Cập nhật `context.last_output` để khớp với âm tiết mới.
+
+---
+
+## Trạng Thái Gõ Phím
+
+Pipeline duy trì state trong `TypingContext`:
 
 ```
-Keystroke → char_buffer             → syllable_buffer  → last_output
+Phím bấm → char_buffer          → syllable_buffer  → last_output
 ─────────────────────────────────────────────────────────────────────
-n         → [n]                     → "n"              → "n"
-g         → [ng]                    → "ng"             → "ng"
-u         → [ngu]                   → "ngu"            → "ngu"
-w         → [nguw]                  → "ngư"            → "ngư"
-o         → [nguwo]                 → "ngưo"           → "ngưo"
-w         → [nguwow]                → "người"          → "người"
-i         → [nguwowi]               → "người"          → "người"
-f         → [nguwowif]              → "người"          → "người"
+n         → [n]                  → "n"              → "n"
+g         → [ng]                 → "ng"             → "ng"
+u         → [ngu]                → "ngu"            → "ngu"
+w         → [nguw]               → "ngư"            → "ngư"
+o         → [nguwo]              → "ngưo"           → "ngưo"
+w         → [nguwow]             → "người"          → "người"
+i         → [nguwowi]            → "người"          → "người"
+f         → [nguwowif]           → "người"          → "người"
 ```
 
 ---
 
-## Example: Typing "người" with Telex
+## Ví Dụ: Gõ "người" Với Telex
 
-Input sequence: `n g u w o w i f`
+Chuỗi nhập: `n g u w o w i f`
 
-1. `n` — no transform/tone → syllable: `"n"` → Replace{0, "n"}
-2. `g` — no match → syllable: `"ng"` → Replace{1, "g"}
-3. `u` — no match → syllable: `"ngu"` → Replace{1, "u"}
-4. `w` — compose: u+w → ư → syllable: `"ngư"` → Replace{3, "ngư"}
-5. `o` — no match → syllable: `"ngưo"` → Replace{1, "o"}
-6. `w` — compose: uo+w → ươ → syllable: `"người"` → Replace{4, "người"}
-7. `i` — no match → syllable: `"người"` → DoNothing (no diff)
-8. `f` — tone huyền on ơ → syllable: `"người"` → Replace{6, "người"}
+1. `n` — không có transform/tone → âm tiết: `"n"` → Replace{0, "n"}
+2. `g` — không khớp → âm tiết: `"ng"` → Replace{1, "g"}
+3. `u` — không khớp → âm tiết: `"ngu"` → Replace{1, "u"}
+4. `w` — compose: u+w → ư → âm tiết: `"ngư"` → Replace{3, "ngư"}
+5. `o` — không khớp → âm tiết: `"ngưo"` → Replace{1, "o"}
+6. `w` — compose: uo+w → ươ → âm tiết: `"người"` → Replace{4, "người"}
+7. `i` — không khớp → âm tiết: `"người"` → DoNothing (không có diff)
+8. `f` — dấu huyền trên ơ → âm tiết: `"người"` → Replace{6, "người"}
 
-**Final result**: `"người"` ✓
-
----
-
-## Performance
-
-- **Target**: well under 1 ms per keystroke (verified by `compose_bench`).
-- Recompute cost scales with syllable length (~7 chars max for Vietnamese),
-  not with total input history.
-- The `compose()` function is pure (no global state, no I/O) — amenable to
-  caching by prefix if profiling ever shows it necessary.
-- O(1) tone lookups via static arrays in `crate::tone`.
+**Kết quả cuối**: `"người"` ✓
 
 ---
 
-## Configuration
+## Hiệu Năng
 
-The pipeline is fully config-driven via `PipelineConfig`.  Built-in presets:
+- **Mục tiêu**: Dưới 1 ms mỗi phím bấm (được xác minh bởi `compose_bench`).
+- Chi phí tái tính toán tỷ lệ với độ dài âm tiết (~7 ký tự tối đa cho tiếng Việt),
+  không phải với tổng lịch sử nhập liệu.
+- Hàm `compose()` là pure (không có global state, không có I/O) — có thể
+  cache theo prefix nếu profiling cho thấy cần thiết.
+- Tra cứu dấu thanh O(1) qua static array trong `crate::tone`.
+
+---
+
+## Cấu Hình
+
+Pipeline được config-driven hoàn toàn qua `PipelineConfig`. Preset có sẵn:
 
 ```rust
 // Telex
@@ -240,9 +239,9 @@ let config = presets::vni_config();
 // VIQR
 let config = presets::viqr_config();
 
-// Simplified Telex (without some ambiguous rules)
+// Telex đơn giản hóa (không có một số quy tắc mơ hồ)
 let config = presets::simple_telex_config();
 ```
 
-Custom configs can specify transform rules, tone maps, tone style, validator, and
-the ordered list of middle stages via `config.pipeline.enabled`.
+Config tùy chỉnh có thể chỉ định transform rule, tone map, tone style, validator, và
+danh sách các middle stage qua `config.pipeline.enabled`.

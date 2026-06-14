@@ -1,43 +1,43 @@
-# 🐧 buttre Linux - IBus Input Method
+# 🐧 buttre Linux — Bộ Gõ IBus
 
-**Version**: 0.1.0  
-**Framework**: IBus  
-**Status**: ✅ Code Complete, Ready to Build on Linux
-
----
-
-## 📦 Features
-
-- ✅ **Vietnamese Telex** - Full support
-- ✅ **Real-time Composition** - Preedit text
-- ✅ **Intelligent Backspace** - Removes last modification
-- ✅ **Shift Support** - Uppercase/lowercase
-- ✅ **Auto-finalize** - Space/Enter commits text
-- ⏳ **VNI Mode** - Planned
-- ⏳ **Nôm Support** - Planned (with candidate window)
+**Phiên bản**: 0.7.0-beta
+**Framework**: IBus
+**Trạng thái**: ✅ Code Hoàn Chỉnh, Sẵn Sàng Build Trên Linux
 
 ---
 
-## 🏗️ Architecture
+## 📦 Tính Năng
+
+- ✅ **Telex tiếng Việt** — Hỗ trợ đầy đủ
+- ✅ **Composition thời gian thực** — Preedit text
+- ✅ **Backspace thông minh** — Xóa sửa đổi cuối cùng
+- ✅ **Hỗ trợ Shift** — Chữ hoa/chữ thường
+- ✅ **Tự động hoàn thành** — Space/Enter xác nhận text
+- ⏳ **Chế độ VNI** — Đang lên kế hoạch
+- ⏳ **Hỗ trợ Nôm** — Đang lên kế hoạch (kèm cửa sổ candidate)
+
+---
+
+## 🏗️ Kiến Trúc
 
 ```
 ┌─────────────────────────────┐
-│    Linux Applications       │
-│  (gedit, Firefox, etc.)     │
+│    Ứng Dụng Linux           │
+│  (gedit, Firefox, v.v.)     │
 └──────────┬──────────────────┘
            │ GTK/Qt Input
            ▼
 ┌─────────────────────────────┐
 │      IBus Daemon            │
-│  - Manages input methods    │
-│  - Routes key events        │
+│  - Quản lý input method     │
+│  - Định tuyến key event     │
 └──────────┬──────────────────┘
            │ D-Bus IPC
            ▼
 ┌─────────────────────────────┐
 │  buttre (IBus engine)       │
 │  ┌───────────────────────┐  │
-│  │  D-Bus Interface      │  │
+│  │  Giao Diện D-Bus      │  │
 │  └───────┬───────────────┘  │
 │          │                  │
 │  ┌───────▼───────────────┐  │
@@ -49,9 +49,9 @@
 
 ---
 
-## 🚀 Installation
+## 🚀 Cài Đặt
 
-### Prerequisites
+### Yêu Cầu
 
 ```bash
 # Debian/Ubuntu
@@ -63,202 +63,202 @@ sudo dnf install ibus ibus-devel gcc
 # Arch
 sudo pacman -S ibus base-devel
 
-# Rust (if not installed)
+# Rust (nếu chưa cài)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 
-### Build & Install
+### Build & Cài Đặt
 
 ```bash
 # Clone repository
 git clone https://github.com/dxsl-org/buttre
 cd buttre
 
-# Build and install (from repo root)
+# Build và cài đặt (từ thư mục gốc)
 sudo ./scripts/install-ibus.sh
 
-# Or build distro packages (.deb / .rpm)
+# Hoặc build gói distro (.deb / .rpm)
 ./installers/linux/build_packages.sh
 ```
 
-### Manual Build
+### Build Thủ Công
 
 ```bash
-# Build only
+# Chỉ build
 cargo build --release -p buttre-platform
 
-# Install manually
+# Cài đặt thủ công
 sudo install -m 755 target/release/buttre /usr/bin/
 sudo install -m 644 installers/linux/buttre.xml /usr/share/ibus/component/buttre.xml
 
-# Restart IBus
+# Khởi động lại IBus
 ibus restart
 ```
 
 ---
 
-## ⚙️ Configuration
+## ⚙️ Cấu Hình
 
-### Add Input Method
+### Thêm Input Method
 
-1. **Open IBus Preferences**:
+1. **Mở IBus Preferences**:
    ```bash
    ibus-setup
    ```
 
-2. **Add buttre**:
-   - Go to "Input Method" tab
-   - Click "Add" button
-   - Select "Vietnamese"
-   - Choose "buttre Vietnamese (Telex)"
-   - Click "Add"
+2. **Thêm buttre**:
+   - Vào tab "Input Method"
+   - Nhấp nút "Add"
+   - Chọn "Vietnamese"
+   - Chọn "buttre Vietnamese (Telex)"
+   - Nhấp "Add"
 
-3. **Set Hotkey** (optional):
-   - Go to "General" tab
-   - Configure "Next input method" hotkey
-   - Default: `Super+Space`
+3. **Đặt Phím Tắt** (tùy chọn):
+   - Vào tab "General"
+   - Cấu hình phím tắt "Next input method"
+   - Mặc định: `Super+Space`
 
-### Test
+### Kiểm Thử
 
 ```bash
-# Open gedit
+# Mở gedit
 gedit
 
-# Switch to buttre: Super+Space
-# Type: hoaf
-# Expected: hoà ✨
+# Chuyển sang buttre: Super+Space
+# Gõ: hoaf
+# Mong đợi: hoà ✨
 ```
 
 ---
 
-## 🧪 Testing
+## 🧪 Kiểm Thử
 
-### Test Cases
+### Test Case
 
-**Test 1: Basic Telex**
+**Test 1: Telex Cơ Bản**
 ```
-Type: hoaf
-Expected: hoà
+Gõ: hoaf
+Mong đợi: hoà
 ```
 
-**Test 2: Uppercase**
+**Test 2: Chữ Hoa**
 ```
-Type: Shift+V i e e t
-Expected: Việt
+Gõ: Shift+V i e e t
+Mong đợi: Việt
 ```
 
 **Test 3: Backspace**
 ```
-Type: hoaf → hoà
-Press Backspace
-Expected: hoa (accent removed)
+Gõ: hoaf → hoà
+Nhấn Backspace
+Mong đợi: hoa (đã xóa dấu)
 ```
 
-**Test 4: Multiple Words**
+**Test 4: Nhiều Từ**
 ```
-Type: tiees viees
-Expected: tiếs việs
+Gõ: tieesf vieets
+Mong đợi: tiếng việts
 ```
 
-### Applications Tested
+### Ứng Dụng Đã Kiểm Thử
 
-- ✅ **gedit** - Full support
-- ✅ **Firefox** - Full support
-- ✅ **VS Code** - Full support
-- ✅ **LibreOffice** - Full support
-- ✅ **Terminal** - Full support
+- ✅ **gedit** — Hỗ trợ đầy đủ
+- ✅ **Firefox** — Hỗ trợ đầy đủ
+- ✅ **VS Code** — Hỗ trợ đầy đủ
+- ✅ **LibreOffice** — Hỗ trợ đầy đủ
+- ✅ **Terminal** — Hỗ trợ đầy đủ
 
 ---
 
-## 🐛 Troubleshooting
+## 🐛 Xử Lý Sự Cố
 
-### Issue: buttre not in input method list
+### Vấn Đề: buttre không trong danh sách input method
 
-**Solution**:
+**Giải pháp**:
 ```bash
-# Restart IBus
+# Khởi động lại IBus
 ibus restart
 
-# Check if component is registered
+# Kiểm tra component đã đăng ký chưa
 ls /usr/share/ibus/component/buttre.xml
 
-# Check logs
+# Xem logs
 journalctl -f | grep buttre
 ```
 
-### Issue: No composition display
+### Vấn Đề: Không hiển thị composition
 
-**Solution**:
+**Giải pháp**:
 ```bash
-# Check IBus is running
+# Kiểm tra IBus đang chạy
 ps aux | grep ibus
 
-# Restart IBus daemon
+# Khởi động lại IBus daemon
 killall ibus-daemon
 ibus-daemon -drx
 ```
 
-### Issue: Keys not working
+### Vấn Đề: Phím không hoạt động
 
-**Solution**:
+**Giải pháp**:
 ```bash
-# Check engine is running
+# Kiểm tra engine đang chạy
 ps aux | grep '[b]uttre'
 
-# Run engine manually for debugging
+# Chạy engine thủ công để debug
 RUST_LOG=debug /usr/bin/buttre
 ```
 
 ---
 
-## 🗑️ Uninstallation
+## 🗑️ Gỡ Cài Đặt
 
 ```bash
-# If installed via package
+# Nếu cài qua package
 sudo apt remove buttre        # Debian/Ubuntu
 sudo dnf remove buttre        # Fedora/RHEL
 
-# Manual
+# Thủ công
 sudo rm /usr/bin/buttre
 sudo rm /usr/share/ibus/component/buttre.xml
 
-# Restart IBus
+# Khởi động lại IBus
 ibus restart
 ```
 
 ---
 
-## 📊 Comparison: Windows vs macOS vs Linux
+## 📊 So Sánh: Windows vs macOS vs Linux
 
-| Aspect | Windows TSF | macOS IMKit | Linux IBus |
-|--------|-------------|-------------|------------|
-| **Status** | ✅ Testing | ✅ Ready | ✅ Ready |
+| Khía Cạnh | Windows TSF | macOS IMKit | Linux IBus |
+|-----------|-------------|-------------|------------|
+| **Trạng thái** | ✅ Đang kiểm thử | ✅ Sẵn sàng | ✅ Sẵn sàng |
 | **Framework** | TSF | IMKit | IBus |
-| **Language** | Rust | Obj-C + Rust | Rust |
+| **Ngôn ngữ** | Rust | Obj-C + Rust | Rust |
 | **IPC** | COM | Mach | D-Bus |
-| **Install** | Registry | /Library | /usr/share |
+| **Cài đặt** | Registry | /Library | /usr/share |
 | **Composition** | ITfComposition | setMarkedText | UpdatePreeditText |
 
 ---
 
-## 🔧 Development
+## 🔧 Phát Triển
 
-### Project Structure
+### Cấu Trúc Dự Án
 
 ```
 crates/buttre-platform/
 ├── src/platforms/linux/
-│   ├── mod.rs              # Linux backend entry
+│   ├── mod.rs              # Điểm vào backend Linux
 │   └── ibus.rs             # IBus engine (D-Bus) ⭐
-└── Cargo.toml              # deb/rpm packaging metadata
+└── Cargo.toml              # Metadata đóng gói deb/rpm
 
 installers/linux/
-├── buttre.xml              # IBus component descriptor ⭐
-├── build_packages.sh       # .deb / .rpm builder ⭐
-└── debian/                 # postinst hooks
+├── buttre.xml              # Mô tả IBus component ⭐
+├── build_packages.sh       # Builder .deb / .rpm ⭐
+└── debian/                 # Hook postinst
 ```
 
-### Build Commands
+### Lệnh Build
 
 ```bash
 # Build
@@ -267,17 +267,17 @@ cargo build --release -p buttre-platform
 # Test
 cargo test -p buttre-platform
 
-# Install
+# Cài đặt
 sudo ./scripts/install-ibus.sh
 
-# Distro packages
+# Gói distro
 ./installers/linux/build_packages.sh
 ```
 
-### Debug Mode
+### Chế Độ Debug
 
 ```bash
-# Run with debug logging
+# Chạy với debug logging
 RUST_LOG=debug /usr/bin/buttre
 
 # Monitor D-Bus
@@ -286,15 +286,15 @@ dbus-monitor "interface='org.freedesktop.IBus.Engine'"
 
 ---
 
-## 📚 Technical Details
+## 📚 Chi Tiết Kỹ Thuật
 
-### D-Bus Interface
+### Giao Diện D-Bus
 
-**Service**: `org.freedesktop.IBus.buttre`  
-**Object**: `/org/freedesktop/IBus/Engine/buttre`  
+**Service**: `org.freedesktop.IBus.buttre`
+**Object**: `/org/freedesktop/IBus/Engine/buttre`
 **Interface**: `org.freedesktop.IBus.Engine`
 
-**Methods**:
+**Các Method**:
 - `ProcessKeyEvent(keyval, keycode, state) → bool`
 - `FocusIn()`
 - `FocusOut()`
@@ -303,67 +303,67 @@ dbus-monitor "interface='org.freedesktop.IBus.Engine'"
 - `Reset()`
 - `SetCursorLocation(x, y, w, h)`
 
-### Key Mappings
+### Bảng Phím
 
-| GDK Keyval | Character |
-|------------|-----------|
+| GDK Keyval | Ký Tự |
+|------------|-------|
 | 0x0061-0x007a | a-z |
 | 0x0041-0x005A | A-Z |
-| 0x0020 | Space |
+| 0x0020 | Dấu cách |
 | 0xFF0D | Enter |
 | 0xFF08 | Backspace |
 
 ---
 
-## 🎯 Roadmap
+## 🎯 Lộ Trình
 
-### Phase 1: MVP (Current)
+### Giai Đoạn 1: MVP (Hiện Tại)
 - ✅ IBus engine
-- ✅ Vietnamese Telex
-- ✅ Preedit display
-- ✅ Installation scripts
+- ✅ Telex tiếng Việt
+- ✅ Hiển thị preedit
+- ✅ Script cài đặt
 
-### Phase 2: Enhancement
-- [ ] VNI mode
-- [ ] Settings UI
-- [ ] Fcitx5 support
-- [ ] Wayland optimization
+### Giai Đoạn 2: Cải Tiến
+- [ ] Chế độ VNI
+- [ ] UI cài đặt
+- [ ] Hỗ trợ Fcitx5
+- [ ] Tối ưu Wayland
 
-### Phase 3: Advanced
-- [ ] Nôm support
-- [ ] Candidate window
-- [ ] Predictive text
-- [ ] Cloud sync
+### Giai Đoạn 3: Nâng Cao
+- [ ] Hỗ trợ Nôm
+- [ ] Cửa sổ candidate
+- [ ] Tự động hoàn thành
+- [ ] Đồng bộ đám mây
 
 ---
 
-## 📖 References
+## 📖 Tài Liệu Tham Khảo
 
 - [IBus Developer Guide](https://github.com/ibus/ibus/wiki/DevGuide)
 - [D-Bus Specification](https://dbus.freedesktop.org/doc/dbus-specification.html)
 - [zbus Documentation](https://docs.rs/zbus/)
-- [ibus-bamboo](https://github.com/BambooEngine/ibus-bamboo) - Reference
+- [ibus-bamboo](https://github.com/BambooEngine/ibus-bamboo) — Tham chiếu
 
 ---
 
-## 🤝 Contributing
+## 🤝 Đóng Góp
 
-Contributions welcome! Please:
+Chào mừng mọi đóng góp! Vui lòng:
 
-1. Fork the repository
-2. Create feature branch
-3. Make changes
-4. Test on multiple distros
+1. Fork repository
+2. Tạo feature branch
+3. Thực hiện thay đổi
+4. Kiểm thử trên nhiều distro
 5. Submit pull request
 
 ---
 
-## 📝 License
+## 📝 Giấy Phép
 
-Apache-2.0 - See LICENSE file
+Mozilla Public License 2.0 — Xem file LICENSE
 
 ---
 
-**Status**: ✅ Ready to build and test on Linux!
+**Trạng thái**: ✅ Sẵn sàng build và kiểm thử trên Linux!
 
-*Built with ❤️ using Rust + zbus + IBus*
+*Được viết bằng ❤️ sử dụng Rust + zbus + IBus*

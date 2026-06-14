@@ -1,302 +1,266 @@
-# buttre TSF - Manual Testing Guide
+# buttre TSF — Hướng Dẫn Kiểm Thử Thủ Công
 
-## 📦 Build Output
+## Vị Trí Build Output
 
-**DLL Location**: `target/release/buttre_platform.dll`
-
-**Build Date**: 2025-12-15  
-**Version**: 0.1.0 (Week 5 - Vietnamese Engine + Polish)
+**Vị trí DLL**: `target/release/buttre_platform.dll`
 
 ---
 
-## 🚀 Installation & Registration
+## Cài Đặt & Đăng Ký
 
-### Step 1: Copy DLL to System Location
+### Bước 1: Sao Chép DLL Vào Vị Trí Hệ Thống
 
 ```powershell
-# Run as Administrator
+# Chạy với quyền Administrator
 $dllPath = "target\release\buttre_platform.dll"
 $systemPath = "$env:ProgramFiles\buttre\buttre_platform.dll"
 
-# Create directory
+# Tạo thư mục
 New-Item -ItemType Directory -Force -Path "$env:ProgramFiles\buttre"
 
-# Copy DLL
+# Sao chép DLL
 Copy-Item $dllPath $systemPath -Force
 ```
 
-### Step 2: Register COM Server
+### Bước 2: Đăng Ký COM Server
 
 ```powershell
-# Run as Administrator
+# Chạy với quyền Administrator
 regsvr32 "$env:ProgramFiles\buttre\buttre_platform.dll"
 ```
 
-**Expected Output**: "DllRegisterServer in buttre_platform.dll succeeded"
+**Kết quả mong đợi**: "DllRegisterServer in buttre_platform.dll succeeded"
 
-### Step 3: Enable TSF Service
+### Bước 3: Kích Hoạt TSF Service
 
-1. Open **Settings** → **Time & Language** → **Language**
-2. Click **Preferred languages** → **Add a language**
-3. Search for "Vietnamese" → Add
-4. Click **Vietnamese** → **Options**
-5. Under **Keyboards**, click **Add a keyboard**
-6. Look for **buttre** in the list
-7. Select **buttre** and click **Add**
-
----
-
-## 🧪 Testing Checklist
-
-### Basic Functionality
-
-#### Test 1: Telex Input (Lowercase)
-1. Open **Notepad**
-2. Switch to buttre input (Windows + Space)
-3. Type: `hoaf`
-4. **Expected**: `hoà` (with grave accent)
-
-#### Test 2: Telex Input (Uppercase)
-1. Type: `Shift+V` `i` `e` `e` `t`
-2. **Expected**: `Việt`
-
-#### Test 3: Complex Word
-1. Type: `t` `o` `a` `n` `f`
-2. **Expected**: `toàn`
-
-#### Test 4: Backspace
-1. Type: `h` `o` `a` `f` → `hoà`
-2. Press **Backspace**
-3. **Expected**: `hoa` (accent removed)
-4. Press **Backspace** again
-5. **Expected**: `ho`
-
-#### Test 5: Space Finalization
-1. Type: `h` `o` `a` `f` → `hoà`
-2. Press **Space**
-3. **Expected**: `hoà ` (composition finalized, cursor after space)
-
-#### Test 6: Enter Finalization
-1. Type: `h` `o` `a` `f` → `hoà`
-2. Press **Enter**
-3. **Expected**: `hoà` on first line, cursor on new line
-
-### Advanced Tests
-
-#### Test 7: VNI Mode (Future)
-*Note: Currently only Telex is active. VNI mode switching not yet implemented in UI.*
-
-#### Test 8: Multiple Words
-1. Type: `t` `i` `e` `e` `n` `g` **Space** `v` `i` `e` `e` `t`
-2. **Expected**: `tiếng việt`
-
-#### Test 9: Tone Changes
-1. Type: `h` `o` `a` `f` → `hoà`
-2. Press `z` (remove tone)
-3. **Expected**: `hoa`
-4. Press `s` (acute accent)
-5. **Expected**: `hoá`
-
-#### Test 10: Display Attributes
-1. Type: `h` `o` `a`
-2. **Expected**: Text should have **dotted underline** during composition
-3. Press **Space**
-4. **Expected**: Underline disappears (composition finalized)
+1. Mở **Settings** → **Time & Language** → **Language**
+2. Nhấp **Preferred languages** → **Add a language**
+3. Tìm kiếm "Vietnamese" → Thêm
+4. Nhấp **Vietnamese** → **Options**
+5. Trong **Keyboards**, nhấp **Add a keyboard**
+6. Tìm **buttre** trong danh sách
+7. Chọn **buttre** và nhấp **Add**
 
 ---
 
-## 🐛 Troubleshooting
+## Danh Sách Kiểm Thử
 
-### Issue: DLL Registration Failed
+### Chức Năng Cơ Bản
 
-**Symptoms**: `regsvr32` returns error
+#### Kiểm Thử 1: Nhập Telex (Chữ Thường)
+1. Mở **Notepad**
+2. Chuyển sang nhập buttre (Windows + Space)
+3. Gõ: `hoaf`
+4. **Mong đợi**: `hoà` (có dấu huyền)
 
-**Solutions**:
-1. Run PowerShell as Administrator
-2. Check DLL path is correct
-3. Ensure no antivirus blocking
-4. Check Windows Event Viewer for details
+#### Kiểm Thử 2: Nhập Telex (Chữ Hoa)
+1. Gõ: `Shift+V` `i` `e` `e` `t`
+2. **Mong đợi**: `Việt`
 
-### Issue: buttre Not in Keyboard List
+#### Kiểm Thử 3: Từ Phức Tạp
+1. Gõ: `t` `o` `a` `n` `f`
+2. **Mong đợi**: `toàn`
 
-**Symptoms**: Can't find buttre in keyboard options
+#### Kiểm Thử 4: Backspace
+1. Gõ: `h` `o` `a` `f` → `hoà`
+2. Nhấn **Backspace**
+3. **Mong đợi**: `hoa` (đã xóa dấu)
+4. Nhấn **Backspace** lần nữa
+5. **Mong đợi**: `ho`
 
-**Solutions**:
-1. Verify DLL is registered: Check `HKEY_CLASSES_ROOT\CLSID\{E6B8A6C0-1234-5678-9ABC-DEF012345678}`
-2. Restart Windows Explorer: `taskkill /f /im explorer.exe && start explorer.exe`
-3. Reboot system
-4. Check TSF category registration in registry
+#### Kiểm Thử 5: Hoàn Thành Bằng Dấu Cách
+1. Gõ: `h` `o` `a` `f` → `hoà`
+2. Nhấn **Dấu cách**
+3. **Mong đợi**: `hoà ` (composition đã hoàn thành, con trỏ sau dấu cách)
 
-### Issue: No Composition Display
+#### Kiểm Thử 6: Hoàn Thành Bằng Enter
+1. Gõ: `h` `o` `a` `f` → `hoà`
+2. Nhấn **Enter**
+3. **Mong đợi**: `hoà` trên dòng đầu, con trỏ trên dòng mới
 
-**Symptoms**: Typing shows nothing or direct characters
+### Kiểm Thử Nâng Cao
 
-**Solutions**:
-1. Verify buttre is active input method (check language bar)
-2. Switch input methods: Windows + Space
-3. Check logs: `%TEMP%\buttre_tsf.log`
-4. Restart application (Notepad, etc.)
+#### Kiểm Thử 7: Nhiều Từ
+1. Gõ: `t` `i` `e` `e` `n` `g` **Dấu cách** `v` `i` `e` `e` `t`
+2. **Mong đợi**: `tiếng việt`
 
-### Issue: Backspace Not Working
+#### Kiểm Thử 8: Thay Đổi Dấu Thanh
+1. Gõ: `h` `o` `a` `f` → `hoà`
+2. Nhấn `z` (xóa dấu)
+3. **Mong đợi**: `hoa`
+4. Nhấn `s` (dấu sắc)
+5. **Mong đợi**: `hoá`
 
-**Symptoms**: Backspace deletes entire word instead of intelligent backspace
-
-**Solutions**:
-1. This is expected behavior in some apps
-2. Try in Notepad first (best TSF support)
-3. Check if composition is active (should have underline)
+#### Kiểm Thử 9: Thuộc Tính Hiển Thị
+1. Gõ: `h` `o` `a`
+2. **Mong đợi**: Text có **gạch chân chấm** trong khi composition đang hoạt động
+3. Nhấn **Dấu cách**
+4. **Mong đợi**: Gạch chân biến mất (composition đã hoàn thành)
 
 ---
 
-## 📊 Expected Behavior
+## Xử Lý Sự Cố
 
-### Composition States
+### Vấn Đề: Đăng Ký DLL Thất Bại
 
-1. **No Composition**
-   - Normal typing
-   - No underline
-   - Direct character output
+**Triệu chứng**: `regsvr32` trả về lỗi
 
-2. **Active Composition**
-   - Dotted underline under text
-   - Real-time updates as you type
-   - Backspace removes last modification
+**Giải pháp**:
+1. Chạy PowerShell với quyền Administrator
+2. Kiểm tra đường dẫn DLL chính xác
+3. Đảm bảo antivirus không chặn
+4. Kiểm tra Windows Event Viewer để xem chi tiết
 
-3. **Finalized**
-   - Underline disappears
-   - Text committed to document
+### Vấn Đề: buttre Không Xuất Hiện Trong Danh Sách Bàn Phím
+
+**Triệu chứng**: Không tìm thấy buttre trong tùy chọn bàn phím
+
+**Giải pháp**:
+1. Xác minh DLL đã đăng ký: Kiểm tra `HKEY_CLASSES_ROOT\CLSID\{E6B8A6C0-1234-5678-9ABC-DEF012345678}`
+2. Khởi động lại Windows Explorer: `taskkill /f /im explorer.exe && start explorer.exe`
+3. Khởi động lại máy tính
+4. Kiểm tra đăng ký TSF category trong registry
+
+### Vấn Đề: Không Hiển Thị Composition
+
+**Triệu chứng**: Gõ không hiện gì hoặc hiện ký tự trực tiếp
+
+**Giải pháp**:
+1. Xác minh buttre đang là phương thức nhập đang hoạt động (kiểm tra language bar)
+2. Chuyển đổi phương thức nhập: Windows + Space
+3. Kiểm tra logs: `%TEMP%\buttre_tsf.log`
+4. Khởi động lại ứng dụng (Notepad, v.v.)
+
+### Vấn Đề: Backspace Không Hoạt Động
+
+**Triệu chứng**: Backspace xóa cả từ thay vì xóa thông minh
+
+**Giải pháp**:
+1. Đây là hành vi mong đợi trong một số ứng dụng
+2. Thử trong Notepad trước (hỗ trợ TSF tốt nhất)
+3. Kiểm tra xem composition có đang hoạt động không (phải có gạch chân)
+
+---
+
+## Hành Vi Mong Đợi
+
+### Các Trạng Thái Composition
+
+1. **Không có Composition**
+   - Gõ bình thường
+   - Không có gạch chân
+   - Đầu ra ký tự trực tiếp
+
+2. **Composition Đang Hoạt Động**
+   - Gạch chân chấm dưới text
+   - Cập nhật thời gian thực khi gõ
+   - Backspace xóa sửa đổi cuối cùng
+
+3. **Đã Hoàn Thành**
+   - Gạch chân biến mất
+   - Text được commit vào tài liệu
    - Engine reset
 
-### Key Mappings (Telex)
+### Bảng Phím Telex
 
-| Keys | Output | Description |
-|------|--------|-------------|
-| `aa` | `â` | Circumflex |
-| `aw` | `ă` | Breve |
-| `dd` | `đ` | D-stroke |
-| `ee` | `ê` | Circumflex |
-| `oo` | `ô` | Circumflex |
-| `ow` | `ơ` | Horn |
-| `uw` | `ư` | Horn |
-| `w` (after vowel) | Add horn/breve | Modifier |
-| `f` | Grave (`) | Tone |
-| `s` | Acute (´) | Tone |
-| `r` | Hook (?) | Tone |
-| `x` | Tilde (~) | Tone |
-| `j` | Dot below (.) | Tone |
-| `z` | Remove tone | Undo |
+| Phím | Đầu Ra | Mô Tả |
+|------|--------|-------|
+| `aa` | `â` | Mũ |
+| `aw` | `ă` | Trăng |
+| `dd` | `đ` | D-gạch |
+| `ee` | `ê` | Mũ |
+| `oo` | `ô` | Mũ |
+| `ow` | `ơ` | Râu |
+| `uw` | `ư` | Râu |
+| `w` (sau nguyên âm) | Thêm râu/trăng | Modifier |
+| `f` | Huyền (`) | Dấu thanh |
+| `s` | Sắc (´) | Dấu thanh |
+| `r` | Hỏi (?) | Dấu thanh |
+| `x` | Ngã (~) | Dấu thanh |
+| `j` | Nặng (.) | Dấu thanh |
+| `z` | Xóa dấu | Undo |
 
 ---
 
-## 🔍 Debug Information
+## Thông Tin Debug
 
-### Log Location
-Logs are written to: `%TEMP%\buttre_tsf.log`
+### Vị Trí Log
+Log được ghi vào: `%TEMP%\buttre_tsf.log`
 
-View logs:
+Xem log:
 ```powershell
 Get-Content "$env:TEMP\buttre_tsf.log" -Tail 50 -Wait
 ```
 
-### Registry Locations
+### Vị Trí Registry
 
-**COM Registration**:
+**Đăng Ký COM**:
 - `HKEY_CLASSES_ROOT\CLSID\{E6B8A6C0-1234-5678-9ABC-DEF012345678}`
 
 **TSF Categories**:
 - `HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\CTF\TIP\{E6B8A6C0-1234-5678-9ABC-DEF012345678}`
 
 **Language Profile**:
-- `HKEY_CURRENT_USER\Software\Microsoft\CTF\Assemblies\0x0000042a` (Vietnamese)
+- `HKEY_CURRENT_USER\Software\Microsoft\CTF\Assemblies\0x0000042a` (tiếng Việt)
 
 ---
 
-## 📝 Testing Notes
+## Đã Cài Đặt
 
-### What's Implemented (Week 5)
-- ✅ Vietnamese Telex input
-- ✅ Real-time composition
-- ✅ Intelligent backspace
-- ✅ Uppercase/lowercase (Shift support)
-- ✅ Auto-finalize on Space/Enter
-- ✅ Display attributes (dotted underline)
-- ✅ Tone marks (f, s, r, x, j, z)
-- ✅ Diacritics (aa, aw, dd, ee, oo, ow, uw, w)
+- ✅ Nhập Telex tiếng Việt
+- ✅ Composition thời gian thực
+- ✅ Backspace thông minh
+- ✅ Chữ hoa/chữ thường (hỗ trợ Shift)
+- ✅ Tự động hoàn thành khi Space/Enter
+- ✅ Thuộc tính hiển thị (gạch chân chấm)
+- ✅ Dấu thanh (f, s, r, x, j, z)
+- ✅ Dấu phụ âm (aa, aw, dd, ee, oo, ow, uw, w)
 
-### What's NOT Implemented Yet
-- ❌ VNI input method (code exists, no UI to switch)
-- ❌ Candidate UI (not needed for Vietnamese)
-- ❌ Han Nom support
-- ❌ Settings UI
-- ❌ Hotkey configuration
-- ❌ Mode indicator
+## Chưa Cài Đặt
 
-### Known Limitations
-1. **App Compatibility**: Works best in Notepad, Word. May have issues in some apps.
-2. **No Mode Indicator**: Can't see which input method is active (buttre vs English)
-3. **No VNI Switch**: Can't switch to VNI mode (hardcoded to Telex)
-4. **Numbers with Shift**: Shift+number not handled (e.g., Shift+1 = !)
+- ❌ Phương thức nhập VNI (code đã có, chưa có UI để chuyển)
+- ❌ UI candidate (không cần thiết cho tiếng Việt)
+- ❌ Hỗ trợ Hán Nôm
+- ❌ UI cài đặt
+- ❌ Cấu hình hotkey
+- ❌ Chỉ thị chế độ
 
 ---
 
-## 🎯 Success Criteria
+## Tiêu Chí Thành Công
 
-### Minimum Viable
-- [ ] DLL registers successfully
-- [ ] Appears in keyboard list
-- [ ] Can switch to buttre input
-- [ ] Basic Telex works (`hoaf` → `hoà`)
-- [ ] Backspace works
-- [ ] Space finalizes
+### Tối Thiểu
+- [ ] DLL đăng ký thành công
+- [ ] Xuất hiện trong danh sách bàn phím
+- [ ] Có thể chuyển sang nhập buttre
+- [ ] Telex cơ bản hoạt động (`hoaf` → `hoà`)
+- [ ] Backspace hoạt động
+- [ ] Dấu cách hoàn thành composition
 
-### Full Feature
-- [ ] All Telex combinations work
-- [ ] Uppercase input works
-- [ ] Tone changes work (z, then s)
-- [ ] Multiple words work
-- [ ] Works in Notepad
-- [ ] Works in Word
-- [ ] No crashes
-
----
-
-## 🆘 Support
-
-If you encounter issues:
-
-1. **Check logs**: `%TEMP%\buttre_tsf.log`
-2. **Check Event Viewer**: Windows Logs → Application
-3. **Verify registration**: Check registry keys
-4. **Reboot**: Sometimes TSF needs a reboot to pick up changes
+### Đầy Đủ
+- [ ] Tất cả tổ hợp Telex hoạt động
+- [ ] Nhập chữ hoa hoạt động
+- [ ] Thay đổi dấu thanh hoạt động (z, sau đó s)
+- [ ] Nhiều từ hoạt động
+- [ ] Hoạt động trong Notepad
+- [ ] Hoạt động trong Word
+- [ ] Không bị crash
 
 ---
 
-## 🔄 Uninstallation
+## Gỡ Cài Đặt
 
-### Step 1: Remove from Language Settings
+### Bước 1: Xóa Khỏi Cài Đặt Ngôn Ngữ
 1. Settings → Language → Vietnamese → Options
-2. Remove **buttre** keyboard
+2. Xóa bàn phím **buttre**
 
-### Step 2: Unregister DLL
+### Bước 2: Hủy Đăng Ký DLL
 ```powershell
-# Run as Administrator
+# Chạy với quyền Administrator
 regsvr32 /u "$env:ProgramFiles\buttre\buttre_platform.dll"
 ```
 
-### Step 3: Delete Files
+### Bước 3: Xóa File
 ```powershell
 Remove-Item "$env:ProgramFiles\buttre" -Recurse -Force
-```
-
----
-
-**Build Version**: Week 5 - Vietnamese Engine + Polish  
-**Test Date**: _____________  
-**Tested By**: _____________  
-**Result**: ⬜ Pass ⬜ Fail ⬜ Partial
-
-**Notes**:
-```
-
-
 ```

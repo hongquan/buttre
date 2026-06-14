@@ -1,102 +1,103 @@
-# buttre Project Roadmap
+# Lộ Trình Dự Án buttre
 
-> Strategic plan for buttre development across platforms and features
+> Kế hoạch chiến lược cho sự phát triển buttre trên các nền tảng và tính năng
 
-**Last Updated**: 2026-05-19
-**Version**: 0.6.3-alpha
-**Status**: Windows Core & Installers Complete, Cross-Platform Expansion In Progress
-
----
-
-## Vision
-
-Build a **modern, performant, cross-platform Vietnamese input method** that:
-- Delivers sub-millisecond keystroke processing
-- Supports all major platforms (Windows, macOS, Linux)
-- Provides flexible input methods (Telex, VNI, VIQR, Hán Nôm)
-- Maintains absolute privacy (zero telemetry)
-- Enables community contributions through open source
+**Cập nhật lần cuối**: 2026-06-14
+**Phiên bản**: 0.7.0-beta
+**Trạng thái**: Windows Core & Installer Hoàn Thành, Đang Mở Rộng Đa Nền Tảng
 
 ---
 
-## Current Status
+## Tầm Nhìn
 
-### ✅ Completed (v0.6.3-alpha)
+Xây dựng một **bộ gõ tiếng Việt hiện đại, hiệu năng cao, đa nền tảng** với:
+- Xử lý phím bấm dưới mili-giây
+- Hỗ trợ tất cả nền tảng chính (Windows, macOS, Linux)
+- Các phương thức nhập linh hoạt (Telex, VNI, VIQR, Hán Nôm)
+- Bảo vệ tuyệt đối quyền riêng tư (zero telemetry)
+- Khuyến khích đóng góp cộng đồng qua mã nguồn mở
+
+---
+
+## Trạng Thái Hiện Tại
+
+### ✅ Đã Hoàn Thành (v0.7.0-beta)
 
 **Core Engine**:
-- [x] 7-stage processing pipeline (config-driven, recompute-from-raw)
-- [x] Telex input method (full support)
-- [x] VNI input method (full support)
-- [x] Vietnamese orthography rules (100% compliant)
-- [x] Tone mark positioning (Old & New styles)
-- [x] English fallback mode (undo handling)
-- [x] Flexible typing (permutation support)
-- [x] 600+ integration tests
-- [x] Performance optimization (sub-ms processing)
+- [x] Pipeline xử lý 7 giai đoạn (config-driven, recompute-from-raw)
+- [x] Phương thức nhập Telex (hỗ trợ đầy đủ)
+- [x] Phương thức nhập VNI (hỗ trợ đầy đủ)
+- [x] Quy tắc chính tả tiếng Việt (tuân thủ 100%)
+- [x] Vị trí dấu thanh (phong cách Old & New)
+- [x] Chế độ tiếng Anh fallback (xử lý undo)
+- [x] Gõ linh hoạt (hỗ trợ permutation)
+- [x] 600+ integration test
+- [x] Tối ưu hiệu năng (xử lý dưới ms)
 
-**Windows Platform**:
-- [x] TSF (Text Services Framework) implementation
-- [x] COM DLL registration (fixed CLSID alignment)
-- [x] Composition string support
-- [x] Key event handling
-- [x] Manual testing guide
+**Nền Tảng Windows**:
+- [x] Cài đặt TSF (Text Services Framework)
+- [x] Đăng ký COM DLL (sửa lỗi CLSID)
+- [x] Hỗ trợ composition string
+- [x] Xử lý key event
+- [x] Hướng dẫn kiểm thử thủ công
 
-**Cross-Platform Installers** (v0.6.3-alpha):
-- [x] Windows MSI via cargo-wix (perMachine scope, CLSID registration)
-- [x] Linux .deb + .rpm via cargo-deb & cargo-generate-rpm (with IBus integration)
-- [x] macOS dylib artifact (developer release, unsigned)
-- [x] GitHub Actions 3-platform release matrix (softprops/action-gh-release@v2)
-- [x] CLSID fix: TSF DLL registration aligned across platforms
+**Installer Đa Nền Tảng** (v0.7.0-beta):
+- [x] Windows MSI qua cargo-wix (perMachine, đăng ký CLSID)
+- [x] Linux .deb + .rpm qua cargo-deb & cargo-generate-rpm (tích hợp IBus)
+- [x] macOS dylib artifact (phiên bản developer, unsigned)
+- [x] Windows hook-only ZIP (exe portable, không cần cài đặt)
+- [x] GitHub Actions ma trận release 4 nền tảng (softprops/action-gh-release@v2)
+- [x] Sửa CLSID: đăng ký TSF DLL đồng bộ trên các nền tảng
 
-**Infrastructure**:
-- [x] Cargo workspace setup
-- [x] Multi-crate architecture (engine, core, platform, test)
-- [x] Clippy lints & code quality checks
-- [x] Release optimization (LTO, size optimization)
-- [x] Release artifacts on GitHub (Windows MSI, Linux .deb/.rpm, macOS dylib)
-
----
-
-## Roadmap by Phase
-
-### Phase 1: Windows Installers & Stability (Q1–Q2 2026)
-
-**Goal**: Multi-platform signed-less release artifacts
-
-**Completed Tasks** (v0.6.3-alpha):
-- [x] Fix CLSID mismatch (E6B8A6C0-1234-5678-9ABC-DEF012345678)
-- [x] Windows MSI via cargo-wix (perMachine, CLSID + profile registration)
-- [x] Linux .deb + .rpm via cargo-deb/cargo-generate-rpm (IBus integration)
-- [x] macOS dylib artifact (unsigned, developer-only)
-- [x] GitHub Actions 3-platform matrix (windows/ubuntu/macos latest, parallel jobs)
-- [x] Updated CHANGELOG.md with all installer entries
-
-**Remaining Tasks** (Q2 2026):
-- [ ] Fix known test failures
-  - [ ] `test_find_best_permutation_thuwowfngf` (duplicate 'w' handling)
-  - [ ] `test_telex_settings` / `test_vni_settings` (ToneStyle mismatch)
-- [ ] Manual testing & bug fixes
-  - [ ] Test in Notepad, Word, VS Code, browsers
-  - [ ] Test .deb/.rpm on Ubuntu 22.04+
-  - [ ] Fix edge cases discovered in real usage
-- [ ] Documentation updates
-  - [ ] WINDOWS_README.md (SmartScreen bypass workaround)
-  - [ ] LINUX_README.md (IBus cache refresh)
-  - [ ] MACOS_README.md (quarantine workaround)
-  - [ ] User manual (Vietnamese)
-
-**Deliverable**: buttre 0.6.3-alpha with cross-platform installers; buttre 1.0 for Windows (Q2 2026)
+**Hạ Tầng**:
+- [x] Cài đặt Cargo workspace
+- [x] Kiến trúc multi-crate (engine, core, platform, test)
+- [x] Clippy lint & kiểm tra chất lượng code
+- [x] Tối ưu release (LTO, tối ưu kích thước)
+- [x] Artifact release trên GitHub (Windows MSI, Linux .deb/.rpm, macOS dylib, Windows hook ZIP)
 
 ---
 
-### Phase 2: macOS Implementation (Q2 2026)
+## Lộ Trình Theo Phase
 
-**Goal**: Native macOS input method
+### Phase 1: Installer & Ổn Định Windows (Q1–Q2 2026)
 
-**Architecture**:
+**Mục tiêu**: Artifact release đa nền tảng không ký số
+
+**Nhiệm Vụ Đã Hoàn Thành** (v0.7.0-beta):
+- [x] Sửa lỗi CLSID mismatch (E6B8A6C0-1234-5678-9ABC-DEF012345678)
+- [x] Windows MSI qua cargo-wix (perMachine, đăng ký CLSID + profile)
+- [x] Linux .deb + .rpm qua cargo-deb/cargo-generate-rpm (tích hợp IBus)
+- [x] macOS dylib artifact (unsigned, chỉ dành developer)
+- [x] GitHub Actions ma trận 4 nền tảng (windows/ubuntu/macos, song song)
+- [x] Cập nhật CHANGELOG.md với tất cả entries installer
+
+**Nhiệm Vụ Còn Lại** (Q2 2026):
+- [ ] Sửa lỗi test đã biết
+  - [ ] `test_find_best_permutation_thuwowfngf` (xử lý trùng lặp 'w')
+  - [ ] `test_telex_settings` / `test_vni_settings` (lỗi ToneStyle mismatch)
+- [ ] Kiểm thử thủ công & sửa lỗi
+  - [ ] Kiểm thử trong Notepad, Word, VS Code, trình duyệt
+  - [ ] Kiểm thử .deb/.rpm trên Ubuntu 22.04+
+  - [ ] Sửa edge case phát hiện trong sử dụng thực tế
+- [ ] Cập nhật tài liệu
+  - [ ] WINDOWS_README.md (cách bỏ qua cảnh báo SmartScreen)
+  - [ ] LINUX_README.md (cập nhật cache IBus)
+  - [ ] MACOS_README.md (cách bỏ quarantine)
+  - [ ] Hướng dẫn sử dụng (tiếng Việt)
+
+**Deliverable**: buttre 0.7.0-beta với installer đa nền tảng; buttre 1.0 cho Windows (Q2 2026)
+
+---
+
+### Phase 2: Cài Đặt macOS (Q2 2026)
+
+**Mục tiêu**: Bộ gõ macOS native
+
+**Kiến Trúc**:
 ```
 ┌─────────────────────────────────────┐
-│     macOS Application               │
+│     Ứng Dụng macOS                  │
 └────────────┬────────────────────────┘
              │ Text Input
              ▼
@@ -116,44 +117,42 @@ Build a **modern, performant, cross-platform Vietnamese input method** that:
 └─────────────────────────────────────┘
 ```
 
-**Tasks**:
-- [ ] Research IMKit framework
-  - [ ] Study Apple documentation
-  - [ ] Analyze existing input methods (e.g., GoTiengViet)
-  - [ ] Determine FFI strategy
-- [ ] Create `buttre-macos` crate
-  - [ ] Objective-C bridge (using `objc` crate)
-  - [ ] IMKServer implementation
-  - [ ] IMKInputController wrapper
-  - [ ] Key event handling
-- [ ] Integrate with `buttre-engine`
-  - [ ] Action mapping (Replace → setMarkedText)
-  - [ ] Candidate window (for Hán Nôm)
-- [ ] Build & packaging
-  - [ ] .app bundle creation
-  - [ ] Code signing (Developer ID)
-  - [ ] Notarization for Gatekeeper
-- [ ] Testing
-  - [ ] Test in TextEdit, Notes, Safari, Chrome
-  - [ ] Performance testing
-- [ ] Distribution
-  - [ ] DMG installer
-  - [ ] Homebrew cask (optional)
+**Nhiệm Vụ**:
+- [ ] Nghiên cứu framework IMKit
+  - [ ] Nghiên cứu tài liệu Apple
+  - [ ] Phân tích bộ gõ hiện có (v.d. GoTiengViet)
+  - [ ] Xác định chiến lược FFI
+- [ ] Tạo crate `buttre-macos`
+  - [ ] Bridge Objective-C (dùng crate `objc`)
+  - [ ] Cài đặt IMKServer
+  - [ ] Wrapper IMKInputController
+  - [ ] Xử lý key event
+- [ ] Tích hợp với `buttre-engine`
+  - [ ] Ánh xạ action (Replace → setMarkedText)
+  - [ ] Cửa sổ candidate (cho Hán Nôm)
+- [ ] Build & đóng gói
+  - [ ] Tạo .app bundle
+  - [ ] Ký code (Developer ID)
+  - [ ] Notarization cho Gatekeeper
+- [ ] Kiểm thử
+  - [ ] Kiểm thử trong TextEdit, Notes, Safari, Chrome
+  - [ ] Kiểm thử hiệu năng
+- [ ] Phân phối
+  - [ ] Installer DMG
+  - [ ] Homebrew cask (tùy chọn)
 
-**Deliverable**: buttre 1.0 for macOS
-
-**Reference**: See `docs/archive/MACOS_IMPLEMENTATION_PLAN.md`
+**Deliverable**: buttre 1.0 cho macOS
 
 ---
 
-### Phase 3: Linux Implementation (Q3 2026)
+### Phase 3: Cài Đặt Linux (Q3 2026)
 
-**Goal**: IBus input method for Linux
+**Mục tiêu**: Phương thức nhập IBus cho Linux
 
-**Architecture**:
+**Kiến Trúc**:
 ```
 ┌─────────────────────────────────────┐
-│     Linux Applications              │
+│     Ứng Dụng Linux                  │
 └────────────┬────────────────────────┘
              │ GTK/Qt Input Context
              ▼
@@ -165,257 +164,250 @@ Build a **modern, performant, cross-platform Vietnamese input method** that:
 ┌─────────────────────────────────────┐
 │      buttre IBus Engine              │
 │  ┌───────────────────────────────┐  │
-│  │   D-Bus Interface (Rust)      │  │
+│  │   Giao diện D-Bus (Rust)      │  │
 │  │   └─ buttre-engine             │  │
 │  └───────────────────────────────┘  │
 └─────────────────────────────────────┘
 ```
 
-**Tasks**:
-- [ ] Research IBus architecture
-  - [ ] Study IBus protocol
-  - [ ] Analyze ibus-bamboo (Go reference)
-  - [ ] D-Bus communication in Rust (using `zbus`)
-- [ ] Create `buttre-linux` crate
-  - [ ] D-Bus interface implementation
-  - [ ] Process key event handler
-  - [ ] Preedit text management
-  - [ ] Candidate window (for Hán Nôm)
-- [ ] Integration
-  - [ ] buttre-engine integration
-  - [ ] Action mapping (Replace → update_preedit_text)
-- [ ] Build & packaging
-  - [ ] Shared object (.so) compilation
-  - [ ] Desktop file creation
+**Nhiệm Vụ**:
+- [ ] Nghiên cứu kiến trúc IBus
+  - [ ] Nghiên cứu giao thức IBus
+  - [ ] Phân tích ibus-bamboo (tham chiếu Go)
+  - [ ] Giao tiếp D-Bus trong Rust (dùng `zbus`)
+- [ ] Tạo crate `buttre-linux`
+  - [ ] Cài đặt giao diện D-Bus
+  - [ ] Xử lý key event process
+  - [ ] Quản lý preedit text
+  - [ ] Cửa sổ candidate (cho Hán Nôm)
+- [ ] Tích hợp
+  - [ ] Tích hợp buttre-engine
+  - [ ] Ánh xạ action (Replace → update_preedit_text)
+- [ ] Build & đóng gói
+  - [ ] Biên dịch shared object (.so)
+  - [ ] Tạo desktop file
   - [ ] IBus component XML
-- [ ] Distribution
+- [ ] Phân phối
   - [ ] .deb package (Ubuntu/Debian)
   - [ ] .rpm package (Fedora/RHEL)
   - [ ] AUR package (Arch Linux)
-  - [ ] Flatpak (optional)
-- [ ] Testing
-  - [ ] Test in gedit, LibreOffice, Firefox
-  - [ ] Wayland support verification
-  - [ ] X11 fallback testing
+  - [ ] Flatpak (tùy chọn)
+- [ ] Kiểm thử
+  - [ ] Kiểm thử trong gedit, LibreOffice, Firefox
+  - [ ] Xác minh hỗ trợ Wayland
+  - [ ] Kiểm thử X11 fallback
 
-**Deliverable**: buttre 1.0 for Linux (IBus)
+**Deliverable**: buttre 1.0 cho Linux (IBus)
 
-**Future**: Fcitx5 support (Phase 3.5)
-
-**Reference**: See `docs/archive/LINUX_IMPLEMENTATION_PLAN.md`
+**Tương lai**: Hỗ trợ Fcitx5 (Phase 3.5)
 
 ---
 
-### Phase 4: Hán Nôm Support (Q4 2026)
+### Phase 4: Hỗ Trợ Hán Nôm (Q4 2026)
 
-**Goal**: Full Hán Nôm (chữ Nôm) input method
+**Mục tiêu**: Phương thức nhập Hán Nôm (chữ Nôm) đầy đủ
 
-**Features**:
-- [ ] Dictionary-based input
-  - [ ] 48,510 Hán Nôm character database (from rime-han-nom-data)
-  - [ ] SQLite FTS5 full-text search
-  - [ ] Keyword-based lookup
-  - [ ] Optimized index (minimal size)
-- [ ] Candidate window
-  - [ ] Show multiple candidates
-  - [ ] Navigate with arrow keys / number keys
-  - [ ] Preview character details (Nom Meaning, Sino-Vietnamese)
-- [ ] Input modes
-  - [ ] Vietnamese pronunciation input (e.g., "người" → 𠊛)
-  - [ ] Sino-Vietnamese input (e.g., "nhân" → 人)
-  - [ ] Keyword search (e.g., "person" → 人, 𠊛)
-- [ ] Pipeline integration
-  - [ ] Stage 11: Dictionary Lookup
-  - [ ] Stage 12: Output Generation (candidates)
-- [ ] Testing & documentation
-  - [ ] Test data from classical texts
-  - [ ] User guide for Hán Nôm input
+**Tính Năng**:
+- [ ] Nhập dựa trên từ điển
+  - [ ] Cơ sở dữ liệu 48.510 ký tự Hán Nôm (từ rime-han-nom-data)
+  - [ ] Full-text search SQLite FTS5
+  - [ ] Tra cứu theo keyword
+  - [ ] Index tối ưu (kích thước tối thiểu)
+- [ ] Cửa sổ candidate
+  - [ ] Hiện nhiều candidate
+  - [ ] Điều hướng bằng phím mũi tên / phím số
+  - [ ] Xem trước chi tiết ký tự (nghĩa Nôm, Hán Việt)
+- [ ] Chế độ nhập
+  - [ ] Nhập theo phiên âm tiếng Việt (v.d. "người" → 𠊛)
+  - [ ] Nhập Hán Việt (v.d. "nhân" → 人)
+  - [ ] Tìm kiếm keyword (v.d. "người" → 人, 𠊛)
+- [ ] Tích hợp pipeline
+  - [ ] Giai đoạn 11: Tra Cứu Từ Điển
+  - [ ] Giai đoạn 12: Tạo Đầu Ra (candidates)
+- [ ] Kiểm thử & tài liệu
+  - [ ] Dữ liệu test từ văn bản cổ
+  - [ ] Hướng dẫn sử dụng nhập Hán Nôm
 
-**Deliverable**: buttre 1.5 with Hán Nôm support
-
-**Reference**:
-- `docs/archive/NOM_DEVELOPER_GUIDE.md`
-- `docs/archive/NOM_DATABASE_OPTIMIZATION.md`
-- `docs/archive/NOM_INPUT_ANALYSIS.md`
+**Deliverable**: buttre 1.5 với hỗ trợ Hán Nôm
 
 ---
 
-### Phase 5: Advanced Features (2027)
+### Phase 5: Tính Năng Nâng Cao (2027)
 
-**Goal**: Enhance user experience with advanced features
+**Mục tiêu**: Nâng cao trải nghiệm người dùng với các tính năng nâng cao
 
-**Features Under Consideration**:
-- [ ] **Auto-completion**
-  - [ ] Word-level prediction
-  - [ ] Phrase-level suggestion
-  - [ ] User dictionary learning
-- [ ] **Spelling correction**
-  - [ ] Fuzzy matching for typos
-  - [ ] Suggestion ranking
-- [ ] **User customization**
-  - [ ] Custom key bindings
-  - [ ] Custom transformation rules
-  - [ ] Custom dictionary
-- [ ] **Multi-language support** (UI)
-  - [ ] English UI
-  - [ ] Vietnamese UI
-- [ ] **Minority languages** (stretch goal)
-  - [ ] Tày-Nùng script
-  - [ ] Chăm script
-  - [ ] Hmong script
-- [ ] **Cloud sync** (opt-in)
-  - [ ] Sync user dictionary across devices
-  - [ ] Privacy-preserving (encrypted)
+**Tính Năng Đang Cân Nhắc**:
+- [ ] **Tự động hoàn thành**
+  - [ ] Dự đoán cấp từ
+  - [ ] Gợi ý cấp cụm từ
+  - [ ] Học từ điển người dùng
+- [ ] **Sửa chính tả**
+  - [ ] Fuzzy matching cho lỗi gõ sai
+  - [ ] Xếp hạng gợi ý
+- [ ] **Tùy chỉnh người dùng**
+  - [ ] Phím tắt tùy chỉnh
+  - [ ] Quy tắc biến đổi tùy chỉnh
+  - [ ] Từ điển tùy chỉnh
+- [ ] **Hỗ trợ đa ngôn ngữ** (giao diện)
+  - [ ] Giao diện tiếng Anh
+  - [ ] Giao diện tiếng Việt
+- [ ] **Ngôn ngữ dân tộc thiểu số** (mục tiêu mở rộng)
+  - [ ] Chữ Tày-Nùng
+  - [ ] Chữ Chăm
+  - [ ] Chữ Hmông
+- [ ] **Đồng bộ đám mây** (tùy chọn)
+  - [ ] Đồng bộ từ điển người dùng trên các thiết bị
+  - [ ] Bảo vệ quyền riêng tư (mã hóa)
 
-**Note**: These features are **under discussion**. Implementation depends on:
-- Community demand
-- Team availability
-- Technical feasibility
-- Privacy considerations
-
----
-
-## Platform Priority Matrix
-
-| Platform | Priority | Status | Target |
-|----------|----------|--------|--------|
-| Windows  | High     | ✅ Done (TSF) | 1.0 (Q1 2026) |
-| macOS    | High     | 🚧 Planned (IMKit) | 1.0 (Q2 2026) |
-| Linux    | High     | 🚧 Planned (IBus) | 1.0 (Q3 2026) |
-| ChromeOS | Low      | ⏳ Future | TBD |
-| Android  | Low      | ⏳ Future | TBD |
-| iOS      | Low      | ⏳ Future | TBD |
-
-**Notes**:
-- Desktop platforms (Windows/macOS/Linux) are **top priority**
-- Mobile platforms (Android/iOS) require different architecture (virtual keyboard vs IME)
-- ChromeOS can potentially reuse Linux (IBus) implementation
+**Lưu ý**: Các tính năng này **đang được thảo luận**. Cài đặt phụ thuộc vào:
+- Nhu cầu cộng đồng
+- Thời gian của team
+- Khả thi kỹ thuật
+- Cân nhắc quyền riêng tư
 
 ---
 
-## Technical Debt & Refactoring
+## Ma Trận Ưu Tiên Nền Tảng
 
-### Known Issues
+| Nền Tảng | Ưu Tiên | Trạng Thái | Mục Tiêu |
+|----------|---------|-----------|----------|
+| Windows  | Cao     | ✅ Hoàn thành (TSF) | 1.0 (Q1 2026) |
+| macOS    | Cao     | Đang lên kế hoạch (IMKit) | 1.0 (Q2 2026) |
+| Linux    | Cao     | Đang lên kế hoạch (IBus) | 1.0 (Q3 2026) |
+| ChromeOS | Thấp    | Tương lai | TBD |
+| Android  | Thấp    | Tương lai | TBD |
+| iOS      | Thấp    | Tương lai | TBD |
 
-**Pre-existing Test Failures**:
+**Lưu ý**:
+- Nền tảng desktop (Windows/macOS/Linux) là **ưu tiên hàng đầu**
+- Nền tảng mobile (Android/iOS) yêu cầu kiến trúc khác (bàn phím ảo vs IME)
+- ChromeOS có thể tái sử dụng cài đặt Linux (IBus)
+
+---
+
+## Nợ Kỹ Thuật & Tái Cấu Trúc
+
+### Vấn Đề Đã Biết
+
+**Lỗi Test Có Sẵn**:
 1. `test_find_best_permutation_thuwowfngf` (stage6_permutation.rs)
-   - **Issue**: Duplicate transform mark handling appends extra 'w'
-   - **Priority**: Medium (affects edge case)
-   - **Fix**: Improve permutation duplicate detection
+   - **Vấn đề**: Xử lý transform mark trùng lặp thêm 'w' thừa
+   - **Ưu tiên**: Trung bình (ảnh hưởng edge case)
+   - **Cách sửa**: Cải thiện phát hiện trùng lặp trong permutation
 
 2. `test_telex_settings` / `test_vni_settings` (presets.rs)
-   - **Issue**: Test expects ToneStyle::New but preset uses ToneStyle::Old
-   - **Priority**: Low (test vs preset mismatch)
-   - **Fix**: Align test expectations with preset defaults
+   - **Vấn đề**: Test expect ToneStyle::New nhưng preset dùng ToneStyle::Old
+   - **Ưu tiên**: Thấp (không khớp giữa test và preset)
+   - **Cách sửa**: Đồng bộ expectation test với default preset
 
-**Architecture Improvements** (Future):
-- [ ] **Error handling**: Replace `anyhow` with custom error types in library code
-- [ ] **Logging**: Replace debug file writing with proper `tracing` integration
-- [ ] **Configuration**: Centralized config management (TOML file + UI)
-- [ ] **Modularity**: Extract platform-agnostic UI components
+**Cải Tiến Kiến Trúc** (Tương lai):
+- [ ] **Xử lý lỗi**: Thay `anyhow` bằng kiểu lỗi tùy chỉnh trong library code
+- [ ] **Logging**: Thay ghi file debug bằng tích hợp `tracing` đúng cách
+- [ ] **Cấu hình**: Quản lý config tập trung (file TOML + UI)
+- [ ] **Modular**: Tách các component UI độc lập nền tảng
 
 ---
 
-## Community & Ecosystem
+## Cộng Đồng & Hệ Sinh Thái
 
-### Open Source Strategy
+### Chiến Lược Mã Nguồn Mở
 
-**Goals**:
-- Build a **vibrant community** around buttre
-- Encourage **contributions** from developers and linguists
-- Provide **documentation** for contributors
-- Maintain **high code quality** standards
+**Mục tiêu**:
+- Xây dựng **cộng đồng sôi nổi** xung quanh buttre
+- Khuyến khích **đóng góp** từ developer và nhà ngôn ngữ học
+- Cung cấp **tài liệu** cho contributor
+- Duy trì **tiêu chuẩn chất lượng code** cao
 
-**Community Initiatives**:
-- [ ] **Contributing Guide** (CONTRIBUTING.md)
-  - [ ] How to build from source
-  - [ ] How to run tests
-  - [ ] Code review process
-  - [ ] PR guidelines
-- [ ] **Issue templates**
-  - [ ] Bug report template
-  - [ ] Feature request template
-  - [ ] Q&A template
+**Sáng Kiến Cộng Đồng**:
+- [ ] **Hướng Dẫn Đóng Góp** (CONTRIBUTING.md)
+  - [ ] Cách build từ source
+  - [ ] Cách chạy test
+  - [ ] Quy trình review code
+  - [ ] Hướng dẫn PR
+- [ ] **Template issue**
+  - [ ] Template báo lỗi
+  - [ ] Template yêu cầu tính năng
+  - [ ] Template Q&A
 - [ ] **GitHub Discussions**
-  - [ ] General discussion
-  - [ ] Feature proposals
-  - [ ] Showcase (user projects)
-- [ ] **Documentation site**
-  - [ ] User manual
-  - [ ] Developer guide
-  - [ ] API documentation
+  - [ ] Thảo luận chung
+  - [ ] Đề xuất tính năng
+  - [ ] Showcase (dự án người dùng)
+- [ ] **Trang tài liệu**
+  - [ ] Hướng dẫn người dùng
+  - [ ] Hướng dẫn developer
+  - [ ] Tài liệu API
 
-### Licensing
+### Giấy Phép
 
-**Current**: Mozilla Public License 2.0 (MPL-2.0)
+**Hiện tại**: Mozilla Public License 2.0 (MPL-2.0)
 
-**Why MPL-2.0?**
-- ✅ **Copyleft for modifications**: Changes to buttre code must be open-sourced
-- ✅ **Compatible with proprietary**: Can be integrated into proprietary apps
-- ✅ **File-level copyleft**: Only modified files need to be shared, not entire project
-- ✅ **Patent grant**: Protection against patent claims
+**Tại sao MPL-2.0?**
+- ✅ **Copyleft cho sửa đổi**: Thay đổi code buttre phải mã nguồn mở
+- ✅ **Tương thích với proprietary**: Có thể tích hợp vào ứng dụng proprietary
+- ✅ **Copyleft cấp file**: Chỉ cần chia sẻ file đã sửa đổi, không cần toàn bộ dự án
+- ✅ **Cấp phép bằng sáng chế**: Bảo vệ trước các yêu cầu bằng sáng chế
 
-**License unchanged**: No plans to change license
-
----
-
-## Timeline Summary
-
-| Quarter | Focus | Deliverable |
-|---------|-------|-------------|
-| Q1–Q2 2026 | Installers & Windows Polish | buttre 0.6.3-alpha (installers), buttre 1.0 Windows (stable) |
-| Q2 2026 | macOS Implementation | buttre 1.0 macOS |
-| Q3 2026 | Linux Implementation | buttre 1.0 Linux (IBus) |
-| Q4 2026 | Hán Nôm Support | buttre 1.5 (all platforms) |
-| 2027    | Advanced Features | buttre 2.0 (auto-complete, etc.) |
-
-**Note**: Timeline is **aspirational** and depends on:
-- Core team availability (this is a **passion project**, not commercial)
-- Community contributions
-- Platform complexity
-- Bug severity
-
-**Flexibility**: We prioritize **quality over speed**. Releases may be delayed to ensure stability.
+**Giấy phép không thay đổi**: Không có kế hoạch thay đổi giấy phép
 
 ---
 
-## How to Contribute
+## Tóm Tắt Mốc Thời Gian
 
-Interested in contributing to buttre? Here's how:
+| Quý | Trọng Tâm | Deliverable |
+|-----|-----------|-------------|
+| Q1–Q2 2026 | Installer & Hoàn Thiện Windows | buttre 0.7.0-beta (installer), buttre 1.0 Windows (ổn định) |
+| Q2 2026 | Cài Đặt macOS | buttre 1.0 macOS |
+| Q3 2026 | Cài Đặt Linux | buttre 1.0 Linux (IBus) |
+| Q4 2026 | Hỗ Trợ Hán Nôm | buttre 1.5 (tất cả nền tảng) |
+| 2027    | Tính Năng Nâng Cao | buttre 2.0 (tự động hoàn thành, v.v.) |
 
-1. **Code Contributions**:
-   - Check open issues labeled `good first issue`
-   - Read `docs/CODING_GUIDE.md` for coding standards
-   - Submit PR with tests and documentation
+**Lưu ý**: Mốc thời gian mang tính **định hướng** và phụ thuộc vào:
+- Thời gian của core team (đây là **dự án tình yêu**, không phải thương mại)
+- Đóng góp cộng đồng
+- Độ phức tạp nền tảng
+- Mức độ nghiêm trọng của lỗi
 
-2. **Testing & Feedback**:
-   - Try beta releases and report bugs
-   - Test on different platforms and applications
-   - Provide UX feedback
-
-3. **Documentation**:
-   - Improve user guides
-   - Write tutorials
-   - Translate documentation
-
-4. **Linguistics**:
-   - Help with Hán Nôm dictionary
-   - Validate Vietnamese orthography rules
-   - Support minority language scripts
-
-**Join us**: [GitHub Discussions](https://github.com/dxsl-org/buttre/discussions)
+**Tính linh hoạt**: Chúng tôi ưu tiên **chất lượng hơn tốc độ**. Phiên bản có thể bị trễ để đảm bảo ổn định.
 
 ---
 
-## Contact & Resources
+## Cách Đóng Góp
+
+Muốn đóng góp cho buttre? Đây là cách:
+
+1. **Đóng Góp Code**:
+   - Kiểm tra issue mở với nhãn `good first issue`
+   - Đọc `docs/02-coding-guide.md` để biết tiêu chuẩn code
+   - Submit PR kèm test và tài liệu
+
+2. **Kiểm Thử & Phản Hồi**:
+   - Thử bản beta và báo lỗi
+   - Kiểm thử trên các nền tảng và ứng dụng khác nhau
+   - Cung cấp phản hồi UX
+
+3. **Tài Liệu**:
+   - Cải thiện hướng dẫn người dùng
+   - Viết hướng dẫn
+   - Dịch tài liệu
+
+4. **Ngôn Ngữ Học**:
+   - Hỗ trợ từ điển Hán Nôm
+   - Xác minh quy tắc chính tả tiếng Việt
+   - Hỗ trợ chữ viết ngôn ngữ dân tộc thiểu số
+
+**Tham gia**: [GitHub Discussions](https://github.com/dxsl-org/buttre/discussions)
+
+---
+
+## Liên Hệ & Tài Nguyên
 
 - **GitHub**: [https://github.com/dxsl-org/buttre](https://github.com/dxsl-org/buttre)
 - **Issues**: [https://github.com/dxsl-org/buttre/issues](https://github.com/dxsl-org/buttre/issues)
 - **Discussions**: [https://github.com/dxsl-org/buttre/discussions](https://github.com/dxsl-org/buttre/discussions)
-- **Documentation**: `docs/` folder in repository
+- **Tài liệu**: Thư mục `docs/` trong repository
 
 ---
 
-**Last Updated**: 2026-05-19
+**Cập nhật lần cuối**: 2026-06-14
 
-_This roadmap is a living document and will be updated as the project evolves._
+_Đây là tài liệu sống và sẽ được cập nhật khi dự án phát triển._

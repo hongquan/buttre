@@ -1,11 +1,11 @@
-# buttre - Quick Start Guide
+# buttre — Hướng Dẫn Nhanh
 
-## 🚀 Cài Đặt TSF (Recommended)
+## 🚀 Cài Đặt TSF (Khuyến Nghị)
 
-### Bước 1: Mở PowerShell as Administrator
+### Bước 1: Mở PowerShell với quyền Administrator
 
 ```powershell
-# Right-click PowerShell → Run as Administrator
+# Chuột phải PowerShell → Run as Administrator
 cd "C:\Users\Admin\Download\buttre"
 .\install-tsf-auto.ps1
 ```
@@ -18,20 +18,20 @@ cd "C:\Users\Admin\Download\buttre"
 
 ### Bước 3: Sử Dụng
 
-- Nhấn **Windows + Space** để switch
-- Gõ thử: `viet` → `việt`, `hoa` → `hòa`
+- Nhấn **Windows + Space** để chuyển phương thức nhập
+- Gõ thử: `viet` → `việt`, `hoaf` → `hoà`
 
 ## 📖 Chi Tiết
 
-Xem file **TSF-TESTING-GUIDE.md** để biết thêm chi tiết.
+Xem file **TSF-TESTING-GUIDE.md** để biết thêm chi tiết kiểm thử.
 
-## ✅ Đã Hoàn Thành
+## ✅ Trạng Thái
 
-- ✅ 726/726 tests passing
-- ✅ Zero compiler warnings
-- ✅ Full Unikey algorithm
-- ✅ TSF + Hook backends
-- ✅ Icon embedded
-- ✅ Ready for beta!
+- ✅ 726/726 test đã qua
+- ✅ Không có compiler warning
+- ✅ Thuật toán Unikey đầy đủ
+- ✅ Backend TSF + Hook
+- ✅ Icon nhúng sẵn
+- ✅ Sẵn sàng beta!
 
-Enjoy! 🎉
+Chúc gõ vui! 🎉

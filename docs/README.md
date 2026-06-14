@@ -1,302 +1,302 @@
-# buttre Documentation
+# Tài Liệu buttre
 
-> Complete documentation for developers and contributors
+> Tài liệu đầy đủ dành cho developer và contributor
 
-**Last Updated**: 2026-06-13
-
----
-
-## Quick Start for Developers
-
-**New to buttre?** Read these in order:
-
-1. **[../README.md](../README.md)** - Project overview and quick start
-2. **[01-architecture.md](01-architecture.md)** - System architecture and design
-3. **[02-coding-guide.md](02-coding-guide.md)** - How to write code in this project
-4. **[ROADMAP.md](ROADMAP.md)** - Project roadmap and future plans
+**Cập nhật lần cuối**: 2026-06-14
 
 ---
 
-## Documentation Structure
+## Bắt Đầu Nhanh Cho Developer
+
+**Mới với buttre?** Đọc theo thứ tự sau:
+
+1. **[../README.md](../README.md)** — Tổng quan dự án và hướng dẫn cài đặt
+2. **[01-architecture.md](01-architecture.md)** — Kiến trúc hệ thống và thiết kế
+3. **[02-coding-guide.md](02-coding-guide.md)** — Cách viết code trong dự án này
+4. **[ROADMAP.md](ROADMAP.md)** — Lộ trình phát triển và kế hoạch tương lai
+
+---
+
+## Cấu Trúc Tài Liệu
 
 ```
 docs/
-├── README.md                      # This file
-├── 00-context.md                  # System context & design rules
-├── 01-architecture.md             # ⭐ System architecture (comprehensive)
-├── 02-coding-guide.md             # ⭐ Coding standards and patterns
-├── ROADMAP.md                     # ⭐ Project roadmap and timeline
-├── PIPELINE_ARCHITECTURE.md       # Detailed 7-stage pipeline docs
-├── VIETNAMESE_ACCENT.md           # Vietnamese orthography specification
-├── MANUAL_TESTING_GUIDE.md        # How to manually test TSF DLL
-├── FFI_SAFETY_GUIDE.md            # FFI safety patterns (for macOS/Linux)
-└── journals/                      # Development journals
+├── README.md                      # File này
+├── 00-context.md                  # Bối cảnh hệ thống & quy tắc thiết kế
+├── 01-architecture.md             # ⭐ Kiến trúc hệ thống (toàn diện)
+├── 02-coding-guide.md             # ⭐ Tiêu chuẩn code và các pattern
+├── ROADMAP.md                     # ⭐ Lộ trình dự án và mốc thời gian
+├── PIPELINE_ARCHITECTURE.md       # Tài liệu chi tiết pipeline 7 giai đoạn
+├── VIETNAMESE_ACCENT.md           # Đặc tả chính tả tiếng Việt
+├── MANUAL_TESTING_GUIDE.md        # Hướng dẫn kiểm thử thủ công TSF DLL
+├── FFI_SAFETY_GUIDE.md            # Các pattern FFI an toàn (macOS/Linux)
+└── journals/                      # Nhật ký phát triển
 ```
 
 ---
 
-## Core Documentation
+## Tài Liệu Cốt Lõi
 
 ### [00-context.md](00-context.md)
 
-**What**: System context and design rules for all contributors (including AI agents)
+**Nội dung**: Bối cảnh hệ thống và quy tắc thiết kế cho tất cả contributor (bao gồm AI agent)
 
-**Contains**:
-- Project metadata (name, version, platforms, tech stack)
-- Crate structure and responsibilities
-- Code quality rules (error handling, unsafe code, type safety)
-- Testing requirements
-- Workflow for AI agents
-- Vietnamese input rules (tone placement, auto-correction)
-- Pipeline architecture overview
-- Build commands
-- Reference implementations
-- Rust coding rules (mandatory)
+**Bao gồm**:
+- Metadata dự án (tên, phiên bản, nền tảng, tech stack)
+- Cấu trúc crate và trách nhiệm từng crate
+- Quy tắc chất lượng code (xử lý lỗi, unsafe code, type safety)
+- Yêu cầu kiểm thử
+- Quy trình làm việc cho AI agent
+- Quy tắc nhập liệu tiếng Việt (vị trí dấu thanh, tự động sửa)
+- Tổng quan kiến trúc pipeline
+- Lệnh build
+- Các implementation tham chiếu
+- Quy tắc code Rust (bắt buộc)
 
-**When to read**:
-- ⭐ **BEFORE contributing any code**
-- When setting up development environment
-- When onboarding new team members
+**Khi nào nên đọc**:
+- ⭐ **TRƯỚC KHI đóng góp bất kỳ code nào**
+- Khi cài đặt môi trường phát triển
+- Khi giới thiệu thành viên mới
 
 ---
 
 ### [01-architecture.md](01-architecture.md)
 
-**What**: Complete architectural overview of buttre
+**Nội dung**: Tổng quan kiến trúc đầy đủ của buttre
 
-**Contains**:
-- System overview and high-level architecture
-- Crate structure (buttre-engine, buttre-core, buttre-platform, buttre-test)
-- 7-stage processing pipeline architecture
-- State management and data flow
-- Platform integration (Windows TSF, macOS, Linux)
-- Design principles
+**Bao gồm**:
+- Tổng quan hệ thống và kiến trúc cấp cao
+- Cấu trúc crate (buttre-engine, buttre-core, buttre-platform, buttre-test)
+- Kiến trúc pipeline xử lý 7 giai đoạn
+- Quản lý state và luồng dữ liệu
+- Tích hợp platform (Windows TSF, macOS, Linux)
+- Các nguyên tắc thiết kế
 
-**When to read**:
-- ⭐ **FIRST** - Before contributing code
-- When you need to understand the big picture
-- When planning new features
+**Khi nào nên đọc**:
+- ⭐ **ĐỌC TRƯỚC TIÊN** — Trước khi đóng góp code
+- Khi cần hiểu bức tranh tổng thể
+- Khi lên kế hoạch cho tính năng mới
 
 ---
 
 ### [02-coding-guide.md](02-coding-guide.md)
 
-**What**: Coding standards and patterns extracted from actual codebase
+**Nội dung**: Tiêu chuẩn code và các pattern được trích xuất từ codebase thực tế
 
-**Contains**:
-- Project setup and workspace structure
-- Rust coding standards (error handling, documentation, naming)
-- Common patterns (Pipeline Stage, Action Enum, Configuration)
-- Testing guidelines (unit tests, integration tests)
-- Error handling best practices
-- Performance guidelines
-- How to add new features (step-by-step)
+**Bao gồm**:
+- Cài đặt dự án và cấu trúc workspace
+- Tiêu chuẩn code Rust (xử lý lỗi, tài liệu, đặt tên)
+- Các pattern thường dùng (Pipeline Stage, Action Enum, Configuration)
+- Hướng dẫn kiểm thử (unit test, integration test)
+- Best practice xử lý lỗi
+- Hướng dẫn hiệu năng
+- Cách thêm tính năng mới (từng bước)
 
-**When to read**:
-- ⭐ **BEFORE** writing code
-- When you're unsure about coding style
-- Before submitting a PR
+**Khi nào nên đọc**:
+- ⭐ **TRƯỚC KHI** viết code
+- Khi không chắc về coding style
+- Trước khi submit PR
 
 ---
 
 ### [ROADMAP.md](ROADMAP.md)
 
-**What**: Strategic plan for buttre development
+**Nội dung**: Kế hoạch chiến lược cho sự phát triển của buttre
 
-**Contains**:
-- Current status and completed features
-- Phase-by-phase roadmap (Q1-Q4 2026, 2027)
-- Platform priorities (Windows, macOS, Linux)
-- Hán Nôm support plan
-- Advanced features under consideration
-- Technical debt and known issues
-- Timeline and deliverables
+**Bao gồm**:
+- Trạng thái hiện tại và các tính năng đã hoàn thành
+- Lộ trình theo từng phase (Q1–Q4 2026, 2027)
+- Ưu tiên theo nền tảng (Windows, macOS, Linux)
+- Kế hoạch hỗ trợ chữ Hán Nôm
+- Các tính năng nâng cao đang được cân nhắc
+- Nợ kỹ thuật và vấn đề đã biết
+- Mốc thời gian và các deliverable
 
-**When to read**:
-- When you want to contribute (find what's planned)
-- When proposing new features
-- To understand project direction
+**Khi nào nên đọc**:
+- Khi muốn đóng góp (tìm xem có gì được lên kế hoạch)
+- Khi đề xuất tính năng mới
+- Để hiểu định hướng dự án
 
 ---
 
-## Specialized Documentation
+## Tài Liệu Chuyên Biệt
 
 ### [PIPELINE_ARCHITECTURE.md](PIPELINE_ARCHITECTURE.md)
 
-**What**: Detailed documentation of the 7-stage processing pipeline
+**Nội dung**: Tài liệu chi tiết về pipeline xử lý 7 giai đoạn
 
-**Contains**:
-- Stage-by-stage breakdown
-- Flow control and decision trees
-- State management in TypingContext
-- Performance optimizations
-- Real examples (typing "người")
+**Bao gồm**:
+- Mô tả từng giai đoạn
+- Điều khiển luồng và cây quyết định
+- Quản lý state trong TypingContext
+- Tối ưu hóa hiệu năng
+- Ví dụ thực tế (gõ "người")
 
-**When to read**:
-- When working on the engine (buttre-engine)
-- When debugging input processing
-- When adding new stages
+**Khi nào nên đọc**:
+- Khi làm việc trên engine (buttre-engine)
+- Khi debug quá trình xử lý nhập liệu
+- Khi thêm giai đoạn mới
 
 ---
 
 ### [VIETNAMESE_ACCENT.md](VIETNAMESE_ACCENT.md)
 
-**What**: Vietnamese orthography specification
+**Nội dung**: Đặc tả chính tả tiếng Việt
 
-**Contains**:
-- Phase 1: Character transformation (mũ, râu, trăng)
-- Phase 2: Parser & normalization (initial, vowel core, final)
-- Phase 3: Anchor logic (tone placement rules)
-- Priority rules for tone positioning
-- Test cases
+**Bao gồm**:
+- Phase 1: Biến đổi ký tự (mũ, râu, trăng)
+- Phase 2: Parser & chuẩn hóa (âm đầu, nhân nguyên âm, âm cuối)
+- Phase 3: Logic vị trí dấu thanh (quy tắc đặt dấu)
+- Quy tắc ưu tiên cho vị trí dấu thanh
+- Test case
 
-**When to read**:
-- When working on Vietnamese input logic
-- When fixing tone positioning bugs
-- When validating orthography rules
+**Khi nào nên đọc**:
+- Khi làm việc trên logic nhập liệu tiếng Việt
+- Khi sửa lỗi vị trí dấu thanh
+- Khi kiểm tra quy tắc chính tả
 
 ---
 
 ### [MANUAL_TESTING_GUIDE.md](MANUAL_TESTING_GUIDE.md)
 
-**What**: How to manually test the Windows TSF DLL
+**Nội dung**: Hướng dẫn kiểm thử thủ công Windows TSF DLL
 
-**Contains**:
-- Build output locations
-- Registration commands
-- Testing in Notepad/Word/browsers
-- Common issues and solutions
+**Bao gồm**:
+- Vị trí file build output
+- Lệnh đăng ký
+- Kiểm thử trong Notepad/Word/trình duyệt
+- Các vấn đề thường gặp và cách giải quyết
 
-**When to read**:
-- When testing Windows TSF changes
-- When debugging TSF integration
-- Before releasing Windows builds
+**Khi nào nên đọc**:
+- Khi kiểm thử thay đổi Windows TSF
+- Khi debug tích hợp TSF
+- Trước khi phát hành bản Windows
 
 ---
 
 ### [FFI_SAFETY_GUIDE.md](FFI_SAFETY_GUIDE.md)
 
-**What**: FFI safety patterns for platform integration
+**Nội dung**: Các pattern FFI an toàn cho tích hợp platform
 
-**Contains**:
-- Achieving zero unsafe in FFI
-- Objective-C ↔ Rust FFI patterns (for macOS)
-- Using windows-rs safely
-- Best practices for platform bindings
+**Bao gồm**:
+- Đạt được zero unsafe trong FFI
+- Các pattern FFI Objective-C ↔ Rust (cho macOS)
+- Sử dụng windows-rs một cách an toàn
+- Best practice cho platform binding
 
-**When to read**:
-- When working on macOS/Linux platform integration
-- When adding unsafe code
-- When reviewing FFI code
-
----
-
-## Documentation Maintenance
-
-### When to Update Documentation
-
-**01-architecture.md**: Update when:
-- Adding new crates
-- Changing crate responsibilities
-- Modifying pipeline architecture
-- Adding new platforms
-
-**02-coding-guide.md**: Update when:
-- Establishing new coding patterns
-- Changing naming conventions
-- Adding new testing guidelines
-- Discovering anti-patterns
-
-**ROADMAP.md**: Update when:
-- Completing phases
-- Adjusting timeline
-- Adding/removing features
-- Reprioritizing platforms
-
-**PIPELINE_ARCHITECTURE.md**: Update when:
-- Adding/removing stages
-- Changing stage responsibilities
-- Modifying flow control
-
-**VIETNAMESE_ACCENT.md**: Update when:
-- Fixing orthography bugs
-- Adding new rules
-- Clarifying specifications
-
-### Documentation Standards
-
-**Format**: All docs use GitHub-flavored Markdown
-
-**Style**:
-- Use clear, concise language
-- Include code examples from actual codebase
-- Provide "When to read" guidance
-- Keep docs up-to-date with code
-
-**File Naming**:
-- Use `UPPERCASE_WITH_UNDERSCORES.md` for major docs
-- Use `lowercase-with-hyphens.md` for subdirectories
-
-**Structure**:
-- Start with brief description
-- Include table of contents for long docs
-- Use headers for navigation
-- Add "Last Updated" date
+**Khi nào nên đọc**:
+- Khi làm việc trên tích hợp platform macOS/Linux
+- Khi thêm unsafe code
+- Khi review FFI code
 
 ---
 
-## Contributing to Documentation
+## Bảo Trì Tài Liệu
 
-Documentation improvements are highly valued!
+### Khi Nào Cần Cập Nhật Tài Liệu
 
-**How to contribute**:
+**01-architecture.md**: Cập nhật khi:
+- Thêm crate mới
+- Thay đổi trách nhiệm của crate
+- Sửa đổi kiến trúc pipeline
+- Thêm nền tảng mới
 
-1. **Fix typos/errors**: Submit PR directly
-2. **Clarify existing docs**: Submit PR with explanation
-3. **Add new sections**: Discuss in issue first, then PR
-4. **Add new docs**: Discuss in issue first (avoid duplication)
+**02-coding-guide.md**: Cập nhật khi:
+- Thiết lập pattern code mới
+- Thay đổi quy ước đặt tên
+- Thêm hướng dẫn kiểm thử mới
+- Phát hiện anti-pattern
 
-**Good documentation contributions**:
-- Fix outdated information
-- Add missing examples
-- Clarify confusing sections
-- Add diagrams/visuals
-- Improve navigation
-- Add "when to read" guidance
+**ROADMAP.md**: Cập nhật khi:
+- Hoàn thành các phase
+- Điều chỉnh mốc thời gian
+- Thêm/xóa tính năng
+- Thay đổi ưu tiên nền tảng
 
-**Documentation PR checklist**:
-- [ ] Information is accurate (verified against code)
-- [ ] Examples are from actual codebase
-- [ ] Formatting is consistent
-- [ ] Links are working
-- [ ] "Last Updated" date is current
-- [ ] No spelling/grammar errors
+**PIPELINE_ARCHITECTURE.md**: Cập nhật khi:
+- Thêm/xóa giai đoạn
+- Thay đổi trách nhiệm giai đoạn
+- Sửa đổi điều khiển luồng
+
+**VIETNAMESE_ACCENT.md**: Cập nhật khi:
+- Sửa lỗi chính tả
+- Thêm quy tắc mới
+- Làm rõ đặc tả
+
+### Tiêu Chuẩn Tài Liệu
+
+**Định dạng**: Tất cả tài liệu dùng GitHub-flavored Markdown
+
+**Phong cách**:
+- Ngôn ngữ rõ ràng, súc tích
+- Bao gồm ví dụ code từ codebase thực tế
+- Cung cấp hướng dẫn "Khi nào nên đọc"
+- Giữ tài liệu cập nhật theo code
+
+**Đặt tên file**:
+- Dùng `UPPERCASE_WITH_UNDERSCORES.md` cho tài liệu chính
+- Dùng `lowercase-with-hyphens.md` cho thư mục con
+
+**Cấu trúc**:
+- Bắt đầu với mô tả ngắn gọn
+- Thêm mục lục cho tài liệu dài
+- Dùng heading để điều hướng
+- Thêm ngày "Cập nhật lần cuối"
 
 ---
 
-## Quick Reference Card
+## Đóng Góp Tài Liệu
 
-| Task | Read This |
-|------|-----------|
-| I'm new and want context | [00-context.md](00-context.md) |
-| I want to understand buttre's architecture | [01-architecture.md](01-architecture.md) |
-| I want to write code for buttre | [02-coding-guide.md](02-coding-guide.md) |
-| I want to contribute a feature | [ROADMAP.md](ROADMAP.md) |
-| I'm working on the engine | [PIPELINE_ARCHITECTURE.md](PIPELINE_ARCHITECTURE.md) |
-| I'm fixing tone positioning | [VIETNAMESE_ACCENT.md](VIETNAMESE_ACCENT.md) |
-| I'm testing Windows TSF | [MANUAL_TESTING_GUIDE.md](MANUAL_TESTING_GUIDE.md) |
-| I'm adding macOS/Linux support | [FFI_SAFETY_GUIDE.md](FFI_SAFETY_GUIDE.md) |
+Đóng góp cải thiện tài liệu rất được trân trọng!
+
+**Cách đóng góp**:
+
+1. **Sửa lỗi chính tả/nội dung**: Submit PR trực tiếp
+2. **Làm rõ tài liệu hiện có**: Submit PR kèm giải thích
+3. **Thêm phần mới**: Thảo luận qua issue trước, sau đó PR
+4. **Thêm tài liệu mới**: Thảo luận qua issue trước (tránh trùng lặp)
+
+**Đóng góp tài liệu tốt**:
+- Sửa thông tin lỗi thời
+- Thêm ví dụ còn thiếu
+- Làm rõ các phần khó hiểu
+- Thêm sơ đồ/hình ảnh minh họa
+- Cải thiện điều hướng
+- Thêm hướng dẫn "khi nào nên đọc"
+
+**Checklist PR tài liệu**:
+- [ ] Thông tin chính xác (đã kiểm tra với code)
+- [ ] Ví dụ lấy từ codebase thực tế
+- [ ] Định dạng nhất quán
+- [ ] Các liên kết hoạt động
+- [ ] Ngày "Cập nhật lần cuối" là ngày hiện tại
+- [ ] Không có lỗi chính tả/ngữ pháp
 
 ---
 
-## Questions?
+## Bảng Tra Cứu Nhanh
 
-- **General questions**: [GitHub Discussions](https://github.com/dxsl-org/buttre/discussions)
-- **Bug reports**: [GitHub Issues](https://github.com/dxsl-org/buttre/issues)
-- **Documentation issues**: [GitHub Issues](https://github.com/dxsl-org/buttre/issues) (label: documentation)
+| Nhiệm vụ | Đọc file này |
+|----------|-------------|
+| Tôi mới và muốn hiểu bối cảnh | [00-context.md](00-context.md) |
+| Tôi muốn hiểu kiến trúc của buttre | [01-architecture.md](01-architecture.md) |
+| Tôi muốn viết code cho buttre | [02-coding-guide.md](02-coding-guide.md) |
+| Tôi muốn đóng góp tính năng | [ROADMAP.md](ROADMAP.md) |
+| Tôi đang làm việc trên engine | [PIPELINE_ARCHITECTURE.md](PIPELINE_ARCHITECTURE.md) |
+| Tôi đang sửa lỗi vị trí dấu thanh | [VIETNAMESE_ACCENT.md](VIETNAMESE_ACCENT.md) |
+| Tôi đang kiểm thử Windows TSF | [MANUAL_TESTING_GUIDE.md](MANUAL_TESTING_GUIDE.md) |
+| Tôi đang thêm hỗ trợ macOS/Linux | [FFI_SAFETY_GUIDE.md](FFI_SAFETY_GUIDE.md) |
 
 ---
 
-**Last Updated**: 2026-06-13
+## Câu Hỏi?
 
-_Thank you for reading the documentation! Your attention to detail helps make buttre better._
+- **Câu hỏi chung**: [GitHub Discussions](https://github.com/dxsl-org/buttre/discussions)
+- **Báo lỗi**: [GitHub Issues](https://github.com/dxsl-org/buttre/issues)
+- **Vấn đề tài liệu**: [GitHub Issues](https://github.com/dxsl-org/buttre/issues) (nhãn: documentation)
+
+---
+
+**Cập nhật lần cuối**: 2026-06-14
+
+_Cảm ơn bạn đã đọc tài liệu! Sự chú ý của bạn giúp buttre ngày càng hoàn thiện hơn._

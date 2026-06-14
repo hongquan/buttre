@@ -1,70 +1,70 @@
-# FFI Safety Guide - buttre macOS
+# Hướng Dẫn An Toàn FFI — buttre macOS
 
-**Topic**: Achieving ZERO unsafe in FFI  
-**Context**: Objective-C ↔ Rust FFI for macOS Input Method  
-**Result**: 🎉 **ZERO unsafe blocks!**
-
----
-
-## 🎯 Achievement: ZERO Unsafe!
-
-We achieved **ZERO unsafe blocks** by using a **handle-based architecture**
-instead of raw pointers.
-
-### Before (Pointer-Based): 2 unsafe blocks
-### After (Handle-Based): 0 unsafe blocks ✅
+**Chủ đề**: Đạt được ZERO unsafe trong FFI
+**Bối cảnh**: FFI Objective-C ↔ Rust cho macOS Input Method
+**Kết quả**: **ZERO unsafe block!**
 
 ---
 
-## 📊 Safety Comparison
+## Thành Tựu: ZERO Unsafe!
 
-### Pure Rust (Hypothetical)
-```
-Total Code: 4,000 lines
-Unsafe Code: 3,000 lines (75%)
-Safe Code: 1,000 lines (25%)
+Chúng tôi đạt được **ZERO unsafe block** bằng cách dùng **kiến trúc handle-based**
+thay vì raw pointer.
 
-Unsafe Scattered: Everywhere
-Audit Difficulty: Very Hard
-```
-
-### Hybrid (Current)
-```
-Total Code: 1,200 lines
-Unsafe Code: 60 lines (5%)
-Safe Code: 1,140 lines (95%)
-
-Unsafe Isolated: FFI boundary only
-Audit Difficulty: Easy
-```
-
-**Result**: Hybrid has **50x less unsafe code**!
+### Trước (Dựa Trên Pointer): 2 unsafe block
+### Sau (Dựa Trên Handle): 0 unsafe block ✅
 
 ---
 
-## 🛡️ Safety Strategy
+## So Sánh An Toàn
 
-### 1. **Validate at Boundary**
+### Rust Thuần Túy (Lý Thuyết)
+```
+Tổng Code: 4.000 dòng
+Code Unsafe: 3.000 dòng (75%)
+Code An Toàn: 1.000 dòng (25%)
+
+Unsafe Rải Rác: Khắp nơi
+Độ Khó Kiểm Tra: Rất Khó
+```
+
+### Hybrid (Hiện Tại)
+```
+Tổng Code: 1.200 dòng
+Code Unsafe: 60 dòng (5%)
+Code An Toàn: 1.140 dòng (95%)
+
+Unsafe Cô Lập: Chỉ ở biên giới FFI
+Độ Khó Kiểm Tra: Dễ
+```
+
+**Kết quả**: Hybrid có **ít unsafe code hơn 50 lần**!
+
+---
+
+## Chiến Lược An Toàn
+
+### 1. **Validate Tại Biên Giới**
 
 ```rust
-// ❌ BAD: Unsafe scattered
+// ❌ XẤU: Unsafe rải rác
 pub extern "C" fn process_key(engine: *mut Engine, key: u16) -> *const c_char {
     unsafe {
-        let e = &mut *engine;  // What if null?
+        let e = &mut *engine;  // Nếu null thì sao?
         let result = e.process(key);
         CString::new(result).unwrap().as_ptr()  // Memory leak!
     }
 }
 
-// ✅ GOOD: Validate first, then safe
+// ✅ TỐT: Validate trước, sau đó an toàn
 pub extern "C" fn process_key(engine: *mut Engine, key: u16) -> *const c_char {
     // Validate
     let engine = match validate_ptr(engine) {
         Some(e) => e,
         None => return std::ptr::null(),
     };
-    
-    // All safe from here!
+
+    // Tất cả an toàn từ đây!
     process_key_safe(engine, key)
 }
 
@@ -72,16 +72,16 @@ fn validate_ptr(ptr: *mut Engine) -> Option<&'static mut Engine> {
     if ptr.is_null() {
         return None;
     }
-    Some(unsafe { &mut *ptr })  // Single unsafe block
+    Some(unsafe { &mut *ptr })  // Một unsafe block duy nhất
 }
 ```
 
 ---
 
-### 2. **Encapsulate Unsafe Operations**
+### 2. **Đóng Gói Các Thao Tác Unsafe**
 
 ```rust
-// ❌ BAD: Unsafe logic mixed with business logic
+// ❌ XẤU: Logic unsafe trộn lẫn với business logic
 pub extern "C" fn process(engine: *mut Engine, text: *const c_char) -> bool {
     unsafe {
         let e = &mut *engine;
@@ -92,12 +92,12 @@ pub extern "C" fn process(engine: *mut Engine, text: *const c_char) -> bool {
     }
 }
 
-// ✅ GOOD: Separate unsafe conversion from safe logic
+// ✅ TỐT: Tách riêng chuyển đổi unsafe khỏi logic an toàn
 pub extern "C" fn process(engine: *mut Engine, text: *const c_char) -> bool {
     let engine = validate_ptr(engine)?;
     let text = unsafe_cstr_to_string(text)?;
-    
-    // All safe!
+
+    // Hoàn toàn an toàn!
     engine.process(&text);
     true
 }
@@ -106,7 +106,7 @@ fn unsafe_cstr_to_string(ptr: *const c_char) -> Option<String> {
     if ptr.is_null() {
         return None;
     }
-    
+
     unsafe {
         CStr::from_ptr(ptr)
             .to_str()
@@ -118,38 +118,38 @@ fn unsafe_cstr_to_string(ptr: *const c_char) -> Option<String> {
 
 ---
 
-### 3. **Document Safety Invariants**
+### 3. **Ghi Lại Safety Invariant**
 
 ```rust
-/// Create new engine
-/// 
+/// Tạo engine mới
+///
 /// # Safety
-/// 
-/// The returned pointer must be freed with `engine_free`.
-/// 
+///
+/// Pointer trả về PHẢI được giải phóng bằng `engine_free`.
+///
 /// # Invariants
-/// 
-/// - Returns non-null pointer or null on allocation failure
-/// - Caller must call `engine_free` exactly once
-/// - Pointer is valid until `engine_free` is called
+///
+/// - Trả về pointer khác null hoặc null khi thất bại cấp phát
+/// - Caller phải gọi `engine_free` đúng một lần
+/// - Pointer hợp lệ cho đến khi `engine_free` được gọi
 #[no_mangle]
 pub extern "C" fn engine_new() -> *mut Engine {
     Box::into_raw(Box::new(Engine::new()))
 }
 
-/// Free engine
-/// 
+/// Giải phóng engine
+///
 /// # Safety
-/// 
-/// - `engine` must be from `engine_new`
-/// - `engine` must not be used after this call
-/// - `engine` must not be freed twice
-/// - Passing null is safe (no-op)
+///
+/// - `engine` phải từ `engine_new`
+/// - `engine` không được dùng sau lời gọi này
+/// - `engine` không được giải phóng hai lần
+/// - Truyền null là an toàn (no-op)
 #[no_mangle]
 pub extern "C" fn engine_free(engine: *mut Engine) {
     if !engine.is_null() {
         unsafe {
-            // SAFETY: We own this pointer from engine_new
+            // SAFETY: Chúng ta sở hữu pointer này từ engine_new
             let _ = Box::from_raw(engine);
         }
     }
@@ -158,77 +158,77 @@ pub extern "C" fn engine_free(engine: *mut Engine) {
 
 ---
 
-## 🔒 Safety Guarantees
+## Đảm Bảo An Toàn
 
-### Our FFI Provides:
+### FFI Của Chúng Tôi Cung Cấp:
 
-#### 1. **No Null Pointer Dereference**
+#### 1. **Không Dereference Null Pointer**
 
 ```rust
-// ✅ Always validate
+// ✅ Luôn validate
 fn validate_ptr<T>(ptr: *mut T) -> Option<&'static mut T> {
     if ptr.is_null() {
-        eprintln!("ERROR: Null pointer");
+        eprintln!("LỖI: Null pointer");
         return None;
     }
     Some(unsafe { &mut *ptr })
 }
 ```
 
-#### 2. **No Use-After-Free**
+#### 2. **Không Use-After-Free**
 
 ```rust
-// ✅ Clear ownership
-// - Objective-C creates: buttre_engine_new()
-// - Objective-C owns: stores in @property
-// - Objective-C frees: buttre_engine_free() in dealloc
-// - Rust never frees (except in buttre_engine_free)
+// ✅ Quyền sở hữu rõ ràng
+// - Objective-C tạo: buttre_engine_new()
+// - Objective-C sở hữu: lưu trong @property
+// - Objective-C giải phóng: buttre_engine_free() trong dealloc
+// - Rust không bao giờ giải phóng (trừ trong buttre_engine_free)
 ```
 
-#### 3. **No Memory Leaks**
+#### 3. **Không Rò Rỉ Bộ Nhớ**
 
 ```rust
-// ✅ CString kept alive
+// ✅ CString được giữ alive
 pub struct Engine {
-    last_result: Option<CString>,  // Owned by engine
+    last_result: Option<CString>,  // Sở hữu bởi engine
 }
 
 fn return_string(engine: &mut Engine, text: String) -> *const c_char {
     let cstring = CString::new(text).ok()?;
     let ptr = cstring.as_ptr();
-    engine.last_result = Some(cstring);  // Keep alive!
+    engine.last_result = Some(cstring);  // Giữ alive!
     ptr
 }
 ```
 
-#### 4. **No Data Races**
+#### 4. **Không Data Race**
 
 ```rust
-// ✅ Single-threaded guarantee
-// - macOS calls us on main thread only
-// - No Arc/Mutex needed
-// - No shared mutable state
+// ✅ Đảm bảo single-thread
+// - macOS gọi chúng ta trên main thread
+// - Không cần Arc/Mutex
+// - Không có shared mutable state
 ```
 
 ---
 
-## 📋 Safety Checklist
+## Checklist An Toàn
 
-When writing FFI functions:
+Khi viết hàm FFI:
 
-- [ ] **Validate all pointers** before dereferencing
-- [ ] **Check for null** explicitly
-- [ ] **Document safety requirements** in comments
-- [ ] **Isolate unsafe** to small, auditable blocks
-- [ ] **Keep strings alive** (store in struct)
-- [ ] **Handle errors** gracefully (return null, not panic)
-- [ ] **Write tests** for null safety
-- [ ] **Use `#[no_mangle]`** for C visibility
-- [ ] **Use `extern "C"`** for C ABI
+- [ ] **Validate tất cả pointer** trước khi dereference
+- [ ] **Kiểm tra null** tường minh
+- [ ] **Ghi lại yêu cầu an toàn** trong comment
+- [ ] **Cô lập unsafe** thành các block nhỏ, dễ kiểm tra
+- [ ] **Giữ string alive** (lưu trong struct)
+- [ ] **Xử lý lỗi** nhẹ nhàng (trả về null, không panic)
+- [ ] **Viết test** cho null safety
+- [ ] **Dùng `#[no_mangle]`** để C visibility
+- [ ] **Dùng `extern "C"`** cho C ABI
 
 ---
 
-## 🧪 Testing Safety
+## Kiểm Thử An Toàn
 
 ```rust
 #[cfg(test)]
@@ -237,13 +237,13 @@ mod tests {
 
     #[test]
     fn test_null_safety() {
-        // All functions must handle null gracefully
+        // Tất cả hàm phải xử lý null nhẹ nhàng
         assert_eq!(
             process_key(std::ptr::null_mut(), 0, false),
             std::ptr::null()
         );
-        
-        // No crash on null
+
+        // Không crash khi null
         engine_free(std::ptr::null_mut());
     }
 
@@ -251,28 +251,25 @@ mod tests {
     fn test_lifecycle() {
         let engine = engine_new();
         assert!(!engine.is_null());
-        
-        // Use it
+
+        // Dùng nó
         let result = process_key(engine, 0, false);
         assert!(!result.is_null());
-        
-        // Free it
-        engine_free(engine);
-        
-        // Double free is safe
+
+        // Giải phóng
         engine_free(engine);
     }
 
     #[test]
     fn test_string_lifetime() {
         let engine = engine_new();
-        
+
         let r1 = process_key(engine, 0, false);
         let r2 = process_key(engine, 1, false);
-        
-        // r1 is now invalid (overwritten)
-        // But we don't use it, so no problem
-        
+
+        // r1 giờ không hợp lệ (đã bị ghi đè)
+        // Nhưng chúng ta không dùng nó, nên không vấn đề
+
         engine_free(engine);
     }
 }
@@ -280,37 +277,37 @@ mod tests {
 
 ---
 
-## 💡 Best Practices
+## Best Practice
 
-### 1. **Minimize Unsafe Surface Area**
+### 1. **Giảm Thiểu Vùng Unsafe**
 
 ```rust
-// ✅ GOOD: Unsafe only at boundary
+// ✅ TỐT: Unsafe chỉ ở biên giới
 pub extern "C" fn api_function(...) -> ... {
     let validated = validate_inputs(...)?;
-    safe_implementation(validated)  // 100% safe
+    safe_implementation(validated)  // 100% an toàn
 }
 
 fn safe_implementation(...) -> ... {
-    // All safe code here!
+    // Tất cả code an toàn ở đây!
 }
 ```
 
-### 2. **Use Type System for Safety**
+### 2. **Dùng Type System Cho An Toàn**
 
 ```rust
-// ✅ Use Option for nullable pointers
+// ✅ Dùng Option cho nullable pointer
 fn validate_ptr<T>(ptr: *mut T) -> Option<&'static mut T> {
-    // Returns None instead of unsafe null dereference
+    // Trả về None thay vì dereference null không an toàn
 }
 
-// ✅ Use Result for errors
+// ✅ Dùng Result cho lỗi
 fn convert_string(ptr: *const c_char) -> Result<String, FFIError> {
-    // Explicit error handling
+    // Xử lý lỗi tường minh
 }
 ```
 
-### 3. **Defensive Programming**
+### 3. **Lập Trình Phòng Thủ**
 
 ```rust
 pub extern "C" fn process_key(
@@ -318,90 +315,90 @@ pub extern "C" fn process_key(
     keycode: u16,
     shift: bool,
 ) -> *const c_char {
-    // Validate everything!
+    // Validate mọi thứ!
     if engine.is_null() {
-        eprintln!("ERROR: Null engine");
+        eprintln!("LỖI: Null engine");
         return std::ptr::null();
     }
-    
+
     if keycode > 255 {
-        eprintln!("ERROR: Invalid keycode: {}", keycode);
+        eprintln!("LỖI: Keycode không hợp lệ: {}", keycode);
         return std::ptr::null();
     }
-    
-    // Now safe to proceed
+
+    // Giờ an toàn để tiếp tục
     // ...
 }
 ```
 
 ---
 
-## 📊 Unsafe Block Audit
+## Kiểm Tra Unsafe Block
 
-### Current FFI Layer
+### FFI Layer Hiện Tại
 
 ```rust
-// Total unsafe blocks: 3
+// Tổng unsafe block: 3
 
-// Unsafe #1: Pointer validation (1 line)
+// Unsafe #1: Validate pointer (1 dòng)
 Some(unsafe { &mut *ptr })
 
-// Unsafe #2: Box allocation (1 line)
+// Unsafe #2: Cấp phát Box (1 dòng)
 Box::into_raw(Box::new(Engine::new()))
 
-// Unsafe #3: Box deallocation (1 line)
+// Unsafe #3: Giải phóng Box (1 dòng)
 let _ = Box::from_raw(engine);
 
-// Total unsafe lines: 3
-// Total safe lines: 200+
-// Ratio: 1.5% unsafe
+// Tổng dòng unsafe: 3
+// Tổng dòng an toàn: 200+
+// Tỉ lệ: 1.5% unsafe
 ```
 
-### Audit Questions
+### Câu Hỏi Kiểm Tra
 
-For each unsafe block, ask:
+Cho mỗi unsafe block, hỏi:
 
-1. ✅ **Is the pointer valid?** → We validate first
-2. ✅ **Is the lifetime correct?** → Documented in comments
-3. ✅ **Can this cause UB?** → No, we check all preconditions
-4. ✅ **Is there a safe alternative?** → No, FFI requires unsafe
-
----
-
-## 🎯 Conclusion
-
-### Hybrid Approach Safety:
-
-**Pros**:
-- ✅ Only 3 unsafe blocks (~1.5% of code)
-- ✅ All unsafe isolated to FFI boundary
-- ✅ 98.5% of code is safe Rust
-- ✅ Easy to audit (3 blocks vs 1000+)
-- ✅ Clear safety documentation
-
-**Cons**:
-- ⚠️ Still has unsafe (unavoidable in FFI)
-- ⚠️ Requires careful review
-
-**Verdict**: **Best possible safety for FFI**
+1. ✅ **Pointer có hợp lệ không?** → Chúng ta validate trước
+2. ✅ **Lifetime có đúng không?** → Được ghi lại trong comment
+3. ✅ **Có gây UB không?** → Không, chúng ta kiểm tra mọi điều kiện
+4. ✅ **Có lựa chọn an toàn nào không?** → Không, FFI yêu cầu unsafe
 
 ---
 
-### Comparison to Pure Rust:
+## Kết Luận
 
-| Metric | Pure Rust | Hybrid |
-|--------|-----------|--------|
-| **Unsafe Blocks** | 1000+ | 3 |
-| **Unsafe Lines** | 3000+ | 3 |
-| **Unsafe %** | 75% | 1.5% |
-| **Audit Time** | Days | Minutes |
-| **Bug Risk** | High | Low |
+### An Toàn Của Phương Pháp Hybrid:
 
-**Winner**: Hybrid (50x safer!)
+**Ưu điểm**:
+- ✅ Chỉ 3 unsafe block (~1.5% code)
+- ✅ Tất cả unsafe được cô lập ở biên giới FFI
+- ✅ 98.5% code là Rust an toàn
+- ✅ Dễ kiểm tra (3 block vs 1000+)
+- ✅ Tài liệu an toàn rõ ràng
+
+**Nhược điểm**:
+- ⚠️ Vẫn có unsafe (không thể tránh trong FFI)
+- ⚠️ Yêu cầu review cẩn thận
+
+**Kết luận**: **An toàn tốt nhất có thể cho FFI**
 
 ---
 
-## 📚 References
+### So Sánh Với Rust Thuần Túy:
+
+| Chỉ Số | Rust Thuần | Hybrid |
+|--------|------------|--------|
+| **Unsafe Block** | 1000+ | 3 |
+| **Dòng Unsafe** | 3000+ | 3 |
+| **% Unsafe** | 75% | 1.5% |
+| **Thời Gian Kiểm Tra** | Nhiều ngày | Vài phút |
+| **Rủi Ro Lỗi** | Cao | Thấp |
+
+**Chiến Thắng**: Hybrid (an toàn hơn 50 lần!)
+
+---
+
+## Tài Liệu Tham Khảo
 
 - [Rust FFI Omnibus](http://jakegoulding.com/rust-ffi-omnibus/)
 - [Rustonomicon - FFI](https://doc.rust-lang.org/nomicon/ffi.html)
@@ -409,12 +406,12 @@ For each unsafe block, ask:
 
 ---
 
-**Key Takeaway**: 
+**Bài học chính**:
 
-> Unsafe is unavoidable in FFI, but we can make it **safe by design**:
-> 1. Validate at boundary
-> 2. Isolate unsafe blocks
-> 3. Document invariants
-> 4. Test thoroughly
+> Unsafe không thể tránh trong FFI, nhưng chúng ta có thể làm nó **an toàn theo thiết kế**:
+> 1. Validate tại biên giới
+> 2. Cô lập unsafe block
+> 3. Ghi lại invariant
+> 4. Kiểm thử kỹ lưỡng
 
-Our hybrid approach achieves **98.5% safe code** while maintaining full functionality! 🎯
+Phương pháp hybrid của chúng tôi đạt **98.5% code an toàn** trong khi vẫn giữ đầy đủ chức năng!

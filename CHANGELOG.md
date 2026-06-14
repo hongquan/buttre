@@ -1,42 +1,28 @@
-# Changelog
+# Nhật Ký Thay Đổi
 
-All notable changes to buttre are documented here. Format follows [Keep a Changelog](https://keepachangelog.com); versions follow SemVer.
+Tất cả thay đổi đáng chú ý của buttre được ghi lại tại đây. Định dạng theo [Keep a Changelog](https://keepachangelog.com); phiên bản theo SemVer.
 
-## [Unreleased]
+## [1.7.1-beta] — 2026-06-14
+- Engine — Tái cấu trúc recompute (12 → 7 giai đoạn)
+- Thống nhất tất cả bảng dấu thanh và logic vị trí vào `crates/buttre-engine/src/tone/`
+- Một pipeline config-driven phục vụ Telex, VNI, VIQR, và Nôm; segment mode (`MarkBased`/`DirectMap`) và validator (`Vietnamese`/`Hmong`/`Custom`/`None`) được chọn qua config, không hardcode.
+- Hành vi: VNI `u7o7` các hợp âm compose đúng theo bất kỳ thứ tự nào; English fallback validation-first, undo giữ nguyên transform
+- Hiệu năng: ~250 ns–8 µs/lần gõ phím (dưới 1 ms)
+- Sửa lỗi bộ cài đặt Windows TSF, macOS FFI và Linux IBus
+- Viết lại toàn bộ tài liệu docs/ và README sang tiếng Việt
 
-## [0.7.0-beta] - 2026-06-14
+## [0.6.2-alpha] — 2026-01-13
+- Sửa lỗi bỏ digit kiểu "H2O" trong nhập alphanumeric; cải thiện giữ nguyên literal-mark
 
-### Engine — recompute refactor (12 → 7 stages)
-- Replaced the dual-engine design (incremental Transform/Tone + Permutation/Reconciliation/Retrofix) with one pure `compose()` that rebuilds the syllable from the raw key buffer each keystroke — no inter-stage state, fully deterministic. Stages 4–8 retired; logic now in `crates/buttre-engine/src/compose/`.
-- Unified all tone tables and placement into `crates/buttre-engine/src/tone/` (single source of truth).
-- One config-driven pipeline serves Telex, VNI, VIQR, and Nôm; segment mode (`MarkBased`/`DirectMap`) and validator (`Vietnamese`/`Hmong`/`Custom`/`None`) are config-selected, not hard-coded.
-- Behavior: VNI `u7o7` compounds compose correctly in any order; validation-first English fallback (no duplicate-key trigger needed); undo preserves transforms, matching Unikey/OpenKey.
-- Performance: ~250 ns–8 µs/keystroke (well under 1 ms).
+## [0.6.1-alpha] — 2026-01-10
+- Thêm workflow bảo trì tự động bằng agent
+- Sửa lỗi desync backspace xuyên từ; mở rộng phát hiện separator
 
-### Platforms
-- **macOS FFI (BREAKING ABI):** `buttre_engine_process_key` gains a 4th param `capslock: bool` (uppercase = `capslock XOR shift`) — **Swift hosts must update call sites**. Added full US-ANSI punctuation keycodes, runtime `set_method` (telex/vni), and `set_enabled`. Ported off the removed `vietnamese::methods` API to the `Keyboard` pipeline.
-- **Linux IBus:** real CommitText / UpdatePreeditText / DeleteSurroundingText signals; break-key and modifier-combo passthrough; `CapsLock XOR Shift`; method selected via `~/.config/buttre/method`; background tokio runtime with clean shutdown. Ported to the `Keyboard` pipeline.
-- Fixed help dialog URLs: `vi-group` → `dxsl-org`.
+## [0.6.0-alpha] — 2026-01-05
+- Mốc kiến trúc core: pipeline 12 giai đoạn, PGO (~1 µs/lần gõ), gõ linh hoạt (permutation), đồng bộ xuyên từ, backend hybrid Hook+TSF, retrofix/undo
 
-### Installers & CI
-- Windows MSI (`cargo wix`), Linux `.deb`/`.rpm` (IBus component XML + cache refresh), macOS universal `.dylib` zip.
-- **New:** Windows hook-only ZIP (`buttre-{ver}-windows-hook.zip`) — extract and run `buttre.exe` with no installer required (hook mode only, no TSF).
-- GitHub Actions: 4-artifact release matrix (MSI + hook ZIP + deb/rpm + dylib); Linux/macOS build+test jobs enabled; release workflow modernized (Linux pinned to `ubuntu-22.04`).
-- Fixed: TSF `CLSID_buttre_TEXT_SERVICE` placeholder mismatch causing silent COM activation failure.
+## [0.2.0-alpha] — 2025-12-27
+- Hiệu năng VNI: bảng dấu thanh được tính sẵn + phát hiện range-based; PGO engine core
 
-## [0.6.2-alpha] - 2026-01-13
-- Fixed "H2O"-style digit drop in alphanumeric input; better literal-mark preservation; refined digit-penalty scoring.
-- Removed debug logging from production builds.
-
-## [0.6.1-alpha] - 2026-01-10
-- Added agentic maintenance workflows.
-- Fixed cross-word backspace desync; broadened separator detection.
-
-## [0.6.0-alpha] - 2026-01-05
-Core-architecture milestone: 12-stage pipeline, PGO (~1 µs/keystroke), flexible (permutation) typing, cross-word sync, hybrid Hook+TSF backend, retrofix/undo. _(The 12-stage pipeline was later superseded by the 7-stage recompute engine in 0.7.0-beta.)_
-
-## [0.2.0-alpha] - 2025-12-27
-- VNI performance: precomputed tone tables + range-based detection; PGO engine core.
-
-## [0.1.0-alpha] - 2025-12-19
-Initial release. Methods: Telex, VNI, Nôm. Platforms: Windows (Hook+TSF), Linux (IBus), macOS. Features: English fallback, raw mode, tone toggle, undo.
+## [0.1.0-alpha] — 2025-12-19
+- Phát hành đầu tiên. Phương thức: Telex, VNI, Nôm. Nền tảng: Windows (Hook+TSF), Linux (IBus), macOS. Tính năng: English fallback, raw mode, tone toggle, undo

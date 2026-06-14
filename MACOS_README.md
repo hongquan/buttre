@@ -1,24 +1,22 @@
-> **macOS support is currently developer-only.** There is no end-user installer.
-> The release ships `libbuttre_platform.dylib` as a developer artifact (universal binary) for use in
-> custom host apps. See the bundled README inside `buttre-*-macos-dylib.zip` for linking instructions
-> and Gatekeeper quarantine workaround. A Swift IMK shell is planned but not yet built.
+> **Hỗ trợ macOS hiện chỉ dành cho developer.** Chưa có installer cho người dùng cuối.
+> Bản release đính kèm `libbuttre_platform.dylib` là artifact dành cho developer (universal binary) để dùng trong custom host app. Xem README bên trong `buttre-*-macos-dylib.zip` để biết hướng dẫn linking và cách bỏ quarantine Gatekeeper. Shell Swift IMK đang được lên kế hoạch nhưng chưa xây dựng.
 
-# 🍎 buttre macOS - Ready for Development!
+# 🍎 buttre macOS — Sẵn Sàng Cho Developer!
 
-## 📦 Build Information
+## 📦 Thông Tin Build
 
-**Version**: 0.1.0 (Phase 1 - Foundation)  
-**Status**: ✅ Code Complete, Ready to Build on macOS  
-**Architecture**: IMKit + Rust FFI
+**Phiên bản**: 0.7.0-beta
+**Trạng thái**: ✅ Code Hoàn Chỉnh, Sẵn Sàng Build Trên macOS
+**Kiến trúc**: IMKit + Rust FFI
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Kiến Trúc
 
 ```
 ┌─────────────────────────────┐
-│    macOS Applications       │
-│  (TextEdit, Notes, etc.)    │
+│    Ứng Dụng macOS           │
+│  (TextEdit, Notes, v.v.)    │
 └──────────┬──────────────────┘
            │
     ┌──────▼──────┐
@@ -37,227 +35,238 @@
 
 ---
 
-## 🚀 Build Instructions (On macOS)
+## 🚀 Hướng Dẫn Build (Trên macOS)
 
-### Prerequisites
+### Yêu Cầu
 
 ```bash
-# Install Xcode Command Line Tools
+# Cài Xcode Command Line Tools
 xcode-select --install
 
-# Install Rust
+# Cài Rust
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Add aarch64 target (for Apple Silicon)
+# Thêm target aarch64 (cho Apple Silicon)
 rustup target add aarch64-apple-darwin
 ```
 
 ### Build
 
 ```bash
-# Make script executable
+# Cấp quyền thực thi script
 chmod +x scripts/build-macos.sh
 
-# Run build
+# Chạy build
 ./scripts/build-macos.sh
 ```
 
-**Output**: `target/release/libbuttre_platform.dylib` (host arch; use `installers/macos/build_dylib.sh <version>` for the universal release ZIP)
+**Đầu ra**: `target/release/libbuttre_platform.dylib` (kiến trúc host; dùng `installers/macos/build_dylib.sh <version>` để tạo universal release ZIP)
 
 ---
 
-## 📥 Installation
+## 📥 Cài Đặt
 
 ```bash
-# Copy to system location (requires sudo)
+# Sao chép vào vị trí hệ thống (yêu cầu sudo)
 sudo cp -R build/macos/buttre.app "/Library/Input Methods/"
 
-# Restart Input Method system
+# Khởi động lại hệ thống Input Method
 killall -9 SystemUIServer
 ```
 
-### Add Input Source
+### Thêm Input Source
 
 1. **System Settings** → **Keyboard** → **Input Sources**
-2. Click **+** button
-3. Select **Vietnamese**
-4. Choose **buttre**
-5. Click **Add**
+2. Nhấp nút **+**
+3. Chọn **Vietnamese**
+4. Chọn **buttre**
+5. Nhấp **Add**
 
 ---
 
-## 🧪 Testing
+## 🧪 Kiểm Thử
 
-### Test 1: Basic Input
-1. Open **TextEdit**
-2. Switch to buttre (Control + Space or Globe key)
-3. Type: `hoaf`
-4. **Expected**: `hoà` with underline
+### Test 1: Nhập Cơ Bản
+1. Mở **TextEdit**
+2. Chuyển sang buttre (Control + Space hoặc phím Globe)
+3. Gõ: `hoaf`
+4. **Mong đợi**: `hoà` có gạch chân
 
-### Test 2: Uppercase
-1. Type: `Shift+V` `i` `e` `e` `t`
-2. **Expected**: `Việt`
+### Test 2: Chữ Hoa
+1. Gõ: `Shift+V` `i` `e` `e` `t`
+2. **Mong đợi**: `Việt`
 
 ### Test 3: Backspace
-1. Type: `hoaf` → `hoà`
-2. Press **Backspace**
-3. **Expected**: `hoa`
+1. Gõ: `hoaf` → `hoà`
+2. Nhấn **Backspace**
+3. **Mong đợi**: `hoa`
 
-### Test 4: Finalization
-1. Type: `hoaf` → `hoà`
-2. Press **Space**
-3. **Expected**: `hoà ` (underline removed)
+### Test 4: Hoàn Thành
+1. Gõ: `hoaf` → `hoà`
+2. Nhấn **Dấu cách**
+3. **Mong đợi**: `hoà ` (gạch chân biến mất)
 
 ---
 
-## 📁 Project Structure
+## 📁 Cấu Trúc Dự Án
 
 ```
 crates/buttre-platform/
 ├── src/platforms/macos/
-│   ├── mod.rs                  # macOS backend entry
-│   └── ffi.rs                  # C ABI exposed to IMKit hosts
+│   ├── mod.rs                  # Điểm vào backend macOS
+│   └── ffi.rs                  # C ABI expose ra IMKit host
 └── Cargo.toml                  # cdylib → libbuttre_platform.dylib
 
 installers/macos/
 ├── build_dylib.sh              # Universal (arm64 + x86_64) release ZIP
-└── ARTIFACT_README.md          # Integration notes for the dylib
+└── ARTIFACT_README.md          # Hướng dẫn tích hợp dylib
 ```
 
 ---
 
-## 🔍 Implementation Details
+## 🔍 Chi Tiết Cài Đặt
 
-### FFI Functions
+### Hàm FFI
 
 ```c
-// Create engine
+// Tạo engine
 void* buttre_engine_new(void);
 
-// Free engine
+// Giải phóng engine
 void buttre_engine_free(void* engine);
 
-// Process key
-const char* buttre_engine_process_key(void* engine, unsigned short keycode, BOOL shift);
+// Xử lý phím
+const char* buttre_engine_process_key(void* engine, unsigned short keycode, BOOL shift, BOOL capslock);
 
-// Process backspace
+// Xử lý backspace
 const char* buttre_engine_process_backspace(void* engine);
 ```
 
-### Key Event Flow
+### Luồng Key Event
 
 ```
-User types 'h'
+Người dùng gõ 'h'
     ↓
 handleEvent: (NSEvent)
     ↓
-buttre_engine_process_key(engine, keycode, shift)
+buttre_engine_process_key(engine, keycode, shift, capslock)
     ↓
-Rust: TelexMethod::process('h')
+Rust: Keyboard::process('h')
     ↓
-Return: "h"
+Trả về: "h"
     ↓
-setMarkedText: "h" (with underline)
+setMarkedText: "h" (có gạch chân)
     ↓
-Display in app
+Hiển thị trong ứng dụng
 ```
 
 ---
 
-## ✅ What's Implemented
+## ✅ Đã Cài Đặt
 
-- ✅ **IMKServer** - Server initialization
-- ✅ **IMKInputController** - Event handling
-- ✅ **FFI Bridge** - Rust ↔ Objective-C
-- ✅ **Vietnamese Engine** - Telex processing
-- ✅ **Composition** - Real-time updates
-- ✅ **Backspace** - Intelligent handling
-- ✅ **Shift Support** - Uppercase letters
-- ✅ **Finalization** - Space/Enter commits
-
----
-
-## ⏳ What's NOT Implemented Yet
-
-- ❌ **VNI Mode** - Only Telex for now
-- ❌ **Candidate UI** - Not needed for Vietnamese
-- ❌ **Han Nom** - Planned for Phase 2
-- ❌ **Settings UI** - Configuration panel
-- ❌ **Icon** - App icon
+- ✅ **IMKServer** — Khởi tạo server
+- ✅ **IMKInputController** — Xử lý event
+- ✅ **FFI Bridge** — Rust ↔ Objective-C
+- ✅ **Engine tiếng Việt** — Xử lý Telex
+- ✅ **Composition** — Cập nhật thời gian thực
+- ✅ **Backspace** — Xử lý thông minh
+- ✅ **Hỗ trợ Shift** — Chữ hoa
+- ✅ **Hoàn thành** — Space/Enter xác nhận
 
 ---
 
-## 🐛 Troubleshooting
+## ⏳ Chưa Cài Đặt
 
-### Issue: Build Fails
-
-**Solution**:
-- Ensure Xcode Command Line Tools installed
-- Check Rust toolchain: `rustup show`
-- Verify target: `rustup target list --installed`
-
-### Issue: App Not in Input Sources
-
-**Solution**:
-- Check installation path: `/Library/Input Methods/buttre.app`
-- Verify Info.plist is correct
-- Restart: `killall -9 SystemUIServer`
-- Reboot macOS
-
-### Issue: No Composition
-
-**Solution**:
-- Check Console.app for logs (filter: "buttre")
-- Verify buttre is selected input source
-- Try in TextEdit first (best IMKit support)
+- ❌ **Chế độ VNI** — Hiện chỉ có Telex
+- ❌ **UI Candidate** — Không cần cho tiếng Việt thuần
+- ❌ **Hán Nôm** — Dự kiến Giai đoạn 2
+- ❌ **UI Cài Đặt** — Panel cấu hình
+- ❌ **Icon** — App icon
 
 ---
 
-## 📊 Comparison: Windows vs macOS
+## 🐛 Xử Lý Sự Cố
 
-| Aspect | Windows TSF | macOS IMKit |
-|--------|-------------|-------------|
-| **Status** | ✅ Complete | ✅ Code Ready |
+### Vấn Đề: Build Thất Bại
+
+**Giải pháp**:
+- Đảm bảo đã cài Xcode Command Line Tools
+- Kiểm tra Rust toolchain: `rustup show`
+- Xác minh target: `rustup target list --installed`
+
+### Vấn Đề: Ứng Dụng Không Trong Input Sources
+
+**Giải pháp**:
+- Kiểm tra đường dẫn cài đặt: `/Library/Input Methods/buttre.app`
+- Xác minh Info.plist đúng
+- Khởi động lại: `killall -9 SystemUIServer`
+- Khởi động lại macOS
+
+### Vấn Đề: Không Có Composition
+
+**Giải pháp**:
+- Kiểm tra Console.app để xem logs (filter: "buttre")
+- Xác minh buttre đang là input source được chọn
+- Thử trong TextEdit trước (hỗ trợ IMKit tốt nhất)
+
+### Vấn Đề: Cảnh Báo Gatekeeper / Quarantine
+
+**Giải pháp**:
+```bash
+# Bỏ quarantine cho dylib
+xattr -dr com.apple.quarantine libbuttre_platform.dylib
+
+# Hoặc bỏ quarantine cho toàn bộ app
+xattr -dr com.apple.quarantine /Library/Input\ Methods/buttre.app
+```
+
+---
+
+## 📊 So Sánh: Windows vs macOS
+
+| Khía Cạnh | Windows TSF | macOS IMKit |
+|-----------|-------------|-------------|
+| **Trạng thái** | ✅ Hoàn chỉnh | ✅ Code Sẵn Sàng |
 | **Build** | DLL | App Bundle |
-| **Install** | Registry | /Library/Input Methods/ |
+| **Cài đặt** | Registry | /Library/Input Methods/ |
 | **API** | COM | Objective-C |
 | **Composition** | ITfComposition | setMarkedText |
 | **Events** | ITfKeyEventSink | handleEvent |
 
 ---
 
-## 🚀 Next Steps
+## 🚀 Bước Tiếp Theo
 
-### Immediate
-1. **Build on macOS** - Run build script
-2. **Test** - Verify basic functionality
-3. **Debug** - Fix any issues
+### Ngay Lập Tức
+1. **Build trên macOS** — Chạy build script
+2. **Kiểm thử** — Xác minh chức năng cơ bản
+3. **Debug** — Sửa bất kỳ vấn đề nào
 
-### Phase 2 (Week 2-3)
-- [ ] VNI mode switching
-- [ ] Settings panel
+### Giai Đoạn 2
+- [ ] Chuyển đổi chế độ VNI
+- [ ] Panel cài đặt
 - [ ] App icon
 - [ ] Localization
 
-### Phase 3 (Week 3-4)
-- [ ] Han Nom support
-- [ ] Candidate UI
-- [ ] Multi-monitor support
+### Giai Đoạn 3
+- [ ] Hỗ trợ Hán Nôm
+- [ ] Cửa sổ candidate
+- [ ] Hỗ trợ đa màn hình
 
 ---
 
-## 📚 References
+## 📚 Tài Liệu Tham Khảo
 
 - [Input Method Kit Guide](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/InputMethod/InputMethod.html)
 - [IMKInputController](https://developer.apple.com/documentation/inputmethodkit/imkinputcontroller)
-- [OpenVanilla](https://github.com/openvanilla/openvanilla) - Reference
+- [OpenVanilla](https://github.com/openvanilla/openvanilla) — Tham chiếu
 
 ---
 
-**Status**: Ready for macOS Build  
-**Next**: Build and test on macOS machine  
-**Timeline**: 1-2 weeks to production-ready
+**Trạng thái**: Sẵn sàng Build trên macOS
+**Tiếp theo**: Build và kiểm thử trên máy macOS
+**Timeline**: 1–2 tuần để sẵn sàng production
 
 ---
 
-*Built with ❤️ using Rust + Objective-C*
+*Được viết bằng ❤️ sử dụng Rust + Objective-C*

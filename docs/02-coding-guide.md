@@ -1,74 +1,74 @@
-# buttre Coding Guide
+# Hướng Dẫn Code buttre
 
-> How to write code that fits buttre's conventions and patterns
+> Cách viết code phù hợp với quy ước và pattern của buttre
 
-**Last Updated**: 2026-01-08
-**For**: Developers contributing to buttre
-
----
-
-## Table of Contents
-
-1. [Project Setup](#project-setup)
-2. [Code Organization](#code-organization)
-3. [Rust Coding Standards](#rust-coding-standards)
-4. [Common Patterns](#common-patterns)
-5. [Testing Guidelines](#testing-guidelines)
-6. [Error Handling](#error-handling)
-7. [Performance Guidelines](#performance-guidelines)
-8. [How to Add New Features](#how-to-add-new-features)
+**Cập nhật lần cuối**: 2026-06-14
+**Dành cho**: Developer đóng góp cho buttre
 
 ---
 
-## Project Setup
+## Mục Lục
 
-### Prerequisites
+1. [Cài Đặt Dự Án](#cài-đặt-dự-án)
+2. [Tổ Chức Code](#tổ-chức-code)
+3. [Tiêu Chuẩn Code Rust](#tiêu-chuẩn-code-rust)
+4. [Các Pattern Thường Dùng](#các-pattern-thường-dùng)
+5. [Hướng Dẫn Kiểm Thử](#hướng-dẫn-kiểm-thử)
+6. [Xử Lý Lỗi](#xử-lý-lỗi)
+7. [Hướng Dẫn Hiệu Năng](#hướng-dẫn-hiệu-năng)
+8. [Cách Thêm Tính Năng Mới](#cách-thêm-tính-năng-mới)
+
+---
+
+## Cài Đặt Dự Án
+
+### Yêu Cầu
 
 - Rust 1.70+
 - (Windows) Visual Studio Build Tools
 - (macOS) Xcode Command Line Tools
 - (Linux) GCC/Clang
 
-### Workspace Structure
+### Cấu Trúc Workspace
 
 ```
 buttre/
 ├── crates/
-│   ├── buttre-engine/    # Processing pipeline
-│   ├── buttre-core/      # Platform-agnostic interface
-│   ├── buttre-platform/  # Platform backends
-│   └── buttre-test/      # Testing utilities
-├── docs/                # Documentation
-├── .agent/              # AI agent artifacts
-└── .reference/          # Reference implementations
+│   ├── buttre-engine/    # Pipeline xử lý
+│   ├── buttre-core/      # Giao diện độc lập nền tảng
+│   ├── buttre-platform/  # Backend nền tảng
+│   └── buttre-test/      # Tiện ích kiểm thử
+├── docs/                # Tài liệu
+├── .agents/             # Tài liệu AI agent
+└── .reference/          # Cài đặt tham chiếu
 ```
 
-### Building
+### Build
 
 ```bash
-# Check all crates
+# Kiểm tra tất cả crate
 cargo check
 
-# Build specific crate
+# Build crate cụ thể
 cargo build --package buttre-engine
 
-# Build release (optimized)
+# Build release (đã tối ưu)
 cargo build --release
 
-# Run tests
+# Chạy test
 cargo test
 
-# Run tests for specific crate
+# Chạy test cho crate cụ thể
 cargo test --package buttre-engine
 ```
 
 ---
 
-## Code Organization
+## Tổ Chức Code
 
-### File Naming Conventions
+### Quy Ước Đặt Tên File
 
-**Modules**: `snake_case`
+**Module**: `snake_case`
 ```
 pipeline/
 ├── mod.rs
@@ -82,10 +82,10 @@ pipeline/
     └── ...
 ```
 
-**Tests**: Same file or `tests/` directory
+**Test**: Cùng file hoặc thư mục `tests/`
 ```
 src/pipeline/executor.rs
-src/pipeline/executor_tests.rs  // (if too large for inline)
+src/pipeline/executor_tests.rs  // (nếu quá lớn để inline)
 
 tests/
 ├── integration_tests.rs
@@ -94,33 +94,32 @@ tests/
     └── vni.txt
 ```
 
-### Module Organization Pattern
+### Pattern Tổ Chức Module
 
-**From `buttre-engine/src/pipeline/mod.rs`**:
+**Từ `buttre-engine/src/pipeline/mod.rs`**:
 
 ```rust
-//! Pipeline Module — 7-Stage Input Processing Pipeline
+//! Pipeline Module — Pipeline Xử Lý 7 Giai Đoạn
 //!
-//! This module implements a config-driven, 7-stage pipeline for processing
-//! Vietnamese input methods (Telex, VNI, etc.) in a flexible and extensible way.
+//! Module này cài đặt pipeline config-driven, 7 giai đoạn để xử lý
+//! phương thức nhập liệu tiếng Việt (Telex, VNI, v.v.) một cách linh hoạt.
 //!
-//! ## Architecture
+//! ## Kiến Trúc
 //!
-//! The pipeline consists of 7 stages:
-//! 1. Normalization — normalize input, push CharInfo to char_buffer
-//! 2. Gatekeeper — route non-Vietnamese / temp-English passthrough
+//! Pipeline gồm 7 giai đoạn:
+//! 1. Chuẩn hóa — chuẩn hóa input, đẩy CharInfo vào char_buffer
+//! 2. Gatekeeper — định tuyến passthrough tiếng Anh / không phải tiếng Việt
 //! 3. Compose — recompute-from-raw: segment → transform → tone → fallback
-//! 4. Orthography — normalize Unicode form
-//! 5. Learning — track patterns (future)
-//! 6. Lookup — dictionary lookup (Hán Nôm)
-//! 7. Output — diff last_output → syllable_buffer → emit actions
+//! 4. Chính tả — chuẩn hóa form Unicode
+//! 5. Học — theo dõi pattern (tương lai)
+//! 6. Tra cứu — tra cứu từ điển (Hán Nôm)
+//! 7. Đầu ra — diff last_output → syllable_buffer → phát action
 //!
-//! ## Design Principles
+//! ## Nguyên Tắc Thiết Kế
 //!
-//! - **Config-Driven**: All input methods are defined via configuration
-//! - **Incremental**: Each stage can be tested independently
-//! - **Backward Compatible**: Works alongside existing hardcoded methods
-//! - **Extensible**: Easy to add new stages or modify existing ones
+//! - **Config-Driven**: Tất cả phương thức nhập được định nghĩa qua cấu hình
+//! - **Tăng dần**: Mỗi giai đoạn có thể được kiểm thử độc lập
+//! - **Mở rộng**: Dễ thêm giai đoạn mới hoặc sửa giai đoạn hiện có
 
 pub mod config;
 pub mod context;
@@ -129,7 +128,7 @@ pub mod stages;
 pub mod executor;
 pub mod presets;
 
-// Re-exports for convenience
+// Re-export để tiện dùng
 pub use config::{PipelineConfig, ToneMark};
 pub use context::{TypingContext, Candidate, CandidateType};
 pub use stage::{PipelineStage, StageResult};
@@ -137,47 +136,46 @@ pub use executor::PipelineExecutor;
 pub use presets::{telex_config, vni_config, viqr_config};
 ```
 
-**Pattern Rules**:
-- ✅ Use `//!` for module-level documentation
-- ✅ Explain architecture and design principles
-- ✅ Re-export commonly used types
-- ✅ Organize submodules logically
+**Quy Tắc Pattern**:
+- ✅ Dùng `//!` cho tài liệu cấp module
+- ✅ Giải thích kiến trúc và nguyên tắc thiết kế
+- ✅ Re-export các kiểu thường dùng
+- ✅ Tổ chức submodule theo logic
 
 ---
 
-## Rust Coding Standards
+## Tiêu Chuẩn Code Rust
 
-### 1. Error Handling
+### 1. Xử Lý Lỗi
 
-**❌ NEVER use these in library code:**
+**❌ KHÔNG BAO GIỜ dùng trong library code:**
 ```rust
-// WRONG - Will panic in production
+// SAI — Sẽ panic trong production
 let value = result.unwrap();
 let value = option.expect("message");
 panic!("error");
 ```
 
-**✅ ALWAYS use Result/Option:**
+**✅ LUÔN LUÔN dùng Result/Option:**
 ```rust
-// CORRECT - Propagate errors
+// ĐÚNG — Truyền lỗi
 pub fn parse_config(path: &Path) -> anyhow::Result<Config> {
-    let content = std::fs::read_to_string(path)?;  // Propagate error
-    let config = toml::from_str(&content)?;        // Propagate error
+    let content = std::fs::read_to_string(path)?;  // Truyền lỗi
+    let config = toml::from_str(&content)?;        // Truyền lỗi
     Ok(config)
 }
 
-// CORRECT - Handle Option
+// ĐÚNG — Xử lý Option
 pub fn find_vowel(text: &str) -> Option<char> {
     text.chars().find(|c| is_vowel(*c))
 }
 ```
 
-**From `buttre-core/src/keyboard/keyboard.rs`**:
+**Từ `buttre-core/src/keyboard/keyboard.rs`**:
 
 ```rust
-/// Create a new keyboard from pipeline config
+/// Tạo keyboard mới từ pipeline config
 pub(crate) fn new(config: PipelineConfig) -> anyhow::Result<Self> {
-    // Create executor directly from config
     let executor = PipelineExecutor::new(config);
 
     Ok(Self {
@@ -186,36 +184,34 @@ pub(crate) fn new(config: PipelineConfig) -> anyhow::Result<Self> {
     })
 }
 
-/// Process a keystroke
+/// Xử lý phím bấm
 ///
-/// Returns a vector of actions to perform. Usually contains 1-2 actions:
-/// - Main action (DoNothing/Commit/Replace/UpdateComposition)
-/// - Optional ShowCandidates/HideCandidates for Nôm input
+/// Trả về vector các action cần thực hiện. Thường chứa 1-2 action:
+/// - Action chính (DoNothing/Commit/Replace/UpdateComposition)
+/// - ShowCandidates/HideCandidates tùy chọn cho nhập Nôm
 pub fn process(&mut self, key: char) -> anyhow::Result<Vec<Action>> {
-    // Process through engine pipeline
     let engine_actions = self.executor.process(key);
-
-    // Convert engine actions to our actions
-    // ... (no unwrap/expect/panic)
+    // Chuyển đổi engine action sang action của chúng ta
+    // ... (không có unwrap/expect/panic)
 }
 ```
 
 ---
 
-### 2. Documentation Standards
+### 2. Tiêu Chuẩn Tài Liệu
 
-**Public Functions** - MUST have documentation:
+**Hàm Public** — BẮT BUỘC có tài liệu:
 
 ```rust
-/// Process a keystroke through the pipeline.
+/// Xử lý phím bấm qua pipeline.
 ///
 /// # Arguments
 ///
-/// * `key` - The character to process
+/// * `key` — Ký tự cần xử lý
 ///
 /// # Returns
 ///
-/// A vector of actions to perform on the text buffer
+/// Vector các action để thực hiện trên text buffer
 ///
 /// # Example
 ///
@@ -230,63 +226,44 @@ pub fn process(&mut self, key: char) -> anyhow::Result<Vec<Action>> {
 }
 ```
 
-**Module Documentation**:
-
-```rust
-//! Pipeline Module — 7-Stage Input Processing Pipeline
-//!
-//! This module implements a config-driven, 7-stage pipeline...
-//!
-//! ## Architecture
-//! ...
-//!
-//! ## Example
-//! ```
-//! use buttre_engine::pipeline::{PipelineExecutor, telex_config};
-//!
-//! let mut executor = PipelineExecutor::new(telex_config());
-//! let actions = executor.process('a');
-//! ```
-```
-
 ---
 
-### 3. Naming Conventions
+### 3. Quy Ước Đặt Tên
 
-**Types**: `PascalCase`
+**Kiểu**: `PascalCase`
 ```rust
 pub struct PipelineExecutor { }
 pub enum InputMethodType { }
 pub struct TypingContext { }
 ```
 
-**Functions/Methods**: `snake_case`
+**Hàm/Method**: `snake_case`
 ```rust
 pub fn process_key(&mut self, key: char) -> Vec<Action> { }
 pub fn find_main_vowel(text: &str) -> Option<usize> { }
 ```
 
-**Constants**: `SCREAMING_SNAKE_CASE`
+**Hằng số**: `SCREAMING_SNAKE_CASE`
 ```rust
 const MAX_BUFFER_SIZE: usize = 32;
 const DEFAULT_TONE_STYLE: ToneStyle = ToneStyle::Old;
 ```
 
-**Boolean Functions**: `is_`, `has_`, `can_`
+**Hàm Boolean**: `is_`, `has_`, `can_`
 ```rust
 pub fn is_vowel(c: char) -> bool { }
 pub fn has_tone_mark(syllable: &Syllable) -> bool { }
 pub fn can_apply_transformation(ctx: &Context) -> bool { }
 ```
 
-**Conversion Functions**: `to_`, `into_`, `as_`, `from_`
+**Hàm Chuyển Đổi**: `to_`, `into_`, `as_`, `from_`
 ```rust
 pub fn to_string(&self) -> String { }
 pub fn as_bytes(&self) -> &[u8] { }
 pub fn from_config(config: Config) -> Self { }
 ```
 
-**Fallible Functions**: `try_`
+**Hàm Có Thể Thất Bại**: `try_`
 ```rust
 pub fn try_parse(input: &str) -> Option<Syllable> { }
 pub fn try_apply_tone(ctx: &mut Context) -> Result<(), Error> { }
@@ -296,10 +273,10 @@ pub fn try_apply_tone(ctx: &mut Context) -> Result<(), Error> { }
 
 ### 4. Type Safety
 
-**✅ Use newtypes for domain concepts:**
+**✅ Dùng newtype cho khái niệm domain:**
 
 ```rust
-// GOOD - Type-safe
+// TỐT — Type-safe
 pub struct UserId(u64);
 pub struct TonePosition(usize);
 
@@ -313,15 +290,15 @@ impl TonePosition {
     }
 }
 
-// BAD - No type safety
+// XẤU — Không có type safety
 type UserId = u64;
-let id: u64 = 123;  // Could be anything
+let id: u64 = 123;  // Có thể là bất cứ thứ gì
 ```
 
-**✅ Use enums instead of strings:**
+**✅ Dùng enum thay vì string:**
 
 ```rust
-// GOOD - Type-safe
+// TỐT — Type-safe
 pub enum InputMethodType {
     Telex,
     Vni,
@@ -329,54 +306,42 @@ pub enum InputMethodType {
     Nom,
 }
 
-// BAD - Stringly typed
-let method = "telex";  // Typos not caught by compiler
+// XẤU — Stringly typed
+let method = "telex";  // Lỗi gõ sai không được compiler phát hiện
 ```
 
 ---
 
 ### 5. Ownership & Borrowing
 
-**Prefer borrowing over ownership:**
+**Ưu tiên borrow thay vì ownership:**
 
 ```rust
-// GOOD - Borrow when possible
+// TỐT — Borrow khi có thể
 pub fn find_main_vowel(text: &str) -> Option<usize> {
     text.chars().position(|c| is_vowel(c))
 }
 
-// LESS GOOD - Takes ownership unnecessarily
+// ÍT TỐT HƠN — Lấy ownership không cần thiết
 pub fn find_main_vowel(text: String) -> Option<usize> {
     text.chars().position(|c| is_vowel(c))
 }
 ```
 
-**Document why you clone:**
-
-```rust
-// GOOD - Document why clone is necessary
-pub fn create_candidate(&self, text: &str) -> Candidate {
-    Candidate {
-        text: text.to_string(),  // Must own the string for candidate
-        score: self.calculate_score(text),
-    }
-}
-```
-
 ---
 
-## Common Patterns
+## Các Pattern Thường Dùng
 
 ### Pattern 1: Pipeline Stage
 
-**From `buttre-engine/src/pipeline/stages/stage4_transform.rs`**:
+**Từ `buttre-engine/src/pipeline/stages/stage4_transform.rs`**:
 
 ```rust
 use super::super::{PipelineStage, StageResult, TypingContext};
 
-/// Stage 4: Transformation
+/// Giai Đoạn 4: Biến Đổi
 ///
-/// Applies transformation rules (aa→â, aw→ă, dd→đ, etc.)
+/// Áp dụng quy tắc biến đổi (aa→â, aw→ă, dd→đ, v.v.)
 pub struct Stage4Transform;
 
 impl PipelineStage for Stage4Transform {
@@ -385,97 +350,95 @@ impl PipelineStage for Stage4Transform {
     }
 
     fn process(&self, key: char, ctx: &mut TypingContext) -> StageResult {
-        // 1. Check if this is a transformation key
-        // 2. Look up transformation rule
-        // 3. Apply transformation
-        // 4. Update context
-        // 5. Return Continue
-
-        // ... implementation
+        // 1. Kiểm tra xem đây có phải là transformation key không
+        // 2. Tìm quy tắc biến đổi
+        // 3. Áp dụng biến đổi
+        // 4. Cập nhật context
+        // 5. Trả về Continue
 
         StageResult::Continue
     }
 }
 ```
 
-**Pattern Rules**:
-- ✅ Each stage is a separate struct implementing `PipelineStage`
-- ✅ Stage has a descriptive `name()`
-- ✅ `process()` method is pure (no side effects except on `ctx`)
-- ✅ Returns `StageResult` to control flow
+**Quy Tắc Pattern**:
+- ✅ Mỗi giai đoạn là một struct riêng cài đặt `PipelineStage`
+- ✅ Giai đoạn có `name()` mô tả
+- ✅ Method `process()` thuần túy (không có side effect ngoài `ctx`)
+- ✅ Trả về `StageResult` để điều khiển luồng
 
 ---
 
 ### Pattern 2: Action Enum
 
-**From `buttre-core/src/action.rs`**:
+**Từ `buttre-core/src/action.rs`**:
 
 ```rust
-/// Actions to be performed on the text buffer
+/// Các action cần thực hiện trên text buffer
 #[derive(Debug, Clone, PartialEq)]
 pub enum Action {
-    /// Do nothing (character was buffered)
+    /// Không làm gì (ký tự đã được buffer)
     DoNothing,
 
-    /// Commit text to buffer
+    /// Commit text vào buffer
     Commit(String),
 
-    /// Replace last N characters with new text
+    /// Thay thế N ký tự cuối bằng text mới
     Replace {
         backspace_count: usize,
         text: String,
     },
 
-    /// Update composition string (TSF only)
+    /// Cập nhật composition string (chỉ TSF)
     UpdateComposition {
         text: String,
         cursor: usize,
     },
 
-    /// Confirm composition
+    /// Xác nhận composition
     ConfirmComposition(String),
 
-    /// Show candidate window (Nôm input)
+    /// Hiện cửa sổ candidate (nhập Nôm)
     ShowCandidates {
         candidates: Vec<Candidate>,
         input: String,
     },
 
-    /// Hide candidate window
+    /// Ẩn cửa sổ candidate
     HideCandidates,
 }
 ```
 
-**Pattern Rules**:
-- ✅ Use `#[derive(Debug, Clone, PartialEq)]` for action enums
-- ✅ Document each variant
-- ✅ Use struct-style variants for complex data
+**Quy Tắc Pattern**:
+- ✅ Dùng `#[derive(Debug, Clone, PartialEq)]` cho action enum
+- ✅ Tài liệu từng variant
+- ✅ Dùng struct-style variant cho dữ liệu phức tạp
 
 ---
 
 ### Pattern 3: Configuration Struct
 
-**From `buttre-engine/src/pipeline/config.rs`**:
+**Từ `buttre-engine/src/pipeline/config.rs`**:
 
 ```rust
-/// Configuration for the processing pipeline
+/// Cấu hình cho processing pipeline
 #[derive(Debug, Clone)]
 pub struct PipelineConfig {
-    /// Input method type
+    /// Kiểu phương thức nhập
     pub input_method_type: InputMethodType,
 
-    /// Tone configuration
+    /// Cấu hình dấu thanh
     pub tone_config: ToneConfig,
 
-    /// Transformation rules
+    /// Quy tắc biến đổi
     pub transform_rules: Vec<TransformRule>,
 
-    /// Tone application rules
+    /// Quy tắc áp dụng dấu thanh
     pub tone_rules: Vec<ToneRule>,
 }
 
 impl PipelineConfig {
-    /// Create a new pipeline configuration
+    /// Tạo pipeline config mới
     pub fn new(input_method_type: InputMethodType) -> Self {
         Self {
             input_method_type,
@@ -485,7 +448,7 @@ impl PipelineConfig {
         }
     }
 
-    /// Builder pattern: set tone config
+    /// Builder pattern: đặt tone config
     pub fn with_tone_config(mut self, config: ToneConfig) -> Self {
         self.tone_config = config;
         self
@@ -493,18 +456,18 @@ impl PipelineConfig {
 }
 ```
 
-**Pattern Rules**:
-- ✅ Use builder pattern for complex configuration
-- ✅ Provide sensible defaults
-- ✅ Make fields public for flexibility
+**Quy Tắc Pattern**:
+- ✅ Dùng builder pattern cho cấu hình phức tạp
+- ✅ Cung cấp default hợp lý
+- ✅ Để public các field để linh hoạt
 
 ---
 
-## Testing Guidelines
+## Hướng Dẫn Kiểm Thử
 
-### Unit Tests
+### Unit Test
 
-**From `buttre-engine/src/pipeline/stages/stage4_transform.rs`**:
+**Từ `buttre-engine/src/pipeline/stages/stage4_transform.rs`**:
 
 ```rust
 #[cfg(test)]
@@ -539,23 +502,23 @@ mod tests {
 }
 ```
 
-**Test Naming**: `test_<function>_<scenario>_<expected>`
+**Đặt Tên Test**: `test_<function>_<scenario>_<expected>`
 
-Good names:
+Tên tốt:
 - `test_process_key_valid_input_returns_action`
 - `test_apply_tone_empty_buffer_returns_none`
 - `test_transform_aa_to_circumflex`
 
-Bad names:
+Tên xấu:
 - `test_1`
 - `test_process`
 - `it_works`
 
 ---
 
-### Integration Tests
+### Integration Test
 
-**From `buttre-engine/tests/flexible_typing_test.rs`**:
+**Từ `buttre-engine/tests/flexible_typing_test.rs`**:
 
 ```rust
 #[test]
@@ -563,7 +526,7 @@ fn test_flexible_typing_tuongwf_to_truong() {
     let config = telex_config();
     let mut executor = PipelineExecutor::new(config);
 
-    // Type "tuongwf" (out of order)
+    // Gõ "tuongwf" (không theo thứ tự)
     let keys = ['t', 'u', 'o', 'n', 'g', 'w', 'f'];
 
     for key in keys {
@@ -577,89 +540,89 @@ fn test_flexible_typing_tuongwf_to_truong() {
 
 ---
 
-### Test Data Files
+### File Dữ Liệu Test
 
-**From `buttre-test/data/telex.txt`**:
+**Từ `buttre-test/data/telex.txt`**:
 
 ```
-# Format: input → expected_output
-# One test per line
+# Định dạng: input → expected_output
+# Một test mỗi dòng
 
-# Basic transformations
+# Biến đổi cơ bản
 aa → â
 aw → ă
 dd → đ
 
-# Tone marks
+# Dấu thanh
 as → á
 af → à
 
-# Complex words
+# Từ phức tạp
 nguwowif → người
 tuongwf → trường
 ```
 
 ---
 
-## Error Handling
+## Xử Lý Lỗi
 
-### Using anyhow for Application Errors
+### Dùng anyhow Cho Lỗi Application
 
 ```rust
 use anyhow::{Result, Context};
 
 pub fn load_config(path: &Path) -> Result<Config> {
     let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read config from {}", path.display()))?;
+        .with_context(|| format!("Không đọc được config từ {}", path.display()))?;
 
     let config: Config = toml::from_str(&content)
-        .context("Failed to parse TOML config")?;
+        .context("Không parse được TOML config")?;
 
     Ok(config)
 }
 ```
 
-### Using thiserror for Library Errors
+### Dùng thiserror Cho Lỗi Library
 
 ```rust
 use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum PipelineError {
-    #[error("Invalid input method: {0}")]
+    #[error("Phương thức nhập không hợp lệ: {0}")]
     InvalidInputMethod(String),
 
-    #[error("Configuration error: {0}")]
+    #[error("Lỗi cấu hình: {0}")]
     ConfigError(String),
 
-    #[error("Internal pipeline error")]
+    #[error("Lỗi pipeline nội bộ")]
     InternalError(#[from] std::io::Error),
 }
 ```
 
 ---
 
-## Performance Guidelines
+## Hướng Dẫn Hiệu Năng
 
-### 1. Avoid Allocations in Hot Paths
+### 1. Tránh Allocation Trong Hot Path
 
 ```rust
-// GOOD - No allocation
+// TỐT — Không allocation
 pub fn find_vowel(text: &str) -> Option<usize> {
     text.chars().position(|c| is_vowel(c))
 }
 
-// BAD - Unnecessary allocation
+// XẤU — Allocation không cần thiết
 pub fn find_vowel(text: &str) -> Option<usize> {
     let chars: Vec<char> = text.chars().collect();  // Allocation!
     chars.iter().position(|c| is_vowel(*c))
 }
 ```
 
-### 2. Use Static Lookups
+### 2. Dùng Static Lookup
 
 ```rust
-// GOOD - O(1) lookup
+// TỐT — Tra cứu O(1)
 use lazy_static::lazy_static;
 use std::collections::HashSet;
 
@@ -667,7 +630,7 @@ lazy_static! {
     static ref VOWELS: HashSet<char> = {
         ['a', 'à', 'á', 'ả', 'ã', 'ạ',
          'e', 'è', 'é', 'ẻ', 'ẽ', 'ẹ',
-         // ... more vowels
+         // ... thêm nguyên âm
         ].iter().copied().collect()
     };
 }
@@ -677,7 +640,7 @@ pub fn is_vowel(c: char) -> bool {
 }
 ```
 
-### 3. Use #[inline] for Tiny Functions
+### 3. Dùng #[inline] Cho Hàm Nhỏ
 
 ```rust
 #[inline]
@@ -688,16 +651,16 @@ pub fn is_vowel(c: char) -> bool {
 
 ---
 
-## How to Add New Features
+## Cách Thêm Tính Năng Mới
 
-### Example: Adding a New Input Method
+### Ví Dụ: Thêm Phương Thức Nhập Mới
 
-**Step 1**: Create preset configuration
+**Bước 1**: Tạo preset config
 
 **File**: `crates/buttre-engine/src/pipeline/presets.rs`
 
 ```rust
-/// Create VIQR input method configuration
+/// Tạo cấu hình phương thức nhập VIQR
 pub fn viqr_config() -> PipelineConfig {
     PipelineConfig {
         input_method_type: InputMethodType::Viqr,
@@ -707,21 +670,21 @@ pub fn viqr_config() -> PipelineConfig {
             max_modify_length: 10,
         },
         transform_rules: vec![
-            // VIQR uses different keys
+            // VIQR dùng phím khác
             TransformRule { pattern: "a^", result: "â", ... },
             TransformRule { pattern: "a+", result: "ă", ... },
-            // ... more rules
+            // ... thêm quy tắc
         ],
         tone_rules: vec![
             ToneRule { key: '\'', mark: ToneMark::Acute },
             ToneRule { key: '`', mark: ToneMark::Grave },
-            // ... more rules
+            // ... thêm quy tắc
         ],
     }
 }
 ```
 
-**Step 2**: Add enum variant
+**Bước 2**: Thêm variant enum
 
 **File**: `crates/buttre-engine/src/pipeline/config.rs`
 
@@ -730,12 +693,12 @@ pub fn viqr_config() -> PipelineConfig {
 pub enum InputMethodType {
     Telex,
     Vni,
-    Viqr,   // Add this
+    Viqr,   // Thêm cái này
     Nom,
 }
 ```
 
-**Step 3**: Add tests
+**Bước 3**: Thêm test
 
 **File**: `crates/buttre-engine/tests/viqr_test.rs`
 
@@ -752,39 +715,39 @@ fn test_viqr_circumflex() {
 }
 ```
 
-**Step 4**: Update documentation
+**Bước 4**: Cập nhật tài liệu
 
-- Add to `docs/ARCHITECTURE.md`
-- Add to `README.md`
+- Thêm vào `docs/01-architecture.md`
+- Thêm vào `README.md`
 
 ---
 
-## Summary
+## Tóm Tắt
 
-**buttre Coding Standards**:
+**Tiêu Chuẩn Code buttre**:
 
-✅ **Error Handling**: Use Result/Option, never unwrap/expect in library code
-✅ **Documentation**: Document all public APIs with examples
-✅ **Naming**: snake_case functions, PascalCase types, SCREAMING_SNAKE constants
-✅ **Type Safety**: Use newtypes and enums, avoid strings for domain concepts
-✅ **Testing**: Unit tests for all functions, integration tests for workflows
-✅ **Performance**: Avoid allocations in hot paths, use static lookups
-✅ **Patterns**: Follow established patterns (Pipeline Stage, Action Enum, etc.)
+✅ **Xử lý lỗi**: Dùng Result/Option, không bao giờ unwrap/expect trong library code
+✅ **Tài liệu**: Tài liệu hóa tất cả public API kèm ví dụ
+✅ **Đặt tên**: snake_case hàm, PascalCase kiểu, SCREAMING_SNAKE hằng số
+✅ **Type Safety**: Dùng newtype và enum, tránh string cho khái niệm domain
+✅ **Kiểm thử**: Unit test cho tất cả hàm, integration test cho luồng
+✅ **Hiệu năng**: Tránh allocation trong hot path, dùng static lookup
+✅ **Pattern**: Tuân theo các pattern đã thiết lập (Pipeline Stage, Action Enum, v.v.)
 
-**Before Submitting PR**:
+**Trước Khi Submit PR**:
 
 ```bash
 # 1. Format code
 cargo fmt
 
-# 2. Check clippy
+# 2. Kiểm tra clippy
 cargo clippy --all-targets --all-features
 
-# 3. Run tests
+# 3. Chạy test
 cargo test --all
 
 # 4. Build release
 cargo build --release
 ```
 
-**Questions?** Check existing code for patterns, or ask in issues!
+**Câu hỏi?** Xem code hiện có để tìm pattern, hoặc hỏi qua issues!

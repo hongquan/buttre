@@ -9,6 +9,7 @@ use std::sync::{Arc, Mutex};
 use buttre_core::Action;
 use buttre_core::{Keyboard, KeyboardBuilder};
 use zbus::{dbus_interface, ConnectionBuilder, SignalContext};
+use zbus::zvariant;
 
 // ============================================================================
 // IBus modifier state bitmask (ibus.h)
@@ -140,7 +141,7 @@ pub fn keyval_to_char(keyval: u32, state: u32) -> Option<char> {
 /// NOTE: Verify output against `dbus-monitor --session` before shipping.
 fn build_ibus_text(text: &str) -> zvariant::Value<'static> {
     use std::collections::HashMap;
-    use zvariant::Value;
+    use zbus::zvariant::Value;
 
     let empty: HashMap<String, Value<'static>> = HashMap::new();
 
