@@ -16,7 +16,7 @@ echo "==> Building .deb..."
 cargo deb --package buttre-platform --no-build --output target/debian/
 
 echo "==> Building .rpm..."
-cargo generate-rpm --package crates/buttre-platform --output target/generate-rpm/
+cargo generate-rpm --package crates/buttre-platform
 
 echo ""
 echo "Artifacts:"
