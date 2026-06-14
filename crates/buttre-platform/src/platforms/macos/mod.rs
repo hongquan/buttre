@@ -9,6 +9,7 @@ pub mod ffi;
 use crate::PlatformBackend;
 use std::sync::{Arc, RwLock};
 use buttre_core::{Action, Keyboard};
+use buttre_core::state::{StateObserver, Settings};
 use anyhow::Result;
 
 /// macOS backend implementation
@@ -36,6 +37,14 @@ impl PlatformBackend for MacOSBackend {
     
     fn cleanup(&mut self) {
     }
+}
+
+impl StateObserver for MacOSBackend {
+    fn on_method_changed(&self, _method: &str, enabled: bool) {
+        tracing::info!("MacOSBackend: method changed, enabled={}", enabled);
+    }
+
+    fn on_settings_changed(&self, _settings: &Settings) {}
 }
 
 // Re-export FFI functions for C

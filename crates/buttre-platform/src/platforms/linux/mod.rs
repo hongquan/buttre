@@ -7,23 +7,27 @@
 pub mod ibus;
 
 use crate::PlatformBackend;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 use buttre_core::{Action, Keyboard};
+use buttre_core::state::{StateObserver, Settings};
 use anyhow::Result;
 
 /// Linux backend — spawns the IBus engine in a background thread.
+///
+/// Fields are wrapped in `Mutex` so the struct is `Sync`, satisfying the
+/// `StateObserver: Send + Sync` bound when registered as an observer.
 pub struct LinuxBackend {
     enabled: bool,
-    shutdown_tx: Option<tokio::sync::oneshot::Sender<()>>,
-    engine_thread: Option<std::thread::JoinHandle<()>>,
+    shutdown_tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    engine_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl PlatformBackend for LinuxBackend {
     fn new() -> Result<Self> {
         Ok(Self {
             enabled: false,
-            shutdown_tx: None,
-            engine_thread: None,
+            shutdown_tx: Mutex::new(None),
+            engine_thread: Mutex::new(None),
         })
     }
 
@@ -31,7 +35,7 @@ impl PlatformBackend for LinuxBackend {
         tracing::info!("Initializing Linux (IBus) backend");
 
         let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-        self.shutdown_tx = Some(tx);
+        *self.shutdown_tx.lock().unwrap() = Some(tx);
 
         let handle = std::thread::Builder::new()
             .name("buttre-ibus-engine".to_string())
@@ -45,7 +49,7 @@ impl PlatformBackend for LinuxBackend {
                 }
             })?;
 
-        self.engine_thread = Some(handle);
+        *self.engine_thread.lock().unwrap() = Some(handle);
         self.enabled = true;
         Ok(())
     }
@@ -59,15 +63,21 @@ impl PlatformBackend for LinuxBackend {
     }
 
     fn cleanup(&mut self) {
-        // Signal the engine thread to stop
-        if let Some(tx) = self.shutdown_tx.take() {
+        if let Some(tx) = self.shutdown_tx.lock().unwrap().take() {
             let _ = tx.send(());
         }
-        // Join the thread (best-effort)
-        if let Some(handle) = self.engine_thread.take() {
+        if let Some(handle) = self.engine_thread.lock().unwrap().take() {
             if let Err(e) = handle.join() {
                 tracing::warn!("IBus engine thread join error: {:?}", e);
             }
         }
     }
+}
+
+impl StateObserver for LinuxBackend {
+    fn on_method_changed(&self, _method: &str, enabled: bool) {
+        tracing::info!("LinuxBackend: method changed, enabled={}", enabled);
+    }
+
+    fn on_settings_changed(&self, _settings: &Settings) {}
 }
