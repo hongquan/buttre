@@ -2,9 +2,9 @@
 
 Tất cả thay đổi đáng chú ý của buttre được ghi lại tại đây. Định dạng theo [Keep a Changelog](https://keepachangelog.com); phiên bản theo SemVer.
 
-## [Unreleased]
+## [0.7.2-beta] — 2026-06-19
 - Engine — Sửa lỗi bỏ dấu (tone toggle) với từ có phụ âm đầu trùng phím thanh Telex (`seess`→`sês`, `fanss`→`fans`, `sinff`→`sinf`): thuật toán cũ tìm lần xuất hiện đầu tiên của phím thanh thay vì đếm run liên tiếp từ cuối chuỗi; nay dùng trailing-run detection đúng theo Unikey/OpenKey
-- Sửa chuỗi phiên bản trong hộp thoại trợ giúp (còn để `0.6.3-alpha`, nay cập nhật thành `0.7.1-beta`)
+- Sửa phiên bản: `1.7.1-beta` (sai) → `0.7.1-beta`; cập nhật chuỗi hiển thị trong hộp thoại trợ giúp
 
 ## [0.7.1-beta] — 2026-06-14
 - Engine — Tái cấu trúc recompute (12 → 7 giai đoạn)
