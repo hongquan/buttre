@@ -1,6 +1,6 @@
 # buttre - Bộ Gõ Tiếng Việt
 
-[![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://opensource.org/licenses/MPL-2.0)
+[![License: GPL 3.0](https://img.shields.io/badge/License-GPL_3.0-brightgreen.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
 
 > _Được tạo ra bởi một nhóm dev yêu thích Rust và low-level programming._
@@ -118,44 +118,56 @@ buttre là dự án mã nguồn mở và chúng tôi rất hoan nghênh mọi đ
 
 ## 💝 Hỗ Trợ Dự Án
 
-buttre được phát triển hoàn toàn dựa trên đam mê và thời gian rảnh của team. Chúng tôi không làm vì lợi nhuận, nhưng nếu bạn muốn hỗ trợ:
+buttre miễn phí hoàn toàn và sẽ luôn như vậy. Nhưng nếu buttre hữu ích với bạn và bạn muốn giúp dự án tiếp tục phát triển:
 
-### Các Cách Hỗ Trợ
-- ⭐ **Star repo**: Động viên tinh thần team rất nhiều!
-- 🐛 **Báo bug**: Giúp buttre ngày càng hoàn thiện
-- 📝 **Viết tài liệu**: Contribution không chỉ là code
-- 🍺 **Mời cà phê/bia**: Fuel cho những đêm code marathon
+### Donate
 
-### Quan Trọng: Triết Lý Của Chúng Tôi
-buttre là **passion project**, không phải commercial product. Chúng tôi:
-- ✅ Rất trân trọng mọi hỗ trợ và đóng góp
-- ✅ Lắng nghe feedback và suggestions
-- ✅ Luôn cởi mở với collaboration
+<div align="center">
 
-Tuy nhiên:
-- ⚠️ Quyết định về product direction thuộc về core team
-- ⚠️ Chúng tôi code theo vision và timeline riêng
-- ⚠️ Không cam kết implement mọi feature request
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-%23EA4AAA?logo=github)](https://github.com/sponsors/lungmat8)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Donate-%23FF5E5B?logo=ko-fi)](https://ko-fi.com/lungmat8)
 
-_Đây là cách chúng tôi giữ được sự tự do sáng tạo và đảm bảo chất lượng dự án. Hy vọng bạn thấu hiểu!_
+</div>
+
+Mọi khoản donate đều đi thẳng vào thời gian dev, server CI, và cà phê cho những đêm debug dài.
+
+### Các Cách Hỗ Trợ Khác
+- ⭐ **Star repo**: Giúp buttre tiếp cận nhiều người dùng hơn
+- 🐛 **Báo bug**: Giúp buttre ngày càng hoàn thiện qua [Issues](https://github.com/dxsl-org/buttre/issues)
+- 📝 **Contribute**: Code, tài liệu, bản dịch — đều quý như nhau
+- 📣 **Giới thiệu**: Chia sẻ với bạn bè, đồng nghiệp
+
+### Dịch Vụ Thương Mại
+
+buttre là phần mềm tự do, nhưng nếu tổ chức của bạn cần:
+- **Đào tạo, Hỗ trợ kỹ thuật** (tích hợp, cài đặt hàng loạt, troubleshooting,...)
+- **Tùy chỉnh** theo yêu cầu riêng (bộ từ điển chuyên ngành, layout đặc biệt,...)
+- **SLA và cam kết** phản hồi cho môi trường doanh nghiệp
+
+Liên hệ: **service@dxsl.org** hoặc **dichvu@dxsl.org**
+
+### Triết Lý
+buttre là **passion project** thuộc về cộng đồng — không bị ràng buộc bởi lợi nhuận hay nhà đầu tư. Quyết định về product direction thuộc về core team và cộng đồng contributor. Chúng tôi lắng nghe feedback nhưng code theo vision riêng.
 
 ---
 
 ## 📜 Giấy Phép
 
-**Mozilla Public License 2.0 (MPL 2.0)**
+**buttre là phần mềm tự do vĩnh viễn — miễn phí cho mọi cá nhân, tổ chức và chính phủ, mãi mãi.**
+
+Được phát hành theo **GNU General Public License v3.0 (GPL-3.0)**.
 
 Bạn tự do:
-- ✅ Sử dụng cho mục đích cá nhân và thương mại
-- ✅ Sửa đổi và phân phối
-- ✅ Tích hợp vào dự án của bạn
+- ✅ Sử dụng không giới hạn — cá nhân, doanh nghiệp, cơ quan nhà nước, không cần xin phép
+- ✅ Nghiên cứu và chỉnh sửa source code
+- ✅ Phân phối lại bản gốc hoặc bản đã chỉnh sửa
 
-Điều kiện:
-- 📝 Giữ nguyên license notice
-- 📝 Ghi rõ nguồn gốc
-- 📝 Công khai các thay đổi trên file MPL
+Điều kiện khi phân phối:
+- 📝 Giữ nguyên thông báo bản quyền và license
+- 📝 Phân phối cùng source code (hoặc cung cấp link tải)
+- 📝 Các bản fork/derivative phải giữ nguyên GPL-3.0 — không được đóng lại thành proprietary
 
-Chi tiết: [LICENSE](LICENSE)
+Chi tiết: [LICENSE](LICENSE) · [GNU GPL v3](https://www.gnu.org/licenses/gpl-3.0)
 
 ---
 

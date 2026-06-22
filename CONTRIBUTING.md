@@ -161,12 +161,17 @@ cargo fmt
 
 ### 3.4 Commit Message Format
 
-Sử dụng [Conventional Commits](https://www.conventionalcommits.org/):
+Sử dụng [Conventional Commits](https://www.conventionalcommits.org/) và thêm cờ `--signoff` (xem [DCO](#8-developer-certificate-of-origin-dco)):
 
 ```
 feat(xxx): add support for XXX language
 fix(input): resolve keyboard hook memory leak
 docs(readme): update installation instructions
+```
+
+```bash
+git commit -s -m "feat(engine): add Nôm tone placement"
+# -s tự động thêm: Signed-off-by: Tên Bạn <email@example.com>
 ```
 
 ---
@@ -247,7 +252,55 @@ Mô tả ngắn gọn về lỗi.
 
 ## 7. License
 
-Bằng việc đóng góp, bạn đồng ý rằng contributions của bạn sẽ được licensed dưới **MPL 2.0**.
+Bằng việc đóng góp, bạn đồng ý rằng contributions của bạn sẽ được licensed dưới **GNU General Public License v3.0 (GPL-3.0)** — cùng license với project.
+
+Bạn giữ nguyên copyright của phần code bạn viết. Không có quyền nào được chuyển nhượng ngoài việc license dưới GPL-3.0.
+
+---
+
+## 8. Developer Certificate of Origin (DCO)
+
+buttre dùng DCO thay vì CLA — nhẹ hơn, không chuyển nhượng quyền, chỉ xác nhận bạn có quyền submit code.
+
+### DCO 1.1
+
+```
+By making a contribution to this project, I certify that:
+
+(a) The contribution was created in whole or in part by me and I have
+    the right to submit it under the GPL-3.0 license; or
+
+(b) The contribution is based upon previous work that, to the best of
+    my knowledge, is covered under an appropriate open source license
+    and I have the right under that license to submit that work with
+    modifications under GPL-3.0; or
+
+(c) The contribution was provided directly to me by some other person
+    who certified (a), (b) or (c) and I have not modified it.
+
+(d) I understand and agree that this project and the contribution are
+    public and that a record of the contribution (including my sign-off)
+    is maintained indefinitely.
+```
+
+Nguồn gốc: [developercertificate.org](https://developercertificate.org)
+
+### Cách ký
+
+Thêm `--signoff` (hoặc `-s`) khi commit:
+
+```bash
+git commit -s -m "feat(engine): mô tả thay đổi"
+```
+
+Git sẽ tự thêm dòng này vào commit message:
+
+```
+Signed-off-by: Nguyen Van A <email@example.com>
+```
+
+> Tên và email lấy từ git config của bạn (`git config user.name` / `git config user.email`).
+> PR không có `Signed-off-by` sẽ bị CI từ chối.
 
 ---
 
