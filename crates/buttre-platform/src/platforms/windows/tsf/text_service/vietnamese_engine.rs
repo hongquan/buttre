@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+﻿// SPDX-License-Identifier: GPL-3.0-only
 // Vietnamese Engine Integration for TSF
 //
 // **Tests**: Integration tests for this module are located in `crates/buttre-platform/tests/platform_windows_tsf_tests.rs`.
@@ -63,7 +63,7 @@ impl VietnameseEngine {
                 if config_path.exists() {
                     match buttre_core::Config::load(config_path.to_str().unwrap()) {
                         Ok(config) => {
-                            tracing::info!("TSF: ✓ Loaded custom keyboard from {:?}", config_path);
+                            tracing::info!(“TSF: ✓ Loaded custom keyboard from {:?}”, config_path);
                             // Create keyboard with composition mode for TSF
                             KeyboardBuilder::new()
                                 .with_config(config)

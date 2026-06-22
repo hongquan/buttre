@@ -118,18 +118,14 @@ buttre là dự án mã nguồn mở và chúng tôi rất hoan nghênh mọi đ
 
 ## 💝 Hỗ Trợ Dự Án
 
-buttre miễn phí hoàn toàn và sẽ luôn như vậy. Nhưng nếu buttre hữu ích với bạn và bạn muốn giúp dự án tiếp tục phát triển:
-
-### Donate
+buttre miễn phí hoàn toàn và sẽ luôn như vậy. Nhưng nếu buttre hữu ích với bạn và bạn muốn giúp dự án tiếp tục phát triển, hãy mua cho chúng tôi vài lý cà phê:
 
 <div align="center">
 
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-%23EA4AAA?logo=github)](https://github.com/sponsors/lungmat8)
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Donate-%23FF5E5B?logo=ko-fi)](https://ko-fi.com/lungmat8)
+
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Donate-%23FF5E5B?logo=ko-fi)](https://ko-fi.com/dxsl_org)
 
 </div>
-
-Mọi khoản donate đều đi thẳng vào thời gian dev, server CI, và cà phê cho những đêm debug dài.
 
 ### Các Cách Hỗ Trợ Khác
 - ⭐ **Star repo**: Giúp buttre tiếp cận nhiều người dùng hơn

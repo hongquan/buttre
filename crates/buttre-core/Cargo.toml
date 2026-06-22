@@ -2,7 +2,7 @@
 name = "buttre-core"
 version = "0.7.4-beta"
 edition = "2021"
-license = "MPL-2.0"
+license = "GPL-3.0-only"
 description = "Core processing engine, state management, and language methods for Buttre"
 authors = ["Buttre Contributors"]
 

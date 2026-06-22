@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+﻿// SPDX-License-Identifier: GPL-3.0-only
 // Logging infrastructure for buttre TSF
 
 use std::sync::Once;
@@ -53,7 +53,7 @@ pub fn log_debug(msg: &str) {
 #[cfg(not(debug_assertions))]
 #[inline(always)]
 pub fn log_debug(msg: &str) {
-    // Suppressed in release — debug-level events are not emitted.
+    // Suppressed in release â€” debug-level events are not emitted.
     let _ = msg;
 }
 

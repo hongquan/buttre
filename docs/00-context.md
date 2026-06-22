@@ -32,7 +32,7 @@ platforms:
 
 primary_language: rust
 rust_version: 1.70+
-license: MPL-2.0
+license: GPL-3.0-only
 
 repository: https://github.com/dxsl-org/buttre
 documentation: docs/
@@ -181,7 +181,7 @@ buttre/
 ├── CLAUDE.md                  # Cấu hình AI agent
 ├── README.md                  # Tổng quan dự án
 ├── Cargo.toml                 # Cấu hình workspace
-├── LICENSE                    # Giấy phép MPL-2.0
+├── LICENSE                    # Giấy phép GPL-3.0
 └── CODE_OF_CONDUCT.md        # Quy tắc ứng xử
 ```
 

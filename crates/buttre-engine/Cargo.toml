@@ -3,7 +3,7 @@ name = "buttre-engine"
 version = "0.7.4-beta"
 edition = "2021"
 description = "Universal Vietnamese input engine with 7-stage pipeline"
-license = "MPL-2.0"
+license = "GPL-3.0-only"
 authors = ["Buttre Contributors"]
 
 [lints]

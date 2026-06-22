@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MPL-2.0
+﻿// SPDX-License-Identifier: GPL-3.0-only
 // TextService implementation for Windows TSF
 // Using windows-rs 0.62 API
 

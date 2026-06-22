@@ -3,7 +3,7 @@ name = "buttre-platform"
 version = "0.7.4-beta"
 edition = "2021"
 description = "Buttre Platform (UI + Backends)"
-license = "MPL-2.0"
+license = "GPL-3.0-only"
 
 # Platform crate inherits workspace lints
 # Note: unsafe_code is allowed via #![allow(unsafe_code)] in lib.rs for FFI
@@ -141,7 +141,7 @@ assets = [
 # ── Linux .rpm (cargo-generate-rpm) ──────────────────────────────────────────
 [package.metadata.generate-rpm]
 name = "buttre"
-license = "MPL-2.0"
+license = "GPL-3.0-only"
 summary = "Vietnamese input method for Linux"
 # NOTE: see [package.metadata.deb] above re: buttre_nom.db build-time requirement.
 assets = [

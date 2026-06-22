@@ -10,7 +10,7 @@ pub fn show_help_dialog() {
     let title = "buttre - Bộ Gõ Tiếng Việt";
     let message =
         "Phiên bản: 0.7.4-beta\n\
-         Giấy phép: MPL 2.0\n\
+         Giấy phép: GPL 3.0\n\
          Chuẩn mã: NFC (Unicode dựng sẵn)\n\
          \n\
          KIỂU GÕ & PHÍM TẮT:\n\

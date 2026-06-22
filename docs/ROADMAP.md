@@ -339,9 +339,9 @@ Xây dựng một **bộ gõ tiếng Việt hiện đại, hiệu năng cao, đa
 
 ### Giấy Phép
 
-**Hiện tại**: Mozilla Public License 2.0 (MPL-2.0)
+**Hiện tại**: GNU General Public License v3.0 (GPL-3.0-only)
 
-**Tại sao MPL-2.0?**
+**Tại sao GPL-3.0?**
 - ✅ **Copyleft cho sửa đổi**: Thay đổi code buttre phải mã nguồn mở
 - ✅ **Tương thích với proprietary**: Có thể tích hợp vào ứng dụng proprietary
 - ✅ **Copyleft cấp file**: Chỉ cần chia sẻ file đã sửa đổi, không cần toàn bộ dự án
