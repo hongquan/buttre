@@ -200,6 +200,7 @@ fn empty_raw() {
         text: String::new(),
         temp_english: false,
         applied_marks: Vec::new(),
+        consumed_tone: None,
     });
 }
 

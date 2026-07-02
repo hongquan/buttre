@@ -1439,6 +1439,110 @@ fn test_reset_accepted_collision_at_executor_level() {
     assert_eq!(ex.context().syllable_buffer, "rết");
 }
 
+// ── Phase 2: evidence-based un-latch ─────────────────────────────────────────
+// Test Scenario Matrix from phase-02-evidence-unlatch.md.
+
+#[test]
+fn test_vietj_e_unlatches_to_viet() {
+    // The flagship fix: "vietj" latches to literal English ('j' fires the dot
+    // tone on bare "e", which is not a valid Vietnamese syllable on its own),
+    // then the completing non-adjacent 'e' mark (doubling back to "viet"'s
+    // own 'e') recomposes the FULL raw to attested "việt" and un-latches.
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "vietj".chars() { ex.process(ch); }
+    assert_eq!(ex.context().syllable_buffer, "vietj", "'vietj' alone must still latch literal");
+    assert!(ex.context().temp_english_mode, "'vietj' must be latched before the completing key");
+
+    ex.process('e');
+    assert_eq!(ex.context().syllable_buffer, "việt",
+        "'vietje' must un-latch to attested 'việt' — the class this phase fixes");
+    assert!(!ex.context().temp_english_mode, "un-latch must clear temp_english_mode");
+}
+
+#[test]
+fn test_vietj_e_emits_corrective_replace_action() {
+    // The un-latch must surface as a real Replace action to the host, not
+    // just a silent internal state change (OutputStage's diff emits the
+    // minimal backspace+text needed to turn "vietj" on screen into "việt").
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "vietj".chars() { ex.process(ch); }
+    let actions = ex.process('e');
+    assert!(
+        actions.iter().any(|a| matches!(a, Action::Replace { backspace_count, .. } if *backspace_count > 0)),
+        "un-latch must emit a corrective Replace with a non-zero backspace, got {actions:?}"
+    );
+}
+
+#[test]
+fn test_cana_a_more_vowels_stays_literal_condition_d() {
+    // "cana"+"a" undoes the non-adjacent â mark (latches, buffer "cana").
+    // Continuing to type the SAME trigger vowel ('a') must stay literal:
+    // the adjacent-toggle tail "aaa" is itself a fresh undo/toggle event per
+    // the P6 parity fold, so condition (d) vetoes any resurrection of 'â'.
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "canaa".chars() { ex.process(ch); }
+    assert_eq!(ex.context().syllable_buffer, "cana");
+    assert!(ex.context().temp_english_mode);
+
+    ex.process('a');
+    assert_eq!(ex.context().syllable_buffer, "canaa",
+        "further vowel taps after the undo must never resurrect 'â'");
+    assert!(ex.context().temp_english_mode, "must remain latched");
+    assert!(!ex.context().syllable_buffer.contains('â'));
+}
+
+#[test]
+fn test_unlatch_then_more_keys_relatches_bidirectional() {
+    // After "vietje" un-latches to "việt" (temp_english_mode == false), the
+    // NEXT key goes through the ordinary (unmodified) normal recompute path
+    // — exactly like a fresh word — and can re-latch to English again if the
+    // evidence says so. This is OpenKey's bidirectional model: un-latch is
+    // not itself a one-way valve either.
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "vietje".chars() { ex.process(ch); }
+    assert_eq!(ex.context().syllable_buffer, "việt");
+    assert!(!ex.context().temp_english_mode);
+
+    ex.process('x');
+    assert_eq!(ex.context().syllable_buffer, "vietjex",
+        "an extra key that makes the word implausible must re-latch to literal");
+    assert!(ex.context().temp_english_mode, "re-latch must fire exactly like a fresh word would");
+}
+
+#[test]
+fn test_seventeen_char_run_on_never_unlatches() {
+    // 17+ raw keys: the run-on cap latches, and per the cap exemption no
+    // further probing occurs even when later keys are trigger-eligible —
+    // covered at the instrumentation level by
+    // `compose_stage::tests::no_probe_past_run_on_cap`; this is the
+    // executor-observable-behavior counterpart.
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "bcdfghklmnpqrtvzb".chars() { ex.process(ch); } // 17 chars
+    assert!(ex.context().temp_english_mode, "run-on buffer must latch past the cap");
+    ex.process('a'); // trigger-eligible, must still not un-latch
+    ex.process('s'); // tone key, must still not un-latch
+    assert!(ex.context().temp_english_mode, "run-on buffer must never un-latch");
+    assert_eq!(ex.context().syllable_buffer, "bcdfghklmnpqrtvzbas");
+}
+
+#[test]
+fn test_uppercase_midword_unlatch_case_correct() {
+    // All-uppercase input exercises `apply_case_mask`'s "all case-bearing
+    // chars uppercase" fast path on the ADOPTED probe text, proving the
+    // un-latch path is case-correct, not just the normal recompute path.
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "VIETJE".chars() { ex.process(ch); }
+    assert_eq!(ex.context().syllable_buffer, "VIỆT",
+        "uppercase un-latch must produce upper-cased attested text, not lowercase 'việt'");
+    assert!(!ex.context().temp_english_mode);
+}
+
 // ── Phase 5: VNI `nhat61` frame-level assertion (red-team M7) ────────────────
 //
 // Golden snapshots only pin the FINAL text per case — a regression that
@@ -1481,4 +1585,89 @@ fn test_vni_nhat61_frame_level_no_literal_flicker() {
         "no literal-flicker frame may appear between shape-attestation ('6') and tone ('1')"
     );
     assert!(!ex.is_temp_english_mode(), "final state must not be latched English");
+}
+
+// ── Phase 2: perf — probe cost stays bounded (red-team M2/M3) ────────────────
+//
+// `PipelineExecutor` has no backspace of its own — the multiword rolling
+// window + `find_window_backspace_raw` candidate search live in buttre-core's
+// `Keyboard` (a different crate, outside this phase's file ownership). This
+// reproduces the SAME worst-case shape that search drives — an O(window)
+// reset-and-replay over every single-key-removal candidate of a LATCHED
+// buffer — directly at the buttre-engine level, to prove the pre-filter +
+// run-on-cap exemption keep the probe's added cost bounded under it.
+
+#[test]
+fn perf_latched_typing_and_backspace_storm_bounded() {
+    use std::time::Instant;
+
+    // ── Baseline: a same-length word that never latches at all (no probe
+    // ever runs) — the phase's own success criterion is "<2x unlatched cost".
+    let start = Instant::now();
+    for _ in 0..1000 {
+        let config = create_telex_config();
+        let mut ex = PipelineExecutor::new(config);
+        for ch in "thuongw".chars() { ex.process(ch); } // 7 chars, never latches
+    }
+    let unlatched_elapsed = start.elapsed();
+
+    // ── Latched-word typing: exercises the probe path every iteration
+    // ("vietj" latches, then "e" is a trigger key that runs a full probe
+    // compose before un-latching).
+    let start = Instant::now();
+    for _ in 0..1000 {
+        let config = create_telex_config();
+        let mut ex = PipelineExecutor::new(config);
+        for ch in "vietje".chars() { ex.process(ch); }
+    }
+    let latched_typing_elapsed = start.elapsed();
+
+    println!(
+        "[perf] unlatched baseline (1000x 'thuongw', never latches): {unlatched_elapsed:?} total, {:?}/iter",
+        unlatched_elapsed / 1000
+    );
+    let ratio = latched_typing_elapsed.as_nanos() as f64 / unlatched_elapsed.as_nanos().max(1) as f64;
+    println!("[perf] latched/unlatched ratio: {ratio:.2}x");
+    assert!(ratio < 2.0, "probe cost must stay under 2x the unlatched baseline, got {ratio:.2}x");
+
+    // ── Backspace-storm-shaped replay: a 20-char latched buffer (past the
+    // 16-char run-on cap, so every candidate ALSO exercises the cap
+    // exemption), replayed once per single-key-removal candidate — the same
+    // O(window) shape `find_window_backspace_raw` drives per keystroke.
+    let window: Vec<char> = "vietjevietjevietjevi".chars().collect(); // 20 chars
+    let start = Instant::now();
+    for drop_idx in (0..window.len()).rev() {
+        let candidate: Vec<char> = window
+            .iter()
+            .enumerate()
+            .filter(|(j, _)| *j != drop_idx)
+            .map(|(_, c)| *c)
+            .collect();
+        let config = create_telex_config();
+        let mut ex = PipelineExecutor::new(config);
+        for &ch in &candidate {
+            ex.process(ch);
+        }
+    }
+    let storm_elapsed = start.elapsed();
+
+    println!(
+        "[perf] latched-word typing (1000x 'vietje' incl. probe+unlatch): {latched_typing_elapsed:?} total, {:?}/iter",
+        latched_typing_elapsed / 1000
+    );
+    println!(
+        "[perf] backspace-storm-shaped replay ({} single-key-removal candidates over a {}-char latched window): {storm_elapsed:?} total",
+        window.len(),
+        window.len()
+    );
+
+    // Generous bound (plan.md: "<1 ms/keystroke at Keyboard level incl.
+    // backspace storms"): 1000 full-word retypes and 20 full-window replays
+    // must both stay comfortably under 100ms on any dev machine, proving the
+    // probe never turns into the unbounded O(n^2)/O(n^3) blowup red-team
+    // M2 warned about.
+    assert!(latched_typing_elapsed.as_millis() < 100,
+        "latched typing must stay fast: {latched_typing_elapsed:?}");
+    assert!(storm_elapsed.as_millis() < 100,
+        "backspace-storm-shaped replay must stay bounded: {storm_elapsed:?}");
 }

@@ -1,4 +1,5 @@
-//! Stage: Compose — recompute-from-raw core (Phase 4).
+//! Stage: Compose — recompute-from-raw core (Phase 4; evidence-based un-latch
+//! added in Phase 2 of the event-sourcing-completion plan).
 //!
 //! Replaces stages 4 (Transform), 5 (Tone), 6 (Permutation), 7 (Reconciliation),
 //! and 8 (Retrofix) with a single pure call to [`compose`].
@@ -9,11 +10,17 @@
 //!   entire `ctx.char_buffer` via [`compose`].  The case mask is applied to the
 //!   result so the output respects the user's capitalisation.
 //!
-//! - When `ctx.temp_english_mode` is `true` at entry: the buffer is already in
-//!   English/fallback mode (set by a previous compose call).  We do NOT recompute
-//!   from raw — that would re-interpret the buffer as Vietnamese.  Instead we
-//!   append the new character literally to `syllable_buffer`, preserving original
-//!   case.  `temp_english_mode` stays `true`.
+//! - When `ctx.temp_english_mode` is `true` at entry: the buffer is in
+//!   English/fallback mode (set by a previous compose call). This is DERIVED
+//!   state, not a one-way valve (purity invariant, `AGENTS.md`) — every
+//!   keystroke re-probes `compose(&full_raw)` and un-latches the instant the
+//!   evidence says Vietnamese (see [`should_unlatch`]). There is no new
+//!   persistent field for this: `temp_english_mode` itself is simply
+//!   re-derived (set by `compose` as before, cleared here) rather than only
+//!   ever growing more latched. Probing is gated by a pre-filter + a run-on
+//!   cap exemption so the added cost stays bounded (see the latched branch
+//!   below); when neither un-latches, we fall back to the cheap literal
+//!   append that was the ENTIRE latched behavior before this phase.
 //!
 //! ## Case handling (normal mode)
 //!
@@ -23,9 +30,10 @@
 //! - Any leading uppercase → capitalise only the first output char.
 //! - No uppercase → return as-is.
 
-use crate::compose::{compose, ComposeOpts};
+use crate::compose::{compose, is_last_event_undo, ComposeOpts, ComposeResult};
 use crate::pipeline::config::PipelineConfig;
 use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
+use crate::pipeline::validation::is_attested;
 use crate::pipeline::{PipelineStage, StageResult, TypingContext};
 
 /// Maximum raw keystrokes a single Vietnamese syllable can occupy before the
@@ -33,6 +41,17 @@ use crate::pipeline::{PipelineStage, StageResult, TypingContext};
 /// passthrough.  Set generously above the real maximum (~10: "nghieengf",
 /// "truwowngf", VNI "nghie6ng2") so it never clips a legitimate syllable.
 const MAX_VIET_SYLLABLE_RAW: usize = 16;
+
+// Test-only instrumentation (red-team M2/M3, perf): counts how many times the
+// latched branch actually ran a probe `compose()` call. Used to PROVE the
+// pre-filter and run-on-cap exemption skip probing entirely for non-trigger
+// keystrokes and for run-on buffers, rather than merely returning the right
+// answer after doing the work anyway (mirrors the same idiom already used by
+// `compose::fallback`'s `PREFIX_COMPOSE_CALLS`).
+#[cfg(test)]
+thread_local! {
+    static PROBE_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
 
 /// Stage: Compose (replaces stages 4–8).
 ///
@@ -54,12 +73,58 @@ impl ComposeStage {
 
 impl PipelineStage for ComposeStage {
     fn process(&self, ctx: &mut TypingContext, _input: char) -> StageResult {
-        // ── English / fallback passthrough ────────────────────────────────────
-        // If temp_english_mode is already true (set by a prior compose call that
-        // decided the buffer is an undo/English sequence), keep appending chars
-        // literally.  Recomputing from raw would re-interpret the raw buffer and
-        // overwrite the correct fallback text.
+        // ── English / fallback: evidence-based un-latch (Phase 2) ─────────────
+        // `temp_english_mode` is re-derived every keystroke, not a one-way
+        // valve: Normalization (stage 1) has already populated `char_buffer`
+        // in full by the time we get here, so the raw below is always
+        // complete for this keystroke.
         if ctx.temp_english_mode {
+            // char_buffer is normalized-lowercase (see `to_char_vec` doc) —
+            // the same projection `compose()` expects and every raw_pos in
+            // `applied_marks`/`consumed_tone` indexes into.
+            let raw: Vec<char> = ctx.char_buffer.to_char_vec();
+
+            // Run-on cap exemption (perf guard, red-team M2/M3): the cap
+            // below is a pure length rule and monotonic within a word (raw
+            // only grows), so once it has already fired, every subsequent
+            // keystroke is STILL run-on with zero chance of un-latching —
+            // probing would be pure waste on a buffer this large.
+            let past_cap = raw.len() > MAX_VIET_SYLLABLE_RAW;
+
+            // Trigger pre-filter (red-team M2/M3): probe ONLY when the
+            // just-typed key could possibly matter — a tone key or a
+            // transform trigger for this config. Mirrors the
+            // `is_transform_trigger_char` idiom `compose::fallback` uses for
+            // the same reason (re-implemented here, not imported, so this
+            // stage does not reach into `fallback`'s private surface).
+            // Plain letters — the overwhelming majority of keystrokes typed
+            // while latched (`dessign`'s `ign`, `tissot`'s `t`) — fail this
+            // O(1) check and skip probing entirely.
+            let is_trigger = raw
+                .last()
+                .is_some_and(|&k| is_probe_trigger_char(k.to_ascii_lowercase(), &self.opts));
+
+            if !past_cap && is_trigger {
+                #[cfg(test)]
+                PROBE_CALLS.with(|c| c.set(c.get() + 1));
+
+                let probe = compose(&raw, &self.opts);
+                if should_unlatch(&probe, &raw, &self.opts) {
+                    // Evidence says Vietnamese: adopt the recompute and
+                    // un-latch. Goes through the same case mask as the
+                    // normal path so casing stays correct. OutputStage's
+                    // diff emits the corrective Replace automatically.
+                    ctx.syllable_buffer = apply_case_mask(&probe.text, &ctx.char_buffer, &self.opts);
+                    ctx.temp_english_mode = false;
+                    return StageResult::Continue;
+                }
+            }
+
+            // Cheap fallback: no evidence of Vietnamese (or probing was
+            // skipped) — append the new key literally, exactly as before
+            // this phase. Recomposing from raw here would re-interpret the
+            // whole buffer and could overwrite an already-correct fallback
+            // text with a spurious one.
             if let Some(last) = ctx.char_buffer.last() {
                 // Preserve original case for the appended char.
                 let ch = if last.is_uppercase {
@@ -69,7 +134,7 @@ impl PipelineStage for ComposeStage {
                 };
                 ctx.syllable_buffer.push(ch);
             }
-            // temp_english_mode stays true — subsequent chars also append literally.
+            // temp_english_mode stays true — re-derived again next keystroke.
             return StageResult::Continue;
         }
 
@@ -126,6 +191,121 @@ impl PipelineStage for ComposeStage {
     fn reset(&mut self) {
         // No internal state — compose is stateless.
     }
+}
+
+// ── Evidence-based un-latch (Phase 2) ──────────────────────────────────────────
+
+/// True when `key_lc` (already lowercased) could possibly change an
+/// evidence-based un-latch decision: either it is a tone key, or it can
+/// trigger a transform mark (config-driven, no hardcoded key set).
+///
+/// Mirrors `compose::fallback::is_transform_trigger_char`'s idiom rather than
+/// importing it, so this stage does not reach into `fallback`'s private
+/// surface — same tables (`opts.transform_rules`/`opts.tone_map`), same O(1)
+/// cost per keystroke.
+fn is_probe_trigger_char(key_lc: char, opts: &ComposeOpts) -> bool {
+    opts.tone_map.contains_key(&key_lc)
+        || opts
+            .transform_rules
+            .keys()
+            .any(|rule| rule.chars().last().is_some_and(|c| c.to_ascii_lowercase() == key_lc))
+}
+
+/// Evidence-based un-latch decision: given a fresh `probe = compose(&raw,
+/// opts)` computed from the FULL raw buffer, decide whether a currently
+/// LATCHED word should adopt the probe and clear `temp_english_mode`.
+///
+/// All four conditions must hold (strict, flip-flop-proof — phase-02 doc):
+///
+/// (a) the probe itself does not classify the word as English;
+/// (b) the probe's text is EXACT-attested (`is_attested`) — shape alone is
+///     not enough, so an in-progress VNI intermediate form never falsely
+///     un-latches;
+/// (c) the keystroke that just fired — a transform mark or the consumed
+///     tone — is pinned to the LAST raw position, never "whatever key was
+///     physically typed" (red-team M5: position-independence would let an
+///     unrelated EARLIER mark resurrect on a later, unrelated keystroke —
+///     `"vieteje"`'s immediacy contract is the same principle applied to
+///     the sibling undo check in `compose::fallback`). Covers both the
+///     transform-mark path (`probe.applied_marks`, Telex letters AND VNI
+///     digits alike — condition (c) does not care which) and the
+///     tone-consumption path (`probe.consumed_tone`) so a plain literal
+///     letter can never satisfy it (red-team m1) — only an ACTUALLY FIRED
+///     mark or tone can.
+/// (d) the word is NOT currently sitting in a just-fired undo/toggle state
+///     per P6's last-event parity fold (`is_last_event_undo`), AND is not in
+///     the "3+ repeated same key" toggle zone that fold cannot see (see
+///     [`is_repeated_trigger_tap`]'s doc — a gap discovered while
+///     implementing this phase, not part of P6's original fold). This is a
+///     COUNTERFACTUAL replay (red-team M4): the fold's detectors never ran
+///     while latched, so it may classify events the live session never
+///     fired — that is the intended semantics (state = fold(log)), pinned
+///     to reproduce today's detector outcomes (`dessign`, `a6116`, `seess`,
+///     `vie65t5` — P6's table) by the executor regression suite.
+///
+/// (a) and the `is_last_event_undo` half of (d) happen to overlap in every
+/// shipped config today: `probe` and the fold both start from the identical
+/// `check_fallback(raw, opts, true)` call, so `is_last_event_undo(raw) ==
+/// true` already forces `probe.temp_english == true`, which (a) alone would
+/// already reject. That half is kept as its own explicit check per the
+/// plan's Combined Contract: P5's preference lookup will run BEFORE the
+/// fallback checks in the eventual evaluation order, which can break this
+/// implication — the explicit check here is what keeps this function
+/// correct once that lands, not just today.
+fn should_unlatch(probe: &ComposeResult, raw: &[char], opts: &ComposeOpts) -> bool {
+    if probe.temp_english {
+        return false; // (a)
+    }
+    if !is_attested(&probe.text) {
+        return false; // (b)
+    }
+    let Some(last_idx) = raw.len().checked_sub(1) else {
+        return false;
+    };
+    let trigger_is_last = probe.applied_marks.iter().any(|m| m.raw_pos == last_idx)
+        || probe.consumed_tone.is_some_and(|(_, pos)| pos == last_idx);
+    if !trigger_is_last {
+        return false; // (c)
+    }
+    if is_repeated_trigger_tap(raw) {
+        return false; // (d), repeated-tap half
+    }
+    !is_last_event_undo(raw, opts) // (d), parity-fold half
+}
+
+/// True when the trailing raw characters (case-insensitive) repeat the SAME
+/// key three or more times.
+///
+/// ## Why this closes a fold gap discovered while implementing P2
+///
+/// `check_tone_toggle`'s Path 1 explicitly defers ODD trailing runs ≥ 3 to
+/// normal compose ("let normal compose handle") instead of classifying them
+/// as an undo — a design choice that was invisible pre-P2 because the OLD
+/// executor never re-ran `compose()` once latched, so the deferred tone
+/// application never actually surfaced (`vni_a111_is_a11_not_reapply`'s own
+/// comment: the literal `"a11"` — not the tone-applied `"á1"` — came from
+/// the EXECUTOR's literal-append latch, not from `compose()`;
+/// `test_multiple_tone_keys_after_fallback`'s `"tisssot"` is the same shape:
+/// the 3rd `'s'` composes cleanly to attested `"tí"`, which would otherwise
+/// pass (a)-(c) above and wrongly resurrect the tone Unikey says is spent).
+/// `check_transform_toggle` has the analogous gap for a non-doubling
+/// trigger (Telex `'w'`: `"awww"`'s tail `"www"` never matches the
+/// `[rc1, rc2, rc2]` pattern, since `rc1` must be the DIFFERENT preceding
+/// vowel, not another `'w'`). `is_last_event_undo` — built directly on
+/// `check_fallback` — is blind to both, since neither detector ever
+/// classifies these tails as handled.
+///
+/// A trailing run of exactly two is the NORMAL shape of a legitimate
+/// adjacent doubling mark firing for the first time (`"oo"`, the second `'w'`
+/// of `"aw"`+`'w'`) and must NOT be blocked. Three or more is always past
+/// that: either an existing detector already classifies it as undone
+/// (doubling transform triggers, even-parity tone runs — both go through
+/// `is_last_event_undo` unaffected by this check), or it falls in the gap
+/// above — either way, Unikey's "no re-apply" zone, never a fresh mark.
+fn is_repeated_trigger_tap(raw: &[char]) -> bool {
+    let Some(&last) = raw.last() else { return false };
+    let last_lc = last.to_ascii_lowercase();
+    raw.iter().rev().take_while(|&&c| c.to_ascii_lowercase() == last_lc).count() >= 3
 }
 
 // ── Case application ──────────────────────────────────────────────────────────
@@ -345,5 +525,262 @@ mod tests {
             CharInfo::with_case('f', false), // tone key
         ];
         assert_eq!(apply_case_mask("người", &buf, &telex_opts()), "NGƯỜI");
+    }
+
+    // ── Phase 2: evidence-based un-latch ───────────────────────────────────────
+
+    fn vni_opts() -> ComposeOpts {
+        ComposeOpts::from_config(&crate::pipeline::presets::vni_config())
+    }
+
+    fn raw(s: &str) -> Vec<char> {
+        s.chars().collect()
+    }
+
+    fn mark(key: char, raw_pos: usize) -> crate::compose::AppliedMark {
+        crate::compose::AppliedMark { key, raw_pos, non_adjacent: true }
+    }
+
+    #[test]
+    fn probe_trigger_char_plain_letter_never_triggers() {
+        let opts = telex_opts();
+        // 'i', 'g', 'n' never appear as a tone key or a transform-rule trigger
+        // char in Telex — the overwhelming majority of latched keystrokes.
+        for c in ['i', 'g', 'n', 'b', 'c', 't'] {
+            assert!(!is_probe_trigger_char(c, &opts), "'{c}' must not be a probe trigger");
+        }
+    }
+
+    #[test]
+    fn probe_trigger_char_tone_key_triggers() {
+        let opts = telex_opts();
+        for c in ['s', 'f', 'r', 'x', 'j'] {
+            assert!(is_probe_trigger_char(c, &opts), "tone key '{c}' must be a probe trigger");
+        }
+    }
+
+    #[test]
+    fn probe_trigger_char_transform_trigger_triggers() {
+        let opts = telex_opts();
+        // Second char of a 2-char doubling/compound rule (aa/aw/dd/ee/oo/ow/uw).
+        for c in ['a', 'w', 'd', 'e', 'o'] {
+            assert!(is_probe_trigger_char(c, &opts), "transform trigger '{c}' must be a probe trigger");
+        }
+    }
+
+    #[test]
+    fn probe_trigger_char_vni_digit_triggers() {
+        let opts = vni_opts();
+        for c in ['6', '7', '8', '9'] {
+            assert!(is_probe_trigger_char(c, &opts), "VNI digit '{c}' must be a probe trigger");
+        }
+        // VNI tone digits are also probe triggers (tone_map, not transform_rules).
+        for c in ['1', '2', '3', '4', '5'] {
+            assert!(is_probe_trigger_char(c, &opts), "VNI tone digit '{c}' must be a probe trigger");
+        }
+    }
+
+    #[test]
+    fn repeated_trigger_tap_two_is_not_repeated() {
+        // A trailing run of exactly two is a legitimate first-time doubling
+        // mark (e.g. "oo") — must never be treated as a spent toggle.
+        assert!(!is_repeated_trigger_tap(&raw("boo")));
+        assert!(!is_repeated_trigger_tap(&raw("a")));
+        assert!(!is_repeated_trigger_tap(&raw("")));
+    }
+
+    #[test]
+    fn repeated_trigger_tap_three_or_more_is_repeated() {
+        assert!(is_repeated_trigger_tap(&raw("tisss")), "3x trailing 's' is the Unikey no-reapply zone");
+        assert!(is_repeated_trigger_tap(&raw("a1111")), "4x trailing '1' is also caught");
+        assert!(is_repeated_trigger_tap(&raw("awww")), "3x trailing 'w' (non-doubling trigger) is caught too");
+    }
+
+    #[test]
+    fn repeated_trigger_tap_case_insensitive() {
+        assert!(is_repeated_trigger_tap(&raw("tiSsS")), "run detection must be case-insensitive");
+    }
+
+    #[test]
+    fn should_unlatch_fires_for_attested_mark_at_last_position() {
+        // Mirrors the "vietje" flagship fix at the unit level.
+        let opts = telex_opts();
+        let r = ComposeResult {
+            text: "việt".to_string(),
+            temp_english: false,
+            applied_marks: vec![mark('e', 5)],
+            consumed_tone: None,
+        };
+        assert!(should_unlatch(&r, &raw("vietje"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_digit_trigger_parity() {
+        // Condition (c) is data-driven, not order/alphabet-dependent: a VNI
+        // digit mark at the last raw position must un-latch exactly like a
+        // Telex letter mark (matrix row: "method parity").
+        let opts = vni_opts();
+        let r = ComposeResult {
+            text: "cân".to_string(),
+            temp_english: false,
+            applied_marks: vec![mark('6', 3)],
+            consumed_tone: None,
+        };
+        assert!(should_unlatch(&r, &raw("can6"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_via_consumed_tone_when_no_mark_fired() {
+        // The tone-only half of condition (c): no transform mark fired, but
+        // the tone key IS the last raw position.
+        let opts = vni_opts();
+        let r = ComposeResult {
+            text: "cán".to_string(),
+            temp_english: false,
+            applied_marks: Vec::new(),
+            consumed_tone: Some(('1', 3)),
+        };
+        assert!(should_unlatch(&r, &raw("can1"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_rejects_when_probe_is_english() {
+        let opts = telex_opts();
+        let r = ComposeResult {
+            text: "vietje".to_string(),
+            temp_english: true, // (a) fails
+            applied_marks: Vec::new(),
+            consumed_tone: None,
+        };
+        assert!(!should_unlatch(&r, &raw("vietje"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_rejects_unattested_shape() {
+        let opts = telex_opts();
+        let r = ComposeResult {
+            text: "xyzzz".to_string(), // (b) fails: not attested
+            temp_english: false,
+            applied_marks: vec![mark('z', 4)],
+            consumed_tone: None,
+        };
+        assert!(!should_unlatch(&r, &raw("xyzzz"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_rejects_when_trigger_is_not_last_key() {
+        // The mark fired earlier in the raw, not at the just-typed key —
+        // condition (c), pinned to raw position (red-team M5).
+        let opts = telex_opts();
+        let r = ComposeResult {
+            text: "việt".to_string(),
+            temp_english: false,
+            applied_marks: vec![mark('e', 3)], // raw_pos 3, but raw has 6 chars
+            consumed_tone: None,
+        };
+        assert!(!should_unlatch(&r, &raw("vietje"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_rejects_plain_letter_with_no_mark_or_tone() {
+        // Red-team m1: an attested probe text with an empty applied_marks AND
+        // no consumed_tone (a plain literal recompute with nothing fired)
+        // must never satisfy (c), however coincidentally attested the text.
+        let opts = telex_opts();
+        let r = ComposeResult {
+            text: "loan".to_string(),
+            temp_english: false,
+            applied_marks: Vec::new(),
+            consumed_tone: None,
+        };
+        assert!(!should_unlatch(&r, &raw("loan"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_rejects_repeated_tap_even_when_otherwise_eligible() {
+        // "tisss": the 3rd 's' composes cleanly to attested "tí" with the
+        // tone consumed at the last position — (a),(b),(c) all hold — but
+        // Unikey's no-reapply-after-undo contract must still win.
+        let opts = {
+            let mut cfg = PipelineConfig::new("telex");
+            cfg.add_tone('s', crate::pipeline::config::ToneMark::Acute);
+            ComposeOpts::from_config(&cfg)
+        };
+        let r = ComposeResult {
+            text: "tí".to_string(),
+            temp_english: false,
+            applied_marks: Vec::new(),
+            consumed_tone: Some(('s', 4)),
+        };
+        assert!(!should_unlatch(&r, &raw("tisss"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_rejects_undone_state_condition_d() {
+        // "canaa": the tail IS a just-fired non-adjacent undo per the P6
+        // parity fold, even though this synthetic probe pretends (a)-(c)
+        // would otherwise pass.
+        let opts = telex_opts();
+        let r = ComposeResult {
+            text: "cana".to_string(),
+            temp_english: false, // artificially forced true→false to isolate (d)
+            applied_marks: vec![mark('a', 4)],
+            consumed_tone: None,
+        };
+        assert!(!should_unlatch(&r, &raw("canaa"), &opts),
+            "condition (d) must veto even when (a)-(c) are synthetically satisfied");
+    }
+
+    // ── Executor-level: probe instrumentation (red-team M2/M3) ────────────────
+    // Prove — via call-count instrumentation, not just the returned answer —
+    // that the pre-filter and run-on cap actually skip the probe `compose()`
+    // call, rather than merely returning the right answer after doing it.
+
+    fn reset_probe_calls() {
+        PROBE_CALLS.with(|c| c.set(0));
+    }
+
+    fn probe_calls() -> usize {
+        PROBE_CALLS.with(std::cell::Cell::get)
+    }
+
+    #[test]
+    fn no_probe_for_non_trigger_key_while_latched() {
+        use crate::pipeline::PipelineExecutor;
+        let mut ex = PipelineExecutor::new(crate::pipeline::presets::telex_config());
+        for ch in "dess".chars() { ex.process(ch); } // latches at the 2nd 's' ("des")
+        assert!(ex.context().temp_english_mode);
+        reset_probe_calls();
+        for ch in "ign".chars() { ex.process(ch); } // none of i/g/n are triggers
+        assert_eq!(probe_calls(), 0, "plain letters must never trigger a probe compose");
+        assert_eq!(ex.context().syllable_buffer, "design");
+    }
+
+    #[test]
+    fn probe_fires_for_trigger_key_while_latched() {
+        use crate::pipeline::PipelineExecutor;
+        let mut ex = PipelineExecutor::new(crate::pipeline::presets::telex_config());
+        for ch in "vietj".chars() { ex.process(ch); } // latches ("vietj")
+        assert!(ex.context().temp_english_mode);
+        reset_probe_calls();
+        ex.process('e'); // 'e' is a transform trigger — must probe
+        assert!(probe_calls() > 0, "a trigger key must perform at least one probe compose");
+        assert_eq!(ex.context().syllable_buffer, "việt");
+        assert!(!ex.context().temp_english_mode);
+    }
+
+    #[test]
+    fn no_probe_past_run_on_cap() {
+        use crate::pipeline::PipelineExecutor;
+        let mut ex = PipelineExecutor::new(crate::pipeline::presets::telex_config());
+        // 17 distinct consonants: trips the run-on cap and latches.
+        for ch in "bcdfghklmnpqrtvzb".chars() { ex.process(ch); }
+        assert!(ex.context().temp_english_mode, "run-on buffer must latch");
+        reset_probe_calls();
+        // Further trigger-eligible keys ('a', 's') must still never probe —
+        // the cap exemption is monotonic once tripped.
+        ex.process('a');
+        ex.process('s');
+        assert_eq!(probe_calls(), 0, "past the run-on cap, probing must be fully exempt");
     }
 }

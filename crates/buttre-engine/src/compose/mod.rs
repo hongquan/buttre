@@ -36,10 +36,10 @@ use crate::pipeline::validation::{is_attested, is_shape_attested};
 // Re-export public types only.
 pub use segment::{AppliedMark, SegmentMode};
 
-// Crate-internal re-export: the P6 last-event parity fold P2's evidence-based
-// un-latch condition (d) will consume (see `plan.md`'s Combined Contract).
-// Not wired into any decision here — P6 only defines and pins the predicate.
-#[allow(unused_imports)] // consumed by P2; re-exported now so its path is stable.
+// Crate-internal re-export: the P6 last-event parity fold, consumed by P2's
+// evidence-based un-latch condition (d) in
+// `pipeline::stages::compose_stage::should_unlatch` (see `plan.md`'s
+// Combined Contract).
 pub(crate) use fallback::is_last_event_undo;
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -175,6 +175,25 @@ pub struct ComposeResult {
     /// detection consumes this to test "was the fired mark's trigger the
     /// last key of the raw prefix".
     pub applied_marks: Vec<AppliedMark>,
+
+    /// The tone key that was actually applied to produce `text`, paired with
+    /// its index in `raw` — the tone counterpart to `applied_marks` for P2's
+    /// evidence-based un-latch condition (c) ("was the completing keystroke
+    /// the LAST key of the raw buffer"). `None` whenever no tone fired,
+    /// including every fallback/undo/English-revert output (mirrors
+    /// `applied_marks` being empty on those same paths) — this is what stops
+    /// a plain literal-append letter from ever satisfying condition (c)
+    /// (red-team m1).
+    ///
+    /// `Segment::tones` is a bare `Vec<char>` with no position tracking, so
+    /// the index is recovered here as the LAST raw position whose
+    /// (lowercased) value matches the applied tone key. This is exact for
+    /// every shipped config: `has_seen_vowel` is monotonic during `segment`,
+    /// and a genuine tone-key character is never intercepted by the a/e/o/d
+    /// doubling branches (disjoint key sets in every shipped Telex/VNI
+    /// preset) — so the applied tone key's own occurrence is necessarily the
+    /// last raw index carrying that character value.
+    pub consumed_tone: Option<(char, usize)>,
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -185,7 +204,7 @@ pub struct ComposeResult {
 ///
 /// - Pure: no global state read or written, no I/O.
 /// - Deterministic: same `raw` + `opts` always yields the same `ComposeResult`.
-/// - `raw` may be empty; returns `ComposeResult { text: "", temp_english: false }`.
+/// - `raw` may be empty; returns `ComposeResult { text: "", temp_english: false, .. }`.
 ///
 /// ## Steps (Vietnamese `MarkBased` mode)
 ///
@@ -222,7 +241,7 @@ pub fn compose(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
 /// top-level call and is bounded by the ≤16-char syllable cap.)
 fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> ComposeResult {
     if raw.is_empty() {
-        return ComposeResult { text: String::new(), temp_english: false, applied_marks: Vec::new() };
+        return ComposeResult { text: String::new(), temp_english: false, applied_marks: Vec::new(), consumed_tone: None };
     }
 
     // Step 1 — fallback / undo detection (reads raw counts only).
@@ -232,6 +251,7 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -
             text: fb.text,
             temp_english: fb.temp_english,
             applied_marks: Vec::new(),
+            consumed_tone: None,
         };
     }
 
@@ -242,11 +262,17 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -
     let (transformed, applied) = transform::apply_transforms(&seg.base, &seg.transforms, opts);
 
     // Step 4 — apply tone (skip for DirectMap / no tone_map).
+    let mut consumed_tone = None;
     let text = if opts.tone_enabled && !seg.tones.is_empty() {
         // Vietnamese: last tone wins.
         let last_tone_key = *seg.tones.last().unwrap();
-        assemble::apply_tone(&transformed, last_tone_key, opts)
-            .unwrap_or(transformed)
+        match assemble::apply_tone(&transformed, last_tone_key, opts) {
+            Some(toned) => {
+                consumed_tone = last_tone_raw_pos(raw, last_tone_key).map(|pos| (last_tone_key, pos));
+                toned
+            }
+            None => transformed,
+        }
     } else {
         transformed
     };
@@ -298,10 +324,18 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -
             return elong;
         }
         let literal: String = raw.iter().collect();
-        return ComposeResult { text: literal, temp_english: true, applied_marks: Vec::new() };
+        return ComposeResult { text: literal, temp_english: true, applied_marks: Vec::new(), consumed_tone: None };
     }
 
-    ComposeResult { text, temp_english: false, applied_marks: applied }
+    ComposeResult { text, temp_english: false, applied_marks: applied, consumed_tone }
+}
+
+/// Recover the raw index of the tone key actually consumed by
+/// `assemble::apply_tone` — see [`ComposeResult::consumed_tone`] for why a
+/// value-based search on `raw` is exact for every shipped config.
+fn last_tone_raw_pos(raw: &[char], tone_key: char) -> Option<usize> {
+    let tone_lc = tone_key.to_ascii_lowercase();
+    raw.iter().rposition(|&c| c.to_ascii_lowercase() == tone_lc)
 }
 
 /// True when `text` passes the non-adjacent attestation gate: either no
@@ -427,6 +461,7 @@ fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: 
         text: format!("{}{}", base.text, suffix),
         temp_english: true,
         applied_marks: Vec::new(),
+        consumed_tone: None,
     })
 }
 

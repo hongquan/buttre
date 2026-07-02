@@ -220,17 +220,17 @@ pub fn check_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
 /// coincidence: `a611`, `seess`, `vie65t5`, `aaa`, and `dessign`'s undo point
 /// (`"dess"`) are all pinned by the unit tests below.
 ///
-/// ## Consumer (P2 — not implemented here)
+/// ## Consumer (P2)
 ///
-/// This is the shared LAST-EVENT predicate P2's evidence-based un-latch
-/// condition (d) consumes: "is the word, as typed so far, sitting in a
+/// This is the shared LAST-EVENT predicate `pipeline::stages::compose_stage`'s
+/// evidence-based un-latch condition (d) consumes via
+/// `compose::is_last_event_undo`: "is the word, as typed so far, sitting in a
 /// just-undone state" (see `plan.md`'s Combined Contract — "(d) is a
-/// LAST-EVENT parity fold sharing P6's rule", the reason P2 depends on this
-/// phase). This phase defines and pins the predicate only; deciding what to
-/// DO with an undone state (un-latch, redo, …) is P2's job — no redo
-/// behavior is implemented here, and `a6116` keeps its literal
-/// undo-is-final outcome (see `tests/vni_edge_cases.rs`).
-#[allow(dead_code)] // consumed by P2 (out of this phase's scope); exercised by unit tests until then.
+/// LAST-EVENT parity fold sharing P6's rule"). This module defines and pins
+/// the predicate only; deciding what to DO with an undone state (un-latch,
+/// redo, …) lives in `compose_stage::should_unlatch` — no redo behavior is
+/// implemented here, and `a6116` keeps its literal undo-is-final outcome
+/// (see `tests/vni_edge_cases.rs`).
 pub(crate) fn is_last_event_undo(raw: &[char], opts: &ComposeOpts) -> bool {
     check_fallback(raw, opts, true).is_handled
 }
