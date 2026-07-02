@@ -952,7 +952,7 @@ weird	weird	EnglishWord
 fix	fix	EnglishWord
 email	email	EnglishWord
 password	pasword	EnglishWord
-data	dât	EnglishWord
+data	data	EnglishWord
 type	type	EnglishWord
 user	ủe	EnglishWord
 name	name	EnglishWord
@@ -982,6 +982,18 @@ style	style	EnglishWord
 color	color	EnglishWord
 width	width	EnglishWord
 height	height	EnglishWord
+meme	meme	EnglishWord
+photo	photo	EnglishWord
+papa	papa	EnglishWord
+salsa	salsa	EnglishWord
+radar	radar	EnglishWord
+banana	banana	EnglishWord
+canal	canal	EnglishWord
+media	media	EnglishWord
+dad	dad	EnglishWord
+dads	dads	EnglishWord
+reset	rết	EnglishWord
+nasa	nasa	EnglishWord
 aaa	aa	UndoToggle
 aww	aw	UndoToggle
 eee	ee	UndoToggle

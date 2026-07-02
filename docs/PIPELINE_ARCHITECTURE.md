@@ -38,6 +38,9 @@ raw buffer — không có state tích lũy giữa các giai đoạn bên trong l
 │  │  • transform: áp dụng dấu phụ âm, kiểm tra    │  │
 │  │    tính hợp lệ của âm tiết tiếng Việt          │  │
 │  │  • tone: đặt dấu thanh lên nhân nguyên âm      │  │
+│  │  • attestation gate: mark suy luận KHÔNG liền  │  │
+│  │    kề chỉ được giữ khi âm tiết ghép ra là âm   │  │
+│  │    tiết tiếng Việt có thật (bảng 7.884 mục)    │  │
 │  │  • fallback: phát hiện undo / toggle / English  │  │
 │  │  Ghi syllable_buffer; đặt temp_english         │  │
 │  └────────────────────────────────────────────────┘  │
@@ -120,9 +123,10 @@ ghi kết quả vào `context.syllable_buffer`.
 | Bước | Module | Chức năng |
 |------|--------|-----------|
 | 1 | `fallback::check_fallback` | Phát hiện pattern undo / toggle từ số lần nhấn phím. Trả về sớm nếu được xử lý. |
-| 2 | `segment::segment` | Tách raw buffer thành (ký tự base, transform mark key, tone key). |
+| 2 | `segment::segment` | Tách raw buffer thành (ký tự base, transform mark key, tone key); mỗi mark suy luận được gắn cờ `non_adjacent` dựa trên độ liền kề RAW (không phải vị trí trong chuỗi đã ghép). |
 | 3 | `transform::apply_transforms` | Áp dụng dấu phụ âm lên base; kiểm tra bằng Vietnamese syllable validator. |
 | 4 | `assemble::apply_tone` | Đặt và áp dụng dấu thanh cuối cùng lên nhân nguyên âm. |
+| 5 | Attestation gate (`compose::passes_attestation_gate`, `pipeline::validation::is_attested`/`is_shape_attested`) | Chỉ áp dụng cho mark bị gắn cờ `non_adjacent` ở bước 2. Trigger chữ cái (Telex) đòi hỏi khớp CHÍNH XÁC âm tiết đã lên dấu; trigger không phải chữ cái (số VNI) nới lỏng thành khớp HÌNH DẠNG (bất kỳ dấu thanh nào — tránh nhấp nháy khi dấu thanh đến sau transform digit). Thất bại → giáng cấp (demote): tái ghép một lần với `infer_non_adjacent=false` (segment không trích xuất mark non-adjacent nào), các transform liền kề đã hoàn tất ở nơi khác trong từ được giữ nguyên. Đây là bước sửa lớp lỗi `"data"` → `"dât"` (mark suy luận `a` không liền kề tạo ra âm tiết hợp lệ về cấu trúc nhưng KHÔNG có thật). Đệ quy bị chặn ở độ sâu 1 bởi một cờ duy nhất xuyên suốt mọi lần gọi lại `compose()` (kể cả `try_elongation_fallback` và tái dựng prefix trong `fallback.rs`). Va chạm với âm tiết có thật (`"reset"` → `"rết"`) được CHẤP NHẬN theo thiết kế — lối thoát là hoàn tác không liền kề (gõ lại phím trigger, xem `fallback::check_nonadjacent_transform_toggle`). |
 
 #### Mô hình Superset
 

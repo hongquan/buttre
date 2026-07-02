@@ -933,6 +933,7 @@ luwcj, lực
 luwuj, lựu
 luuw, lưu
 dodongf, đồng
+vietej, việt
 ma, ma
 mai, mai
 man, man

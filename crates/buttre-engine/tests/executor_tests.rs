@@ -1405,3 +1405,80 @@ fn test_vieteje_immediacy_violated_no_undo() {
         "must not undo: immediacy violated (retyped key does not follow the fired mark)");
     assert!(ex.context().temp_english_mode);
 }
+
+// ── Phase 5: regression suite — data-class corpus at executor level ─────────
+// The compose()-level unit tests (compose::tests::high_data_class_words_stay_literal
+// et al.) already cover these at the pure-function layer; these executor-level
+// counterparts confirm the SAME words survive the incremental, keystroke-by-
+// keystroke path (ComposeStage + Gatekeeper + Output diffing), which is what
+// a real host application actually drives.
+
+#[test]
+fn test_data_class_words_stay_literal_at_executor_level() {
+    for word in [
+        "data", "meme", "photo", "papa", "salsa", "radar", "banana", "canal",
+        "media", "dad", "dads", "nasa",
+    ] {
+        let config = create_telex_config();
+        let mut ex = PipelineExecutor::new(config);
+        for ch in word.chars() { ex.process(ch); }
+        assert_eq!(ex.context().syllable_buffer, word,
+            "'{word}' must stay literal at the incremental executor level, not just at compose()");
+    }
+}
+
+#[test]
+fn test_reset_accepted_collision_at_executor_level() {
+    // "reset" composes to the real, attested syllable "rết" (centipede) — an
+    // accepted collision by design (see syllable_list.rs's
+    // known-attested-collisions comment). The escape hatch is Phase 4's
+    // non-adjacent undo (retype the trigger key), not a golden fixup.
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "reset".chars() { ex.process(ch); }
+    assert_eq!(ex.context().syllable_buffer, "rết");
+}
+
+// ── Phase 5: VNI `nhat61` frame-level assertion (red-team M7) ────────────────
+//
+// Golden snapshots only pin the FINAL text per case — a regression that
+// flickers to an incorrect intermediate frame (then silently self-repairs on
+// a later keystroke) would be invisible to the golden suite. This test
+// inspects the actual `Action` stream returned at EVERY keystroke — not just
+// the final `syllable_buffer` — reconstructing the on-screen text exactly as
+// a host application's text buffer would see it (mirrors `gen_golden.rs`'s
+// `replay` helper), and asserts the full per-keystroke frame sequence.
+
+#[test]
+fn test_vni_nhat61_frame_level_no_literal_flicker() {
+    let config = buttre_engine::pipeline::presets::vni_config();
+    let mut ex = PipelineExecutor::new(config);
+    let mut screen = String::new();
+    let mut frames: Vec<String> = Vec::new();
+    for ch in "nhat61".chars() {
+        for action in ex.process(ch) {
+            match action {
+                Action::Commit(s) | Action::ConfirmComposition(s) => screen.push_str(&s),
+                Action::Replace { backspace_count, text } => {
+                    let new_len = screen.chars().count().saturating_sub(backspace_count);
+                    screen = screen.chars().take(new_len).collect();
+                    screen.push_str(&text);
+                }
+                Action::UpdateComposition { .. }
+                | Action::DoNothing
+                | Action::ShowCandidates { .. }
+                | Action::HideCandidates => {}
+            }
+        }
+        frames.push(screen.clone());
+    }
+    // Digit '6' (shape-attested, non-alphabetic trigger) must land directly on
+    // "nhât" — never dip through a literal "nhat6" or any other flicker frame
+    // — and digit '1' then completes the tone to "nhất".
+    assert_eq!(
+        frames,
+        vec!["n", "nh", "nha", "nhat", "nhât", "nhất"],
+        "no literal-flicker frame may appear between shape-attestation ('6') and tone ('1')"
+    );
+    assert!(!ex.is_temp_english_mode(), "final state must not be latched English");
+}

@@ -109,3 +109,67 @@ fn test_multiword_window_cap_freezes_oldest() {
     }
     assert_eq!(kb.buffer(), "mot hai ba bon");
 }
+
+// ── Phase 5: Keyboard-level performance check (red-team M4) ──────────────────
+//
+// `compose_bench` (buttre-engine) measures a single `compose()` call in
+// isolation. The Hook backend's real per-keystroke cost is higher:
+// `Keyboard::process_multiword` recomposes the ENTIRE rolling window (up to
+// `MAX_WINDOW_WORDS` words) on every keystroke, and each word inside the
+// window may independently pay the attestation-gate's demote-and-recompose
+// cost (see `compose::compose_internal`). A worst-case English input that
+// repeatedly triggers BOTH the gate's demote path AND window scrolling
+// exercises what compose_bench alone cannot see. Repeating the flagship
+// `"data"` case is the most direct worst case: every occurrence independently
+// fires the non-adjacent gate, demotes, and recomposes, while the 4-char word
+// length keeps the window scrolling on almost every keystroke (>3 words).
+//
+// This is NOT a tight perf gate (see phase-05-regression-suite.md Risk
+// Notes) — it records real numbers and asserts only a generous sanity
+// ceiling, so a genuine algorithmic regression (e.g. an accidental
+// O(n^2)/O(n^3) reintroduced upstream) fails loudly without making CI flaky
+// on ordinary machine variance. See phase-05-regression-suite.md for the
+// actual measured numbers on the reference machine.
+#[test]
+fn test_keyboard_multiword_worst_case_perf() {
+    use std::time::Instant;
+
+    // 8 repetitions of the flagship gate/demote case, space-separated: the
+    // window (cap 3 words) scrolls on almost every subsequent word boundary.
+    let typing_input = ["data"; 8].join(" ");
+    let keystroke_count = typing_input.chars().count();
+
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    let start = Instant::now();
+    for ch in typing_input.chars() {
+        kb.process(ch).expect("process must not error");
+    }
+    let typing_elapsed = start.elapsed();
+    let per_keystroke = typing_elapsed / keystroke_count as u32;
+
+    // Backspace storm: delete everything just typed, one displayed grapheme
+    // at a time — the worst case for `find_window_backspace_raw`'s
+    // remove-one-key subset search over the live window.
+    let start = Instant::now();
+    for _ in 0..keystroke_count {
+        kb.backspace().expect("backspace must not error");
+    }
+    let backspace_elapsed = start.elapsed();
+    let per_backspace = backspace_elapsed / keystroke_count as u32;
+
+    eprintln!(
+        "[perf] keyboard multiword worst-case ({keystroke_count} keystrokes of \"{typing_input}\"): \
+         typing {typing_elapsed:?} total ({per_keystroke:?}/keystroke); \
+         backspace storm {backspace_elapsed:?} total ({per_backspace:?}/backspace)"
+    );
+
+    // Loose sanity ceilings only — see the doc comment above.
+    assert!(
+        per_keystroke.as_millis() < 5,
+        "typing got unexpectedly slow: {per_keystroke:?}/keystroke (budget: well under 1ms typical)"
+    );
+    assert!(
+        per_backspace.as_millis() < 20,
+        "backspace storm got unexpectedly slow: {per_backspace:?}/backspace"
+    );
+}

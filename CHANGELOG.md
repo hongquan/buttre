@@ -2,6 +2,16 @@
 
 Tất cả thay đổi đáng chú ý của buttre được ghi lại tại đây. Định dạng theo [Keep a Changelog](https://keepachangelog.com); phiên bản theo SemVer.
 
+## [Unreleased]
+
+### Cổng chứng thực âm tiết cho transform không liền kề (engine)
+- **Sửa lớp lỗi `"data"` → `"dât"`**: nhúng bảng 7.884 âm tiết tiếng Việt có thật (từ điển `ibus-bamboo`, GPLv3) dưới dạng bitset nén (~13 KB). Mark suy luận KHÔNG liền kề (gõ nhanh xen kẽ, dấu thanh chen giữa hai nguyên âm như `reset`/`nasa`, `đ` suy ra từ `d` cuối từ...) chỉ được giữ khi âm tiết ghép ra là âm tiết có thật; nếu không sẽ giáng cấp về đúng ký tự gốc đã gõ. Áp dụng cho cả Telex và VNI; các đường tái dựng prefix trong fallback (toggle dấu thanh/transform) cũng đi qua cùng cổng này để không bị bỏ sót (`dataeee`, `vietess`, `databaaa` không còn rò rỉ dấu phụ âm). VIQR chưa triển khai — cổng tự áp dụng khi preset VIQR hoàn thiện, không cần sửa thêm.
+- **Hoàn tác không liền kề** (escape hatch cho va chạm âm tiết có thật): gõ lại đúng phím trigger ngay sau khi nó vừa kích hoạt sẽ hoàn nguyên về ký tự gốc — Telex `cana`+`a` → `cana`; VNI `can6`+`6` → `can6`; `đ` suy luận `dand`+`d` → `dand`. Điều kiện tức thời (immediacy): phím gõ lại phải là phím cuối cùng của chuỗi vừa gõ, nếu không sẽ không hoàn tác (`vietej`+`e` không hoàn tác vì phím cuối lúc đó là dấu nặng `j`).
+- **Va chạm âm tiết có thật được chấp nhận theo thiết kế**: cổng chứng thực không thể và không nên phân biệt gõ tiếng Anh với một transform tiếng Việt hợp lệ khi kết quả trùng một từ có thật — `reset` → `rết` (con rết), `cana`/`can6` → `cân`, `dand` → `đan`. Lối thoát duy nhất là hoàn tác không liền kề ở trên, không phải sửa lỗi từng từ.
+- Loại bỏ các guard heuristic vá rời rạc nay được cổng chứng thực chung thay thế; giữ lại guard VNI `"ie"` (bảo vệ trạng thái trung gian gõ dấu thanh TRƯỚC transform digit, ví dụ `mieng16` → `miếng`, không bị cổng chứng thực bao trùm vì lúc đó chưa có mark nào được áp dụng) và guard `đ` không dấu (`dad` vẫn giữ nguyên tiếng Anh vì không có nguyên âm theo sau `d` thứ hai).
+- Mở rộng golden snapshot Telex/VNI với các từ tiếng Anh mới (`meme`, `photo`, `papa`, `salsa`, `radar`, `banana`, `canal`, `media`, `dad`, `dads`, `nasa`) để chứng minh việc sửa lỗi trên toàn bộ corpus, không chỉ riêng `data`.
+- Cập nhật `docs/PIPELINE_ARCHITECTURE.md` với bước cổng chứng thực trong `compose()`.
+
 ## [0.7.4-beta] — 2026-06-19
 
 ### Gõ nhanh, xóa & sửa từ (Windows hook)

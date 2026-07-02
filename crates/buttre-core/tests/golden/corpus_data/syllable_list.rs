@@ -184,13 +184,28 @@ pub const SYLLABLES: &[&str] = &[
     "NGước","Ngước",
 ];
 
-/// ~40 pure ASCII English words for the `EnglishWord` tag.
+/// ~50 pure ASCII English words for the `EnglishWord` tag.
+///
+/// // known-attested-collisions: entries below whose composed output is a
+/// REAL, attested Vietnamese syllable that the attestation gate cannot and
+/// must not try to reject (attestation only knows "is this a real syllable",
+/// not "is this English or Vietnamese lexically") — accepted by design; the
+/// escape hatch is non-adjacent undo (Phase 4: retype the trigger key to
+/// revert). Corpus-verified via golden regen (phase-05):
+/// - `reset` → `rết` (centipede) — Telex only; VNI has no letter-doubling
+///   transform, so VNI `reset` stays the literal English word.
+///
+/// No other new entry (`meme`, `photo`, `papa`, `salsa`, `radar`, `banana`,
+/// `canal`, `media`, `dad`, `dads`, `nasa`) collided with an attested
+/// syllable in either method — all compose to their literal ASCII form.
 pub const ENGLISH_WORDS: &[&str] = &[
     "file", "text", "next", "expect", "window", "water", "their", "weird",
     "fix", "email", "password", "data", "type", "user", "name", "first",
     "last", "list", "from", "this", "that", "with", "have", "will", "been",
     "some", "what", "when", "where", "which", "would", "could", "should",
     "Claus", "hello", "world", "class", "style", "color", "width", "height",
+    "meme", "photo", "papa", "salsa", "radar", "banana", "canal", "media",
+    "dad", "dads", "reset", "nasa",
 ];
 
 /// Telex sequences testing undo / double-key toggle behaviour.
