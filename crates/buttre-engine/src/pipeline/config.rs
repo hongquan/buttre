@@ -324,6 +324,26 @@ pub struct PipelineConfig {
     /// When true, enables single-char transforms, double-key patterns, etc.
     pub native_script_mode: bool,
 
+    /// Word-boundary final repair (event-sourcing-completion Phase 3).
+    ///
+    /// At a word boundary (separator commit, Enter, or another reset-key
+    /// commit), recompute the just-finished word with the CLOSED projection
+    /// (`compose::compose_closed`) and adopt it when it differs from what's
+    /// displayed — restores the literal raw for an inferred non-adjacent
+    /// mark whose tone never arrived (VNI `"nhat6"` + space → `"nhat6 "`,
+    /// not `"nhât "`).
+    ///
+    /// Default ON for BOTH backends (user decision 2026-07-02, overriding
+    /// the red-team F7 recommendation to default the TSF backend OFF):
+    /// shape-only inferred forms are rare, and retyping the affected word is
+    /// the accepted escape on TSF until a TSF-side toggle exists (Phase 4,
+    /// not yet implemented — TSF has no per-word undo affordance of its own
+    /// today). Only takes effect when the compose stage's validator is
+    /// `compose::Validator::Vietnamese` — there is no attested-syllable
+    /// table to gate against for Hmong/Custom/None, so the flag is a no-op
+    /// there regardless of this setting.
+    pub boundary_repair: bool,
+
     // ========================================================================
     // Legacy fields (for backward compatibility)
     // ========================================================================
@@ -362,6 +382,7 @@ impl PipelineConfig {
             lookup: None,
             tone: ToneConfig::default(),  // NEW: flexible typing config
             native_script_mode: false,    // NEW: disabled by default for Telex/VNI
+            boundary_repair: true,        // Phase 3: default ON for both backends
             // Legacy fields
             enable_lookup: false,
             dictionary: None,

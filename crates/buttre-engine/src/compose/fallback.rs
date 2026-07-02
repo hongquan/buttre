@@ -521,9 +521,14 @@ fn recompute_prefix_marks(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: b
     } else {
         transformed
     };
+    // `closed=false` (open projection) always: these are mid-word undo/toggle
+    // PREFIX reconstructions (detecting "was this raw tail a just-fired undo
+    // event"), never the word-boundary final decision — that decision is
+    // made once, by the top-level `compose_internal` call for this same
+    // `raw`, via its own (possibly `closed=true`) gate check.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !super::passes_attestation_gate(&text, &applied)
+        && !super::passes_attestation_gate(&text, &applied, false)
     {
         return recompute_prefix_marks(raw, opts, false);
     }
@@ -555,9 +560,14 @@ fn apply_transforms_only(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bo
     }
     let seg = segment::segment(raw, opts, allow_nonadjacent);
     let (text, applied) = transform::apply_transforms(&seg.base, &seg.transforms, opts);
+    // `closed=false` (open projection) always: these are mid-word undo/toggle
+    // PREFIX reconstructions (detecting "was this raw tail a just-fired undo
+    // event"), never the word-boundary final decision — that decision is
+    // made once, by the top-level `compose_internal` call for this same
+    // `raw`, via its own (possibly `closed=true`) gate check.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !super::passes_attestation_gate(&text, &applied)
+        && !super::passes_attestation_gate(&text, &applied, false)
     {
         return apply_transforms_only(raw, opts, false);
     }
@@ -581,9 +591,14 @@ fn compose_base_and_transforms_with_tone(raw: &[char], opts: &ComposeOpts, allow
     } else {
         transformed
     };
+    // `closed=false` (open projection) always: these are mid-word undo/toggle
+    // PREFIX reconstructions (detecting "was this raw tail a just-fired undo
+    // event"), never the word-boundary final decision — that decision is
+    // made once, by the top-level `compose_internal` call for this same
+    // `raw`, via its own (possibly `closed=true`) gate check.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !super::passes_attestation_gate(&text, &applied)
+        && !super::passes_attestation_gate(&text, &applied, false)
     {
         return compose_base_and_transforms_with_tone(raw, opts, false);
     }

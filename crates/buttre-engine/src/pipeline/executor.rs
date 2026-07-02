@@ -18,6 +18,9 @@
 
 use crate::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig};
 use crate::pipeline::stages::*;
+use crate::pipeline::stages::compose_stage::apply_case_mask;
+use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
+use crate::compose::{compose_closed, ComposeOpts, Validator};
 use crate::types::Action;
 use tracing::{instrument, debug, trace, warn};
 
@@ -41,6 +44,13 @@ pub struct PipelineExecutor {
 
     /// Whether to emit TSF composition actions (vs. simple commit/replace).
     use_composition: bool,
+
+    /// Word-boundary final repair opts (event-sourcing-completion Phase 3):
+    /// `Some` only when the compose stage is present in this pipeline,
+    /// `config.boundary_repair` is enabled, AND the compose validator is
+    /// `Validator::Vietnamese` (there is no attested-syllable table to gate
+    /// against otherwise). `None` makes [`Self::boundary_repair`] a no-op.
+    boundary_repair_opts: Option<ComposeOpts>,
 }
 
 impl PipelineExecutor {
@@ -78,10 +88,12 @@ impl PipelineExecutor {
             config.pipeline.enabled.clone()
         };
 
+        let mut compose_stage_present = false;
         for stage_name in &stage_order {
             match stage_name.as_str() {
                 "compose" => {
                     stages.push(Box::new(ComposeStage::from_config(&config)));
+                    compose_stage_present = true;
                 }
                 "orthography" => {
                     stages.push(Box::new(OrthographyStage::from_config(&config)));
@@ -106,10 +118,76 @@ impl PipelineExecutor {
         // Stage 7 (last): Output — ALWAYS LAST
         stages.push(Box::new(OutputStage::new(use_composition)));
 
+        // Word-boundary repair opts (Phase 3): computed once here, not on the
+        // hot per-keystroke path — `ComposeOpts::from_config` is the same
+        // derivation `ComposeStage::from_config` already ran; a second copy
+        // is the cheapest way to reach it without exposing `ComposeStage`'s
+        // internals across the `PipelineStage` trait object boundary.
+        let boundary_repair_opts = if compose_stage_present && config.boundary_repair {
+            let opts = ComposeOpts::from_config(&config);
+            (opts.validator == Validator::Vietnamese).then_some(opts)
+        } else {
+            None
+        };
+
         Self {
             stages,
             context: TypingContext::new(),
             use_composition,
+            boundary_repair_opts,
+        }
+    }
+
+    /// Recompute the CURRENT in-progress word's word-boundary "closed"
+    /// projection (event-sourcing-completion Phase 3: [`compose_closed`])
+    /// WITHOUT mutating any pipeline state.
+    ///
+    /// The repair diff is computed against the SAME case-masked display form
+    /// already on screen (`apply_case_mask`) — comparing against the raw
+    /// lowercase-anchored `compose` output would spuriously "repair" the
+    /// case of every mixed-case word (red-team M2: `"Vieejt"` must not
+    /// downcase to `"việt"`).
+    ///
+    /// Returns `None` when there is nothing to repair: `boundary_repair` is
+    /// disabled/inapplicable for this config (see `boundary_repair_opts`),
+    /// the buffer is empty, or the closed projection is byte-identical to
+    /// what's already displayed. Callers should treat `None` as "commit the
+    /// buffer unchanged".
+    ///
+    /// Reads the FULL `char_buffer` as the word's raw keys — correct for
+    /// external callers (TSF's Enter / buffer-reset-key handlers), which
+    /// query this BEFORE any commit key is ever pushed into the buffer.
+    /// `PipelineExecutor`'s own `PassThrough` branch (a separator commit) is
+    /// the one exception: Stage 1 (Normalization) has already pushed the
+    /// triggering separator itself into `char_buffer` earlier in this SAME
+    /// `process()` call, so it uses [`Self::boundary_repair_excluding_last`]
+    /// instead to exclude that trailing key.
+    pub fn boundary_repair(&self) -> Option<String> {
+        self.boundary_repair_for(&self.context.char_buffer)
+    }
+
+    /// Same as [`Self::boundary_repair`], but recomputed on `char_buffer`
+    /// WITHOUT its last entry — see that method's doc for why the
+    /// `PassThrough` branch (the only caller) needs this instead.
+    fn boundary_repair_excluding_last(&self) -> Option<String> {
+        let len = self.context.char_buffer.len();
+        self.boundary_repair_for(&self.context.char_buffer[..len.saturating_sub(1)])
+    }
+
+    /// Shared implementation: recompute `buf`'s closed projection and adopt
+    /// it when it differs from the currently-displayed `syllable_buffer`.
+    fn boundary_repair_for(&self, buf: &[CharInfo]) -> Option<String> {
+        let opts = self.boundary_repair_opts.as_ref()?;
+        if buf.is_empty() {
+            return None;
+        }
+        let raw = buf.to_char_vec();
+        let closed = compose_closed(&raw, opts);
+        let repaired = apply_case_mask(&closed.text, buf, opts);
+        if repaired == self.context.syllable_buffer {
+            None
+        } else {
+            Some(repaired)
         }
     }
 
@@ -134,10 +212,20 @@ impl PipelineExecutor {
 
                     // If TSF composition is active, confirm any pending composition first.
                     if self.use_composition && !self.context.syllable_buffer.is_empty() {
-                        debug!("Confirming composition: {}", self.context.syllable_buffer);
-                        actions.push(Action::ConfirmComposition(
-                            self.context.syllable_buffer.clone(),
-                        ));
+                        // Word-boundary final repair (event-sourcing-completion
+                        // Phase 3): `input` (the separator that just triggered
+                        // this PassThrough) is the moment of complete evidence
+                        // for the word about to be confirmed. TSF's
+                        // `VietnameseEngine::process_key` consumes only
+                        // `actions[0]`, and its Replace handler ignores
+                        // `backspace_count` — a separate Replace-then-Confirm
+                        // pair is unexecutable there, so the repair MUST be
+                        // folded directly into `ConfirmComposition`'s payload.
+                        let confirmed = self
+                            .boundary_repair_excluding_last()
+                            .unwrap_or_else(|| self.context.syllable_buffer.clone());
+                        debug!("Confirming composition: {}", confirmed);
+                        actions.push(Action::ConfirmComposition(confirmed));
                     }
 
                     trace!("Committing pass-through character: '{}'", input);

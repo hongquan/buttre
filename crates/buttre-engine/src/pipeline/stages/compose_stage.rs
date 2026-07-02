@@ -333,7 +333,12 @@ fn is_repeated_trigger_tap(raw: &[char]) -> bool {
 /// - Title-case (`Nguow+f` → `Người`)
 /// - Doubling transforms (`DDaay` → `Đây`, not `ĐÂy`)
 /// - VNI digit triggers (`VIE65T` → `VIỆT`)
-fn apply_case_mask(text: &str, char_buffer: &[CharInfo], opts: &ComposeOpts) -> String {
+///
+/// `pub(crate)` (not private): also called by `pipeline::executor`'s
+/// word-boundary repair probe (phase-03-boundary-repair) — the repair diff
+/// MUST be computed against this SAME case-masked display form, or a
+/// mixed-case word like `"Vieejt"` would downcase to `"việt"` on repair.
+pub(crate) fn apply_case_mask(text: &str, char_buffer: &[CharInfo], opts: &ComposeOpts) -> String {
     if text.is_empty() || char_buffer.is_empty() {
         return text.to_string();
     }

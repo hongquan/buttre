@@ -1,6 +1,6 @@
 //! Integration tests for the compose module.
 
-use crate::compose::{compose, ComposeOpts, ComposeResult};
+use crate::compose::{compose, compose_closed, ComposeOpts, ComposeResult};
 use crate::pipeline::config::{PipelineConfig, ToneMark, ToneStyle};
 
 fn telex_opts() -> ComposeOpts {
@@ -675,6 +675,79 @@ fn p6_coda_k_invalid_nucleus_reverts_to_literal() {
         let r = compose(&raw(word), &telex_opts());
         assert_eq!(r.text, word, "'{word}' must revert to literal — coda 'k' invalid for this nucleus");
         assert!(!r.text.contains('đ'), "no partial đ transform may leak through: {}", r.text);
+    }
+}
+
+// ── Phase 3: word-boundary final repair (`compose_closed`) ───────────────────
+// Test Scenario Matrix from phase-03-boundary-repair.md, compose-level rows.
+
+#[test]
+fn critical_vni_nhat6_closed_restores_literal() {
+    // Open projection: digit trigger relaxes to shape-attestation, so the
+    // tone-not-yet-typed intermediate "nhât" survives (see
+    // critical_vni_nhat61_shape_attested_no_flicker). At the word boundary
+    // (closed=true), the SAME shape-only form must demote to literal raw —
+    // "nhât" is not itself a word.
+    let opts = vni_opts();
+    assert_eq!(compose(&raw("nhat6"), &opts).text, "nhât", "open projection unaffected (regression guard)");
+    let r = compose_closed(&raw("nhat6"), &opts);
+    assert_eq!(r.text, "nhat6", "closed projection must restore the literal raw");
+    assert!(r.applied_marks.is_empty(), "the demoted digit mark carries no applied mark");
+}
+
+#[test]
+fn critical_vni_nhat61_closed_untouched_exact_attested() {
+    // Exact-attested already under the OPEN gate (the tone arrived) — the
+    // closed projection must be byte-identical.
+    let opts = vni_opts();
+    let open = compose(&raw("nhat61"), &opts);
+    let closed = compose_closed(&raw("nhat61"), &opts);
+    assert_eq!(open.text, "nhất");
+    assert_eq!(closed.text, "nhất", "exact-attested word must be untouched by the closed projection");
+}
+
+#[test]
+fn critical_vietej_closed_untouched_telex_exact_path() {
+    // Telex's non-digit trigger is ALREADY exact-attested under the open
+    // gate (no digit shape-relaxation to begin with) — closed must agree.
+    let opts = telex_opts();
+    assert_eq!(compose_closed(&raw("vietej"), &opts).text, "việt");
+}
+
+#[test]
+fn critical_data_closed_no_double_repair() {
+    // Already literal under the open gate (unattested "dât" demotes) —
+    // closed must not do anything additional/different.
+    let opts = telex_opts();
+    assert_eq!(compose_closed(&raw("data"), &opts).text, "data");
+}
+
+#[test]
+fn high_reset_closed_accepted_collision_untouched() {
+    // "rết" is a real (if coincidental) word — exact-attested under both
+    // projections; the gate cannot and must not distinguish this from a
+    // deliberate transform.
+    let opts = telex_opts();
+    assert_eq!(compose_closed(&raw("reset"), &opts).text, "rết");
+}
+
+#[test]
+fn high_adjacent_vieet_closed_never_repaired() {
+    // No inferred (non-adjacent) mark fired at all — `passes_attestation_gate`
+    // short-circuits before ever consulting `closed`.
+    let opts = telex_opts();
+    assert_eq!(compose_closed(&raw("vieet"), &opts).text, "viêt");
+}
+
+#[test]
+fn medium_closed_flag_is_a_pure_parameter_not_shared_state() {
+    // `compose` and `compose_closed` on the SAME raw/opts must never
+    // interfere with each other — both are pure functions of their inputs.
+    let opts = vni_opts();
+    let raw_buf = raw("nhat6");
+    for _ in 0..3 {
+        assert_eq!(compose(&raw_buf, &opts).text, "nhât");
+        assert_eq!(compose_closed(&raw_buf, &opts).text, "nhat6");
     }
 }
 

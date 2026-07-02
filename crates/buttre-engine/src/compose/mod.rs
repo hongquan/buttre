@@ -220,7 +220,28 @@ pub struct ComposeResult {
 ///
 /// Segment returns the full base from the transform table; no tone step.
 pub fn compose(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
-    compose_internal(raw, opts, true)
+    compose_internal(raw, opts, true, false)
+}
+
+/// Recompute the syllable output as a **closed word-boundary projection**
+/// (event-sourcing-completion Phase 3 — "word-boundary final repair").
+///
+/// Identical to [`compose`] except the attestation gate ([`passes_attestation_gate`])
+/// is forced to EXACT attestation for every trigger class, including digits —
+/// the shape-relaxation `compose` grants digit triggers exists only to avoid
+/// mid-word flicker while a tone key is still expected on the next keystroke.
+/// A word that has reached a boundary (separator, Enter, or any other commit
+/// point) expects no further keystrokes, so a shape-only inferred mark whose
+/// tone never arrived (VNI `"nhat6"` → open-projection `"nhât"`) is demoted to
+/// its literal raw form (`"nhat6"`) instead of staying on the shape-attested
+/// intermediate.
+///
+/// Callers compare this against the currently-displayed (open-projection)
+/// text and only emit a correction when the two differ — see
+/// `pipeline::executor::PipelineExecutor::boundary_repair` and
+/// `buttre_core::keyboard::Keyboard::compose_one_word`.
+pub fn compose_closed(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
+    compose_internal(raw, opts, true, true)
 }
 
 /// Core recompute engine, parameterized by `allow_nonadjacent` — the ONE
@@ -228,7 +249,9 @@ pub fn compose(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
 /// attestation-gate demote below, [`try_elongation_fallback`]'s internal
 /// recompute, and the fallback prefix reconstruction in
 /// [`fallback::check_fallback`] (closing the red-team C2 bypass: those
-/// helpers no longer rebuild prefixes ungated).
+/// helpers no longer rebuild prefixes ungated) — and by `closed`, the
+/// word-boundary projection flag consumed by [`passes_attestation_gate`]
+/// (phase-03-boundary-repair; see [`compose_closed`]).
 ///
 /// `false` means "this call is already a demoted/gated recompute — do not
 /// gate or demote again". Since [`segment::segment`] with
@@ -239,7 +262,7 @@ pub fn compose(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
 /// which re-enters on a STRICTLY SHORTER buffer — so it always terminates,
 /// but its depth is O(raw-len), not 1. This is only reachable from a
 /// top-level call and is bounded by the ≤16-char syllable cap.)
-fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> ComposeResult {
+fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, closed: bool) -> ComposeResult {
     if raw.is_empty() {
         return ComposeResult { text: String::new(), temp_english: false, applied_marks: Vec::new(), consumed_tone: None };
     }
@@ -290,13 +313,13 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -
     // so it can fire at most once per top-level `compose()` call.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !passes_attestation_gate(&text, &applied)
+        && !passes_attestation_gate(&text, &applied, closed)
     {
         // Demote: recompose with non-adjacent mark extraction disabled at the
         // source (segment). This re-derives the base/marks split from raw —
         // it does NOT mutate `text` — so already-completed ADJACENT
         // transforms elsewhere in the word are preserved untouched.
-        return compose_internal(raw, opts, false);
+        return compose_internal(raw, opts, false, closed);
     }
 
     // Step 6 — validation-first English fallback.
@@ -320,7 +343,7 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -
         // valid leading syllable and append a repeated tail literally
         // ("veofoo" → "vèooo", not "veofoo").  Only the full English fallback
         // remains for genuinely non-Vietnamese input ("water", "result").
-        if let Some(elong) = try_elongation_fallback(raw, opts, allow_nonadjacent) {
+        if let Some(elong) = try_elongation_fallback(raw, opts, allow_nonadjacent, closed) {
             return elong;
         }
         let literal: String = raw.iter().collect();
@@ -341,6 +364,16 @@ fn last_tone_raw_pos(raw: &[char], tone_key: char) -> Option<usize> {
 /// True when `text` passes the non-adjacent attestation gate: either no
 /// applied mark is flagged non-adjacent, or the composed syllable is
 /// attested.
+///
+/// ## Word-boundary closed projection (Phase 3)
+///
+/// `closed` is the word-boundary flag from [`compose_closed`]. When `true`,
+/// the digit-trigger shape-relaxation below is disabled unconditionally and
+/// EVERY trigger class requires exact attestation — a closed word expects no
+/// further keystrokes, so there is no "tone hasn't arrived yet" excuse left
+/// for a shape-only match to survive on. The demote path taken when this
+/// fails is byte-identical to the open-projection gate's (`compose_internal`
+/// recurses with `allow_nonadjacent=false`, unaffected by `closed`).
 ///
 /// ## Trigger classification (P6 gate hardening)
 ///
@@ -384,12 +417,12 @@ fn last_tone_raw_pos(raw: &[char], tone_key: char) -> Option<usize> {
 /// VNI: all digit). A hypothetical custom config mixing digit and non-digit
 /// triggers would relax a co-occurring non-digit mark to the shape check. No
 /// shipped preset does this.
-fn passes_attestation_gate(text: &str, applied: &[AppliedMark]) -> bool {
+fn passes_attestation_gate(text: &str, applied: &[AppliedMark], closed: bool) -> bool {
     let mut flagged = applied.iter().filter(|m| m.non_adjacent).peekable();
     if flagged.peek().is_none() {
         return true;
     }
-    if flagged.all(|m| m.key.is_ascii_digit()) {
+    if !closed && flagged.all(|m| m.key.is_ascii_digit()) {
         is_shape_attested(text)
     } else {
         is_attested(text)
@@ -424,7 +457,7 @@ fn passes_attestation_gate(text: &str, applied: &[AppliedMark]) -> bool {
 /// `"náa"`. Restricting elongation to top-level calls closes this without
 /// touching the heuristic itself (legitimate top-level elongation — a
 /// non-demoted `"khoongggg"` — never sets `allow_nonadjacent = false`).
-fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> Option<ComposeResult> {
+fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, closed: bool) -> Option<ComposeResult> {
     use crate::vowel::cluster::normalize_vowel;
 
     if !allow_nonadjacent {
@@ -437,7 +470,7 @@ fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: 
     if base_raw.is_empty() {
         return None;
     }
-    let base = compose_internal(base_raw, opts, allow_nonadjacent);
+    let base = compose_internal(base_raw, opts, allow_nonadjacent, closed);
     if base.temp_english || !could_be_vietnamese(&base.text, opts) {
         return None;
     }

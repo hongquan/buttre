@@ -635,12 +635,27 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         // Early exits before key_busy is set — these keys pass through immediately
         if is_buffer_reset_key(vkey) {
             debug!("Buffer reset key detected (vkey={}), resetting engine", vkey);
-            self.this.vietnamese_engine.borrow_mut().reset();
             if self.this.composition.is_started() {
                 if let Some(context) = (*pic).clone() {
+                    // Word-boundary final repair (event-sourcing-completion
+                    // Phase 3): this reset-key commit path ends the
+                    // composition directly, bypassing process_key /
+                    // ConfirmComposition — probe BEFORE resetting the engine
+                    // below (reset() clears the state the probe reads) and
+                    // fold the correction in, same as the Enter branch.
+                    if let Some(repaired) = self.this.vietnamese_engine.borrow().boundary_repair() {
+                        let sink: ITfCompositionSink = {
+                            let r: InterfaceRef<'_, ITfCompositionSink> = self.as_interface_ref();
+                            r.to_owned()
+                        };
+                        if let Err(e) = self.this.write_text(&context, &repaired, repaired.chars().count(), sink) {
+                            debug!("Failed to write boundary-repair text: {:?}", e);
+                        }
+                    }
                     let _ = self.this.end_composition(&context);
                 }
             }
+            self.this.vietnamese_engine.borrow_mut().reset();
             return Ok(BOOL(0));
         }
         if should_ignore(vkey) {
@@ -751,6 +766,18 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             else if ch == '\r' {
                 // Enter always ends composition
                 if self.this.composition.is_started() {
+                    // Word-boundary final repair (event-sourcing-completion
+                    // Phase 3): Enter ends the composition directly,
+                    // bypassing process_key/ConfirmComposition entirely —
+                    // without this probe a shape-only inferred word (e.g.
+                    // VNI "nhat6") commits unrepaired (red-team finding).
+                    // Probe BEFORE end_composition/reset and fold the
+                    // correction into the composition text if it differs.
+                    if let Some(repaired) = self.this.vietnamese_engine.borrow().boundary_repair() {
+                        if let Err(e) = self.this.write_text(&context, &repaired, repaired.chars().count(), sink.clone()) {
+                            debug!("Failed to write boundary-repair text: {:?}", e);
+                        }
+                    }
                     if let Err(e) = self.this.end_composition(&context) {
                         debug!("Failed to end composition: {:?}", e);
                     }

@@ -63,7 +63,7 @@ impl VietnameseEngine {
                 if config_path.exists() {
                     match buttre_core::Config::load(config_path.to_str().unwrap()) {
                         Ok(config) => {
-                            tracing::info!(“TSF: ✓ Loaded custom keyboard from {:?}”, config_path);
+                            tracing::info!("TSF: loaded custom keyboard from {:?}", config_path);
                             // Create keyboard with composition mode for TSF
                             KeyboardBuilder::new()
                                 .with_config(config)
@@ -124,6 +124,19 @@ impl VietnameseEngine {
         if let Some(ref mut kb) = self.keyboard {
             kb.reset();
         }
+    }
+
+    /// Word-boundary final repair probe (event-sourcing-completion Phase 3):
+    /// see `buttre_core::keyboard::Keyboard::boundary_repair`.
+    ///
+    /// Callers (Enter, and TSF's own buffer-reset-key handling in
+    /// `text_service_stub.rs`) query this BEFORE ending the composition —
+    /// those commit points bypass `process_key`/`ConfirmComposition`
+    /// entirely (they call `end_composition` directly), so without this
+    /// probe a shape-only inferred word (e.g. VNI `"nhat6"`) would commit
+    /// unrepaired.
+    pub fn boundary_repair(&self) -> Option<String> {
+        self.keyboard.as_ref().and_then(|kb| kb.boundary_repair())
     }
 
     /// Get current buffer content

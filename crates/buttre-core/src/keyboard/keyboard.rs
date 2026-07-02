@@ -336,6 +336,24 @@ impl Keyboard {
         self.committed.clear();
     }
 
+    /// Word-boundary final repair probe (event-sourcing-completion Phase 3):
+    /// see `buttre_engine::pipeline::PipelineExecutor::boundary_repair`.
+    ///
+    /// Meaningful only for the single-word/legacy path (TSF, Nôm) — a TSF
+    /// commit point (Enter, or a buffer-reset key) ends the composition
+    /// directly, bypassing `process()`/`ConfirmComposition` entirely, so the
+    /// platform layer calls this explicitly BEFORE ending the composition to
+    /// fold the correction in. `multiword` mode already threads `closed` per
+    /// word through `compose_one_word` on every window recompute (see its
+    /// doc) — a separate retroactive query there would be redundant, so this
+    /// always returns `None` when `multiword` is active.
+    pub fn boundary_repair(&self) -> Option<String> {
+        if self.multiword {
+            return None;
+        }
+        self.executor.boundary_repair()
+    }
+
     // ── Multi-word window helpers ─────────────────────────────────────────────
 
     /// A window separator: anything that is not an alphanumeric key.  Telex tone
@@ -389,6 +407,14 @@ impl Keyboard {
 
     /// Compose a window's raw keys: compose each alphanumeric word run via the
     /// engine, emit separators literally, and concatenate.
+    ///
+    /// A word run is `closed` (word-boundary final repair,
+    /// event-sourcing-completion Phase 3) iff a separator follows it within
+    /// `raw` — the moment of complete evidence. The trailing word with no
+    /// separator yet (`i == raw.len()`) is still open/editable, so it keeps
+    /// the per-keystroke live-typing projection. Re-opening a closed word
+    /// (backspacing its separator away) is automatic and needs no special
+    /// casing: the very next call here simply finds `closed = false` for it.
     fn compose_window(&mut self, raw: &[char]) -> String {
         let mut out = String::new();
         let mut i = 0;
@@ -402,17 +428,31 @@ impl Keyboard {
                     i += 1;
                 }
                 let word: Vec<char> = raw[start..i].to_vec();
-                out.push_str(&self.compose_one_word(&word));
+                let closed = i < raw.len();
+                out.push_str(&self.compose_one_word(&word, closed));
             }
         }
         out
     }
 
     /// Compose a single separator-free word via the executor (recompute-from-raw).
-    fn compose_one_word(&mut self, word: &[char]) -> String {
+    ///
+    /// `closed`: `true` when this word has a separator after it in the caller's
+    /// window (see `compose_window`) — after the normal per-keystroke
+    /// recompute, probe the word-boundary CLOSED projection
+    /// (`PipelineExecutor::boundary_repair`) and adopt it when it differs
+    /// (event-sourcing-completion Phase 3). `false` leaves the live per-
+    /// keystroke (open) projection untouched — this is the still-editable
+    /// trailing word.
+    fn compose_one_word(&mut self, word: &[char], closed: bool) -> String {
         self.executor.reset();
         for &c in word {
             self.executor.process(c);
+        }
+        if closed {
+            if let Some(repaired) = self.executor.boundary_repair() {
+                return repaired;
+            }
         }
         self.executor.get_buffer().to_string()
     }

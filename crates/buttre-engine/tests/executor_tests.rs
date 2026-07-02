@@ -1671,3 +1671,158 @@ fn perf_latched_typing_and_backspace_storm_bounded() {
     assert!(storm_elapsed.as_millis() < 100,
         "backspace-storm-shaped replay must stay bounded: {storm_elapsed:?}");
 }
+
+// ── Phase 3: word-boundary final repair — TSF (composition) delivery ────────
+//
+// TSF's `VietnameseEngine::process_key` consumes only `actions[0]`, so the
+// repair MUST be folded directly into the FIRST action's payload
+// (`ConfirmComposition`) rather than delivered as a separate Replace. These
+// tests exercise `PipelineExecutor` directly with `use_composition = true`
+// (the TSF configuration), asserting on `actions[0]`.
+
+fn vni_composition_config() -> PipelineConfig {
+    let mut config = buttre_engine::pipeline::presets::vni_config();
+    config.pipeline.use_composition = true;
+    config
+}
+
+fn telex_composition_config() -> PipelineConfig {
+    let mut config = create_telex_config();
+    config.pipeline.use_composition = true;
+    config
+}
+
+fn confirm_text(actions: &[Action]) -> &str {
+    match &actions[0] {
+        Action::ConfirmComposition(text) => text,
+        other => panic!("expected ConfirmComposition as actions[0], got {other:?}"),
+    }
+}
+
+#[test]
+fn boundary_repair_vni_nhat6_space_restores_literal() {
+    let mut ex = PipelineExecutor::new(vni_composition_config());
+    for ch in "nhat6".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "nhât", "pre-boundary display is the shape-attested intermediate");
+    let actions = ex.process(' ');
+    assert_eq!(actions.len(), 2, "ConfirmComposition + Commit(' ')");
+    assert_eq!(confirm_text(&actions), "nhat6", "shape-only inferred mark must repair to literal raw at the boundary");
+    assert_eq!(actions[1], Action::Commit(" ".to_string()));
+}
+
+#[test]
+fn boundary_repair_vni_nhat61_space_untouched_exact_attested() {
+    let mut ex = PipelineExecutor::new(vni_composition_config());
+    for ch in "nhat61".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "nhất");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "nhất", "exact-attested word must be untouched");
+}
+
+#[test]
+fn boundary_repair_telex_vietej_space_untouched_exact_path() {
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "vietej".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "việt");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "việt", "Telex's exact-attestation path is already correct, untouched by closed");
+}
+
+#[test]
+fn boundary_repair_data_space_no_double_repair() {
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "data".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "data");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "data", "already-literal word must not be touched again");
+}
+
+#[test]
+fn boundary_repair_reset_space_accepted_collision_untouched() {
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "reset".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "rết");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "rết", "exact-attested collision must not be repaired");
+}
+
+#[test]
+fn boundary_repair_adjacent_vieet_space_never_repaired() {
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "vieet".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "viêt");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "viêt", "direct/adjacent typing carries no inferred mark, never repaired");
+}
+
+#[test]
+fn boundary_repair_disabled_flag_keeps_old_behavior() {
+    let mut config = vni_composition_config();
+    config.boundary_repair = false;
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "nhat6".chars() { ex.process(ch); }
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "nhât", "boundary_repair=false must reproduce the old shape-attested-only behavior exactly");
+}
+
+#[test]
+fn boundary_repair_noop_after_p2_unlatch_no_double_replace() {
+    // Interaction with Phase 2: a word that un-latched mid-word (`should_unlatch`)
+    // is exact-attested BY DEFINITION (condition (b) of the un-latch decision) —
+    // boundary repair must be a complete no-op here, and the action list must
+    // be exactly [ConfirmComposition, Commit] — no extra Replace anywhere.
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "vietje".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "việt", "P2 un-latch must have already fired");
+    assert!(!ex.is_temp_english_mode());
+    let actions = ex.process(' ');
+    assert_eq!(actions.len(), 2, "no double-Replace: exactly ConfirmComposition + Commit");
+    assert_eq!(confirm_text(&actions), "việt");
+    assert_eq!(actions[1], Action::Commit(" ".to_string()));
+}
+
+#[test]
+fn boundary_repair_case_masked_diff_vieejt_space() {
+    // Red-team M2: the repair diff must be computed against the CASE-MASKED
+    // display form, not the lowercase-anchored `compose` output — otherwise a
+    // mixed-case word downcases on repair. "Vieejt" (leading-cap Telex) is
+    // already exact-attested ("Việt"), so this also doubles as a no-op-repair
+    // case-preservation regression guard.
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "Vieejt".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "Việt");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "Việt", "case must survive the boundary-repair probe");
+}
+
+#[test]
+fn boundary_repair_digits_after_word_do_not_commit_telex() {
+    // Telex digits continue (Gatekeeper `Continue`s them) rather than commit —
+    // pin that no boundary-commit action ever fires while typing them, so the
+    // repair hook stays untouched/inert for this path.
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "vietje".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "việt");
+    for ch in "2024".chars() {
+        let actions = ex.process(ch);
+        assert!(
+            !actions.iter().any(|a| matches!(a, Action::ConfirmComposition(_))),
+            "digit '{ch}' must not trigger a word-boundary commit"
+        );
+    }
+}
+
+#[test]
+fn boundary_repair_enter_no_separator_no_pass_through_hook() {
+    // `PipelineExecutor` has no separate Enter handling of its own — Enter
+    // reaches the platform layer directly (TSF's own buffer-reset-key branch,
+    // Hook's `is_buffer_reset_key`), never `PipelineExecutor::process`. This
+    // guards the scope boundary: the executor-level boundary_repair() probe
+    // must still report the pending correction on demand (platform layers
+    // query it explicitly before their own commit), but nothing here
+    // auto-fires it merely by sitting mid-word.
+    let mut ex = PipelineExecutor::new(vni_composition_config());
+    for ch in "nhat6".chars() { ex.process(ch); }
+    assert_eq!(ex.syllable(), "nhât");
+    assert_eq!(ex.boundary_repair(), Some("nhat6".to_string()), "probe available on demand for platform Enter/reset-key handlers");
+}

@@ -1,4 +1,5 @@
 use buttre_core::keyboard::{Keyboard, Config, KeyboardBuilder};
+use buttre_engine::pipeline::presets::vni_config;
 
 #[test]
 fn test_keyboard_creation() {
@@ -172,4 +173,112 @@ fn test_keyboard_multiword_worst_case_perf() {
         per_backspace.as_millis() < 20,
         "backspace storm got unexpectedly slow: {per_backspace:?}/backspace"
     );
+}
+
+// ── Phase 3: word-boundary final repair — multiword (Hook) delivery ─────────
+// Test Scenario Matrix from phase-03-boundary-repair.md, replayed through the
+// REAL Hook-backend code path (`Keyboard::process` → `process_multiword` →
+// `compose_window`/`compose_one_word`/`diff_to_action`) rather than a mock —
+// this is the same mechanism `hook.rs` drives via `send_replacement`.
+
+fn type_str(kb: &mut Keyboard, s: &str) {
+    for ch in s.chars() {
+        kb.process(ch).expect("process must not error");
+    }
+}
+
+#[test]
+fn boundary_repair_vni_nhat6_space_restores_literal() {
+    let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
+    type_str(&mut kb, "nhat6 ");
+    assert_eq!(kb.buffer(), "nhat6 ", "shape-only inferred mark must repair to literal raw at the boundary");
+}
+
+#[test]
+fn boundary_repair_vni_nhat61_space_untouched_exact_attested() {
+    let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
+    type_str(&mut kb, "nhat61 ");
+    assert_eq!(kb.buffer(), "nhất ", "exact-attested word must be untouched");
+}
+
+#[test]
+fn boundary_repair_telex_vietej_space_untouched_exact_path() {
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    type_str(&mut kb, "vietej ");
+    assert_eq!(kb.buffer(), "việt ", "Telex's exact-attestation path is already correct");
+}
+
+#[test]
+fn boundary_repair_data_space_no_double_repair() {
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    type_str(&mut kb, "data ");
+    assert_eq!(kb.buffer(), "data ", "already-literal word must not be touched again");
+}
+
+#[test]
+fn boundary_repair_reset_space_accepted_collision_untouched() {
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    type_str(&mut kb, "reset ");
+    assert_eq!(kb.buffer(), "rết ", "exact-attested collision must not be repaired");
+}
+
+#[test]
+fn boundary_repair_adjacent_vieet_space_never_repaired() {
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    type_str(&mut kb, "vieet ");
+    assert_eq!(kb.buffer(), "viêt ", "direct/adjacent typing carries no inferred mark, never repaired");
+}
+
+#[test]
+fn boundary_repair_case_masked_diff_vieejt_space() {
+    // Red-team M2: the repair diff must be computed against the CASE-MASKED
+    // display form. "Vieejt" is already exact-attested ("Việt"), so this
+    // also serves as a case-preservation regression guard for the no-op path.
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    type_str(&mut kb, "Vieejt ");
+    assert_eq!(kb.buffer(), "Việt ", "case must survive the boundary-repair probe");
+}
+
+#[test]
+fn boundary_repair_disabled_flag_keeps_old_behavior() {
+    let mut config = vni_config();
+    config.boundary_repair = false;
+    let mut kb = KeyboardBuilder::new()
+        .with_pipeline_config(config)
+        .build()
+        .expect("vni keyboard with boundary_repair disabled");
+    type_str(&mut kb, "nhat6 ");
+    assert_eq!(kb.buffer(), "nhât ", "boundary_repair=false must reproduce the old shape-attested-only behavior exactly");
+}
+
+#[test]
+fn boundary_repair_multiword_reopens_on_backspace_over_separator() {
+    // Bidirectional projection: a closed word's repair is NOT a one-way
+    // ratchet — backspacing the separator away re-opens the word and the
+    // shape-attested intermediate reappears automatically (the very next
+    // window recompute simply sees `closed = false` for it again).
+    let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
+    type_str(&mut kb, "nhat6 xin");
+    assert_eq!(kb.buffer(), "nhat6 xin", "word closed by the separator is repaired while composing the rest");
+
+    // Backspace "xin" away, then backspace over the separator itself.
+    kb.backspace().unwrap(); // "nhat6 xi"
+    kb.backspace().unwrap(); // "nhat6 x"
+    kb.backspace().unwrap(); // "nhat6 "
+    assert_eq!(kb.buffer(), "nhat6 ");
+    kb.backspace().unwrap(); // removes the separator — word re-opens
+    assert_eq!(kb.buffer(), "nhât", "re-opened word must show the live per-keystroke (open) projection again");
+}
+
+#[test]
+fn boundary_repair_noop_after_p2_unlatch_single_word() {
+    // Interaction with Phase 2: "vietje" un-latches mid-word to the
+    // exact-attested "việt" — boundary repair at the following separator
+    // must be a complete no-op (no double-Replace, no flicker back to any
+    // literal form).
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    type_str(&mut kb, "vietj");
+    // Still mid-word: "vietj" alone has not unlatched yet.
+    type_str(&mut kb, "e ");
+    assert_eq!(kb.buffer(), "việt ", "P2 un-latch result must survive the boundary-repair probe untouched");
 }

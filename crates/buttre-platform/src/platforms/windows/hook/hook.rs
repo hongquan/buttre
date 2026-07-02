@@ -963,6 +963,20 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             // FIX: If method returns DoNothing for separator keys (Space, Enter, Tab),
             // we should reset the engine to prevent buffer pollution.
             // This matches Unikey behavior where separators always reset the buffer.
+            //
+            // Word-boundary final repair (event-sourcing-completion Phase 3) —
+            // NO separate "natural passthrough suppression" is needed here.
+            // For phonetic Telex/VNI methods, `Keyboard::process` always runs
+            // `process_multiword` (see `buttre_core::keyboard::Keyboard`),
+            // whose `compose_window` already threads `closed` per word and
+            // folds the repair into the SAME `diff_to_action` result the
+            // separator keystroke itself produces (`Action::Replace`/`Commit`
+            // above) — one injected batch, computed synchronously within this
+            // same keystroke, never a retroactive edit racing a later key.
+            // `ch` reaching this branch as a real separator with `DoNothing`
+            // only happens for non-multiword configs (Nôm, native scripts),
+            // which don't gate on the Vietnamese attestation table this
+            // repair depends on — so there is nothing to suppress here.
             if ch == ' ' || ch == '\n' || ch == '\t' {
                 reset_engine();
             }
