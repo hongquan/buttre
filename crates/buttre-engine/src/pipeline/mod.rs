@@ -26,6 +26,7 @@ pub mod presets;
 pub mod dictionary;
 pub mod nom_dictionary;
 pub mod validation;
+mod attested_data;  // Generated bitset — see examples/gen_attested_syllables.rs
 pub mod rules;  // Enhanced rules system (Phase 1)
 pub mod permutation;  // Permutation engine for flexible typing (Phase 2)
 

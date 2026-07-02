@@ -17,6 +17,17 @@
 //! - "ba" → Onset: "b", Nucleus: "a", Coda: ""
 //! - "ban" → Onset: "b", Nucleus: "a", Coda: "n"
 //! - "thường" → Onset: "th", Nucleus: "ườ", Coda: "ng"
+//!
+//! ## Attested-syllable lookup
+//!
+//! [`is_attested`] / [`is_shape_attested`] test a syllable against the
+//! embedded `attested_data` bitset — see `data/attested-syllables.txt` for
+//! the data provenance. The (`onset_id`, `nucleus_id`, `coda_id`, `tone_id`)
+//! decomposition is the single source of truth shared by the accessors here
+//! and by `examples/gen_attested_syllables.rs`, which builds the bitset.
+
+use crate::pipeline::attested_data;
+use crate::pipeline::config::ToneMark;
 
 /// Vietnamese syllable structure
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -231,7 +242,17 @@ pub fn extract_onset(syllable: &str) -> &str {
     
     // Try 2-char onsets
     for &onset in VALID_ONSETS_2CHAR {
-        if syllable.starts_with(onset) {
+        if let Some(after) = syllable.strip_prefix(onset) {
+            // "gi" is ambiguous: either the onset digraph followed by a
+            // distinct nucleus vowel (già, giường — "i" is purely a marker of
+            // the palatal onset), or the onset "g" where the lone "i" IS the
+            // nucleus (gì, gìn, gích, gíp — Vietnamese spelling never doubles
+            // the "i" to write both the onset marker and the nucleus vowel).
+            // Re-split to onset "g" whenever keeping the full "gi" onset
+            // would leave nothing for the nucleus to claim.
+            if onset == "gi" && after.len() == extract_coda(after).len() {
+                return "g";
+            }
             return onset;
         }
     }
@@ -351,4 +372,160 @@ const VALID_NUCLEI: &[&str] = &[
     "ươi", "ươu",
     "yêu", "yeu",
 ];
+
+// ── Attested-syllable id decomposition (shared: accessors + generator) ────────
+//
+// The attested-syllable bitset is indexed by (onset_id, nucleus_id, coda_id,
+// tone_id). The dimension sizes and the id functions below are the ONLY place
+// that knows the mapping from a parsed component to its bitset axis — both
+// `is_attested`/`is_shape_attested` (below) and
+// `examples/gen_attested_syllables.rs` (which builds the bitset) call these
+// same functions, so the two sides can never encode/decode with different
+// tables.
+
+/// Number of structurally valid onsets, including the empty onset.
+/// Dimension size for the attested-syllable bitset's onset axis.
+pub const NUM_ONSETS: usize = VALID_ONSETS.len();
+
+/// Number of structurally valid nuclei. Dimension size for the
+/// attested-syllable bitset's nucleus axis.
+pub const NUM_NUCLEI: usize = VALID_NUCLEI.len();
+
+/// Number of structurally valid codas, including the empty coda.
+/// Dimension size for the attested-syllable bitset's coda axis.
+pub const NUM_CODAS: usize = VALID_CODAS.len();
+
+/// Number of `ToneMark` variants (None/ngang, Acute/sắc, Grave/huyền,
+/// Hook/hỏi, Tilde/ngã, Dot/nặng). Dimension size for the attested-syllable
+/// bitset's tone axis.
+pub const NUM_TONES: usize = 6;
+
+/// Position of `onset` within the valid-onset table — the id used as the
+/// first axis of the attested-syllable bitset. `None` if `onset` is not a
+/// structurally valid Vietnamese onset.
+pub fn onset_id(onset: &str) -> Option<usize> {
+    VALID_ONSETS.iter().position(|&o| o == onset)
+}
+
+/// Position of `nucleus` within the valid-nucleus table.
+///
+/// `nucleus` is the mark-bearing vowel cluster WITHOUT tone (e.g. "iê", "â") —
+/// the id used as the second axis of the attested-syllable bitset. `None` if
+/// `nucleus` is not a structurally valid Vietnamese nucleus.
+pub fn nucleus_id(nucleus: &str) -> Option<usize> {
+    VALID_NUCLEI.iter().position(|&n| n == nucleus)
+}
+
+/// Position of `coda` within the valid-coda table.
+///
+/// This is the id used as the third axis of the attested-syllable bitset.
+/// `None` if `coda` is not a structurally valid Vietnamese coda.
+pub fn coda_id(coda: &str) -> Option<usize> {
+    VALID_CODAS.iter().position(|&c| c == coda)
+}
+
+/// Column index for `tone` — the id used as the fourth axis of the
+/// attested-syllable bitset.
+///
+/// Matches `ToneMark`'s declaration order, the same order
+/// `crate::tone::tables` uses internally (0=None … 5=Dot), so a syllable's
+/// tone maps to the same column everywhere in the crate.
+pub const fn tone_id(tone: ToneMark) -> usize {
+    tone as usize
+}
+
+/// Flatten (`onset_id`, `nucleus_id`, `coda_id`, `tone_id`) into a single bit
+/// index for the attested-syllable bitset (row-major, tone varying fastest).
+///
+/// Shared by the generator (which sets bits) and `attested_data::is_set`
+/// (which reads them), so the two can never encode/decode with different
+/// layouts.
+pub const fn bit_index(onset_id: usize, nucleus_id: usize, coda_id: usize, tone_id: usize) -> usize {
+    ((onset_id * NUM_NUCLEI + nucleus_id) * NUM_CODAS + coda_id) * NUM_TONES + tone_id
+}
+
+/// Scan `syllable` (already NFC + lowercase) for a tone diacritic. Vietnamese
+/// syllables carry at most one tone; if two DIFFERENT tone marks are found —
+/// malformed input, e.g. mashed-together text — this returns `None` rather
+/// than guessing which one is authoritative.
+fn extract_tone(syllable: &str) -> Option<ToneMark> {
+    let mut found = ToneMark::None;
+    for ch in syllable.chars() {
+        let (_, tone) = crate::tone::strip(ch);
+        if tone != ToneMark::None {
+            if found != ToneMark::None && found != tone {
+                return None;
+            }
+            found = tone;
+        }
+    }
+    Some(found)
+}
+
+/// Decompose a Vietnamese syllable (any case, NFC or NFD input) into the
+/// (`onset_id`, `nucleus_id`, `coda_id`, `tone_id`) tuple used to index the
+/// attested-syllable bitset.
+///
+/// Returns `None` when the syllable's onset, nucleus, or coda falls outside
+/// the structural phonology tables, or when it carries more than one distinct
+/// tone mark — both cases mean "not a decomposable Vietnamese syllable", not
+/// an error worth surfacing to the caller.
+pub fn decompose_ids(syllable: &str) -> Option<(usize, usize, usize, usize)> {
+    let normalized = crate::unicode::normalize_nfc(syllable).to_lowercase();
+    let tone = extract_tone(&normalized)?;
+    let structure = SyllableStructure::parse(&normalized);
+    let o = onset_id(&structure.onset)?;
+    let n = nucleus_id(&structure.nucleus)?;
+    let c = coda_id(&structure.coda)?;
+    Some((o, n, c, tone_id(tone)))
+}
+
+/// Test whether `syllable` is an attested Vietnamese syllable, exact tone
+/// match (no tone counts as ngang). Input may be any case, NFC or NFD.
+///
+/// Fails open: any input that cannot be decomposed into (onset, nucleus,
+/// coda, tone) — because it is not shaped like a Vietnamese syllable at all —
+/// returns `false` rather than panicking. This is a lookup gate, not a
+/// validator: an unparseable candidate should be demoted to a literal, never
+/// crash the pipeline.
+///
+/// ## Examples
+///
+/// ```
+/// use buttre_engine::pipeline::validation::is_attested;
+///
+/// assert!(is_attested("việt"));
+/// assert!(is_attested("hoà"));
+/// assert!(is_attested("HÒA")); // case-insensitive
+/// assert!(!is_attested("fâllb"));
+/// ```
+pub fn is_attested(syllable: &str) -> bool {
+    match decompose_ids(syllable) {
+        Some((o, n, c, t)) => attested_data::is_set(o, n, c, t),
+        None => false,
+    }
+}
+
+/// Test whether `syllable`'s (onset, nucleus, coda) SHAPE is attested under
+/// ANY tone, ignoring whatever tone `syllable` itself carries (if any).
+///
+/// Used to gate non-alphabetic transform triggers where the tone has not
+/// been typed yet: e.g. `is_shape_attested("nhât")` is `true` because
+/// "nhất" (nh + â + t + sắc) is attested, even though "nhât" itself carries
+/// no tone.
+///
+/// Fails open exactly like [`is_attested`]: an unparseable shape returns
+/// `false`, never panics.
+pub fn is_shape_attested(syllable: &str) -> bool {
+    let normalized = crate::unicode::normalize_nfc(syllable).to_lowercase();
+    let structure = SyllableStructure::parse(&normalized);
+    let (Some(o), Some(n), Some(c)) = (
+        onset_id(&structure.onset),
+        nucleus_id(&structure.nucleus),
+        coda_id(&structure.coda),
+    ) else {
+        return false;
+    };
+    (0..NUM_TONES).any(|t| attested_data::is_set(o, n, c, t))
+}
 

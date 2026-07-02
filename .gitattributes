@@ -8,3 +8,9 @@
 *.ico binary
 *.png binary
 *.rc binary
+
+# Attested-syllable dataset: source list + license must stay LF-only so the
+# generator's line-based parsing (and its Trojan-source guard) is stable
+# across OSes; the generated bitset is pinned to LF for reproducible diffs.
+crates/buttre-engine/data/* text eol=lf
+crates/buttre-engine/src/pipeline/attested_data.rs text eol=lf

@@ -127,6 +127,81 @@ fn test_extract_onset() {
     assert_eq!(extract_onset("a"), "");
 }
 
+// ── "gi" onset fix: gì/gìn/gích/gíp family ──────────────────────────────────
+//
+// `extract_onset` used to greedily take the 2-char onset "gi", leaving the
+// gì/gìn/gích/gíp family with an EMPTY nucleus (structurally invalid). The
+// fix re-splits to onset "g" + nucleus "i..." whenever the full "gi" onset
+// would swallow the entire remainder. già/giường (a genuine "gi" onset
+// followed by a distinct nucleus vowel) must stay unaffected.
+
+#[test]
+fn gi_family_bare_i_gets_onset_g() {
+    // "gì" normalizes to "gi" — onset "gi" would leave nucleus empty, so the
+    // fix re-splits to onset "g", nucleus "i".
+    let s = SyllableStructure::parse("gì");
+    assert_eq!(s.onset, "g");
+    assert_eq!(s.nucleus, "i");
+    assert_eq!(s.coda, "");
+    assert!(s.is_valid(), "gì should be a valid open syllable");
+}
+
+#[test]
+fn gi_family_with_coda_n() {
+    let s = SyllableStructure::parse("gìn");
+    assert_eq!(s.onset, "g");
+    assert_eq!(s.nucleus, "i");
+    assert_eq!(s.coda, "n");
+    assert!(s.is_valid(), "gìn should be valid (i + n)");
+}
+
+#[test]
+fn gi_family_with_coda_ch() {
+    let s = SyllableStructure::parse("gích");
+    assert_eq!(s.onset, "g");
+    assert_eq!(s.nucleus, "i");
+    assert_eq!(s.coda, "ch");
+    assert!(s.is_valid(), "gích should be valid (i + ch)");
+}
+
+#[test]
+fn gi_family_with_coda_p() {
+    let s = SyllableStructure::parse("gíp");
+    assert_eq!(s.onset, "g");
+    assert_eq!(s.nucleus, "i");
+    assert_eq!(s.coda, "p");
+    assert!(s.is_valid(), "gíp should be valid (i + p)");
+}
+
+#[test]
+fn gia_unaffected_by_gi_fix() {
+    // "già" has a distinct nucleus vowel "a" after the "gi" onset — the fix
+    // must NOT trigger here.
+    let s = SyllableStructure::parse("già");
+    assert_eq!(s.onset, "gi");
+    assert_eq!(s.nucleus, "a");
+    assert_eq!(s.coda, "");
+    assert!(s.is_valid());
+}
+
+#[test]
+fn giet_unaffected_by_gi_fix() {
+    let s = SyllableStructure::parse("giết");
+    assert_eq!(s.onset, "gi");
+    assert_eq!(s.nucleus, "ê"); // Normalized (tone removed): ế → ê
+    assert_eq!(s.coda, "t");
+    assert!(s.is_valid());
+}
+
+#[test]
+fn giuong_unaffected_by_gi_fix() {
+    let s = SyllableStructure::parse("giường");
+    assert_eq!(s.onset, "gi");
+    assert_eq!(s.nucleus, "ươ");
+    assert_eq!(s.coda, "ng");
+    assert!(s.is_valid());
+}
+
 #[test]
 fn test_extract_coda() {
     assert_eq!(extract_coda("an"), "n");
