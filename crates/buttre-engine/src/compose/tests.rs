@@ -213,3 +213,62 @@ fn telex_thuees_yields_thue_acute() {
     // "thuees" = "thue" + ee(e→ê) + s(tone acute) = "thuế"
     assert_eq!(compose(&raw("thuees"), &telex_opts()).text, "thuế");
 }
+
+// ── Regression: double-u horn placement (bugs: luuw Telex / luu7 VNI) ────────
+//
+// The rightmost 'u' in "luu" produces invalid nucleus "uư"; the fix must
+// retry leftward to place the horn on the first 'u' giving valid "lưu".
+
+#[test]
+fn telex_luuw_yields_luu_horn() {
+    assert_eq!(compose(&raw("luuw"), &telex_opts()).text, "lưu",
+        "Telex luuw must produce lưu");
+}
+
+#[test]
+fn vni_luu7_yields_luu_horn() {
+    assert_eq!(compose(&raw("luu7"), &vni_opts()).text, "lưu",
+        "VNI luu7 must produce lưu");
+}
+
+// ── Regression: tone-before-transform ordering (bug: mieng16/mieng26 VNI) ────
+//
+// "mieng16": '1' (tone sắc) typed before '6' (e→ê transform).
+// The intermediate form "miéng" has nucleus "ie" + coda "ng"; this must pass
+// validation so English fallback does NOT latch before '6' is processed.
+
+#[test]
+fn vni_mieng16_yields_mieng_acute() {
+    assert_eq!(compose(&raw("mieng16"), &vni_opts()).text, "miếng",
+        "VNI mieng16 (tone before transform) must produce miếng");
+}
+
+#[test]
+fn vni_mieng26_yields_mieng_grave() {
+    assert_eq!(compose(&raw("mieng26"), &vni_opts()).text, "miềng",
+        "VNI mieng26 must produce miềng");
+}
+
+#[test]
+fn vni_mieng61_still_works() {
+    // Transform before tone: already worked before the fix; guard the regression.
+    assert_eq!(compose(&raw("mieng61"), &vni_opts()).text, "miếng",
+        "VNI mieng61 (transform before tone) must still produce miếng");
+}
+
+// ── Regression: fast-typing onset 'd' before doubling key (Telex) ─────────────
+//
+// When typing fast, the onset 'd' and first vowel can slip in before the
+// doubling keys.  Unikey-compatible: second 'd' = "dd"→"đ", second 'o' = "oo"→"ô".
+
+#[test]
+fn telex_dodong_yields_dong() {
+    assert_eq!(compose(&raw("dodong"), &telex_opts()).text, "đông",
+        "Telex dodong (fast-type, no tone) must produce đông");
+}
+
+#[test]
+fn telex_dodongf_yields_dong_grave() {
+    assert_eq!(compose(&raw("dodongf"), &telex_opts()).text, "đồng",
+        "Telex dodongf (fast-type onset slip) must produce đồng");
+}

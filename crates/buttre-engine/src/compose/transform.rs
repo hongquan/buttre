@@ -130,6 +130,14 @@ fn apply_one_transform(
         return None;
     }
 
+    // Scan right-to-left for a matching vowel.  When multiple vowels match (e.g.
+    // both 'u' positions in "luu"), prefer the one whose result is a valid
+    // Vietnamese syllable — placing the horn on the LEFTMOST 'u' gives "lưu"
+    // (valid nucleus "ưu") while the rightmost gives "luư" (invalid "uư").
+    // Save the first (rightmost) candidate as a fallback in case validation
+    // cannot resolve the ambiguity (unknown/partial buffer).
+    let mut first_candidate: Option<String> = None;
+
     for i in (0..search_end).rev() {
         let ch    = chars[i];
         let ch_lc = normalize_vowel(ch); // base vowel (strips tone diacritics)
@@ -138,13 +146,30 @@ fn apply_one_transform(
 
         if let Some(result_str) = opts.transform_rules.get(&lookup_key) {
             if let Some(new_char) = result_str.chars().next() {
-                chars[i] = preserve_case(ch, new_char);
-                return Some(chars.into_iter().collect());
+                let mut candidate = chars.clone();
+                candidate[i] = preserve_case(ch, new_char);
+                let candidate_str: String = candidate.into_iter().collect();
+                if is_valid_syllable(&candidate_str) {
+                    return Some(candidate_str);
+                }
+                if first_candidate.is_none() {
+                    first_candidate = Some(candidate_str);
+                }
             }
         }
     }
 
-    None
+    first_candidate
+}
+
+/// True when `s` is a valid (or structurally plausible) Vietnamese syllable.
+///
+/// Used by the rightmost-vowel scan to prefer a position whose result passes
+/// phonological validation over one that produces an invalid nucleus cluster
+/// (e.g. "lưu" valid vs "luư" invalid for the "luu"+horn transform).
+fn is_valid_syllable(s: &str) -> bool {
+    use crate::pipeline::validation::SyllableStructure;
+    SyllableStructure::parse(s).is_valid()
 }
 
 /// True when the mark key is the compound-trigger in the transform table.
@@ -263,5 +288,51 @@ mod tests {
         let opts = telex_opts();
         let result = apply_transforms("ban", &[tm('z', 3)], &opts);
         assert_eq!(result, "banz");
+    }
+
+    // ── Regression: validity-gated leftward retry (bugs: luuw / luu7) ─────────
+    //
+    // These tests use the PRODUCTION rule set (no synthetic "w"→"ư" rule).
+    // The rightmost 'u' in "luu" would produce invalid nucleus "uư"; the fix
+    // must retry leftward and land on the first 'u', giving valid nucleus "ưu".
+
+    fn vni_opts() -> ComposeOpts {
+        let mut cfg = PipelineConfig::new("vni");
+        cfg.add_transform("a6", "â");
+        cfg.add_transform("a8", "ă");
+        cfg.add_transform("e6", "ê");
+        cfg.add_transform("o6", "ô");
+        cfg.add_transform("o7", "ơ");
+        cfg.add_transform("u7", "ư");
+        cfg.add_transform("d9", "đ");
+        cfg.add_tone('1', ToneMark::Acute);
+        cfg.add_tone('2', ToneMark::Grave);
+        ComposeOpts::from_config(&cfg)
+    }
+
+    #[test]
+    fn telex_luu_w_yields_luu_horn() {
+        // "luuw": base="luu", 'w' typed after both u's (base_len=3).
+        // Rightmost 'u' (index 2) gives invalid "luư"; leftward retry picks
+        // index 1 giving valid "lưu".
+        let opts = telex_opts();
+        let result = apply_transforms("luu", &[tm('w', 3)], &opts);
+        assert_eq!(result, "lưu", "luuw must produce lưu, not luư");
+    }
+
+    #[test]
+    fn vni_luu_7_yields_luu_horn() {
+        // "luu7": same as above but via VNI '7' key.
+        let opts = vni_opts();
+        let result = apply_transforms("luu", &[tm('7', 3)], &opts);
+        assert_eq!(result, "lưu", "luu7 must produce lưu, not luư");
+    }
+
+    #[test]
+    fn telex_huu_w_yields_huu_horn() {
+        // "huuw": similar double-u case — horn on first u gives valid "hưu".
+        let opts = telex_opts();
+        let result = apply_transforms("huu", &[tm('w', 3)], &opts);
+        assert_eq!(result, "hưu", "huuw must produce hưu, not huư");
     }
 }

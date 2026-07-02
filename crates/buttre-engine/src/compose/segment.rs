@@ -82,6 +82,21 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts) -> Segment {
             *double_candidates.entry(lc).or_insert(0) += 1;
         }
     }
+
+    // For open-syllable non-adjacent đ: fire only when a vowel follows the
+    // second 'd' in raw.  This lets "dodong"→"đông" fire (vowel 'o' follows)
+    // while preserving English "dad"/"dads" (no vowel after the trailing 'd').
+    let has_vowel_after_second_d = {
+        let mut d_count = 0usize;
+        let second_d_pos = raw.iter().position(|&c| {
+            if c.to_ascii_lowercase() == 'd' { d_count += 1; }
+            d_count == 2
+        });
+        second_d_pos.map_or(false, |pos| {
+            raw.get(pos + 1..).unwrap_or(&[]).iter().any(|&c| is_vowel(c.to_ascii_lowercase()))
+        })
+    };
+
     let mut vowel_in_base: HashMap<char, bool> = HashMap::new();
 
     for &ch in raw {
@@ -143,7 +158,13 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts) -> Segment {
         if lc == 'd'
             && double_candidates.get(&'d').copied().unwrap_or(0) == 2
             && *vowel_in_base.get(&'d').unwrap_or(&false)
-            && (!tones.is_empty() || base_ends_with_coda(&base))
+            && (!tones.is_empty() || base_ends_with_coda(&base)
+                // Fast-typing: onset 'd' followed by a vowel (open syllable) before
+                // the doubling key — "dodong"→"đông", "dodongf"→"đồng".
+                // Guard: a vowel must follow the second 'd' in raw; otherwise
+                // English words ending in 'd' ("dad", "dads") are preserved.
+                || (is_vowel(base.chars().last().unwrap_or('_').to_ascii_lowercase())
+                    && has_vowel_after_second_d))
         {
             transforms.push(TransformMark { key: ch, base_len_at_typing: base.chars().count() });
             continue;
@@ -560,6 +581,20 @@ mod tests {
         let raw: Vec<char> = "baan".chars().collect();
         let seg = segment(&raw, &opts);
         assert_eq!(transform_keys(&seg), vec!['a'], "aa transform must fire in 'baan'");
+    }
+
+    #[test]
+    fn dodong_d_fires_as_onset_transform() {
+        // "dodongf": fast-typing "đồng" — 'd' and 'o' typed before their doubling
+        // keys.  The second 'd' must fire as a non-adjacent onset transform (base
+        // open, tone key 'f' follows), and the second 'o' must follow via the
+        // existing non-adjacent vowel path.
+        let opts = telex_opts();
+        let raw: Vec<char> = "dodongf".chars().collect();
+        let seg = segment(&raw, &opts);
+        assert_eq!(seg.base, "dong", "base must be 'dong' after both transforms extracted");
+        assert_eq!(transform_keys(&seg), vec!['d', 'o'], "both 'd' and 'o' must be transform marks");
+        assert_eq!(seg.tones, vec!['f']);
     }
 
     #[test]

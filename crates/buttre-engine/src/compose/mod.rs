@@ -208,7 +208,7 @@ pub fn compose(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
     // instead of being misread as English.
     if opts.validator == Validator::Vietnamese
         && (!seg.transforms.is_empty() || !seg.tones.is_empty())
-        && !could_be_vietnamese(&text)
+        && !could_be_vietnamese(&text, opts)
     {
         // Leniency first (Unikey-style, not aggressive spell-check): before
         // reverting the whole word to English, try stylistic elongation — keep a
@@ -248,7 +248,7 @@ fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts) -> Option<ComposeRe
         return None;
     }
     let base = compose(base_raw, opts);
-    if base.temp_english || !could_be_vietnamese(&base.text) {
+    if base.temp_english || !could_be_vietnamese(&base.text, opts) {
         return None;
     }
     // Elongation is recognised when EITHER the tail repeats ≥2 times, OR it is a
@@ -284,7 +284,7 @@ fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts) -> Option<ComposeRe
 /// identical adjacent letters in its final orthographic form — the diacritic
 /// carries the distinction (`ô`, not `oo`; `â`, not `aa`).  The displayed text
 /// keeps the elongation; only the validity decision sees the collapsed form.
-fn could_be_vietnamese(text: &str) -> bool {
+fn could_be_vietnamese(text: &str, opts: &ComposeOpts) -> bool {
     use crate::pipeline::validation::SyllableStructure;
     let collapsed = collapse_adjacent_repeats(text);
     let s = SyllableStructure::parse(&collapsed);
@@ -292,7 +292,26 @@ fn could_be_vietnamese(text: &str) -> bool {
         return true;
     }
     // Consonant-only prefix: onset present, nucleus/coda not yet typed.
-    s.nucleus.is_empty() && s.coda.is_empty() && !s.onset.is_empty()
+    if s.nucleus.is_empty() && s.coda.is_empty() && !s.onset.is_empty() {
+        return true;
+    }
+    // VNI intermediate form: when the method uses non-alphabetic transform keys
+    // (digit '6' for e→ê, '7' for u→ư, etc.), the user may type a tone before
+    // the vowel-mark key (e.g. "mieng16": '1'=sắc, then '6'=e→ê).  The
+    // intermediate state after '1' has nucleus "ie" + coda, which is not a
+    // final valid Vietnamese form but IS a plausible in-progress syllable.
+    // Accept it so English-fallback does not latch before '6' is pressed.
+    //
+    // This path is skipped for Telex (transform_trigger_chars is empty — all
+    // Telex mark keys are alphabetic), so "vietf" (tone on bare 'e' in Telex)
+    // continues to fall through to English passthrough as intended.
+    if !opts.transform_trigger_chars.is_empty()
+        && s.nucleus == "ie"
+        && matches!(s.coda.as_str(), "c" | "m" | "n" | "ng" | "p" | "t")
+    {
+        return true;
+    }
+    false
 }
 
 /// Collapse runs of consecutive identical characters down to one

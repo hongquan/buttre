@@ -1228,7 +1228,9 @@ fn test_nonadjacent_dd_with_coda_no_tone() {
 
 #[test]
 fn test_bare_dad_stays_english() {
-    // No coda, no tone → non-adjacent đ must NOT fire (English "dad" preserved).
+    // "dad": second 'd' is the last raw char, no vowel follows it.
+    // The open-syllable non-adjacent đ guard must NOT fire — English "dad" preserved.
+    // (Fast-typing "dodong"→"đông" fires because vowel 'o' follows the second 'd'.)
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
     for ch in "dad".chars() { ex.process(ch); }

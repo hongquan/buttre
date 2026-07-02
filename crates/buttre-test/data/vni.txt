@@ -928,6 +928,8 @@ lu75, lự
 lua75, lựa
 luc75, lực
 luu75, lựu
+mieng16, miếng
+mieng26, miềng
 mieng61, miếng
 mieu61, miếu
 mien62, miền
