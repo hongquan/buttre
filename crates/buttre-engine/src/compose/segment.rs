@@ -110,6 +110,13 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
     // raw buffer has exactly one base char + one transform mark intended.
     // Three or more occurrences (e.g. "implemeent" has 3 'e') indicate an
     // English word with accidental repeats, not a Vietnamese transform intent.
+    //
+    // KEEP (phase-03 adjudication table): attestation cannot replace this.
+    // A 3rd repeat is the signal Phase 4's undo/toggle detection and the
+    // English-fallback path rely on — it is orthogonal to whether the
+    // COMPOSED syllable happens to be a real word. E.g. "aaa" must undo to
+    // "aa" regardless of attestation; the count==2 rule is what tells segment
+    // "this looks like one intentional mark", not "the result is attested".
     let mut double_candidates: HashMap<char, usize> = HashMap::new();
     for &ch in raw {
         let lc = ch.to_ascii_lowercase();
@@ -121,6 +128,13 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
     // For open-syllable non-adjacent đ: fire only when a vowel follows the
     // second 'd' in raw.  This lets "dodong"→"đông" fire (vowel 'o' follows)
     // while preserving English "dad"/"dads" (no vowel after the trailing 'd').
+    //
+    // KEEP (phase-03 adjudication table): "dad"→"đa" IS an attested Vietnamese
+    // syllable, so the attestation gate cannot tell it apart from a deliberate
+    // đ transform — this guard is the ONLY thing protecting English "dad"/
+    // "dads". Applies to every đ-path guard below (this fn, `base_ends_with_coda`,
+    // and the open-syllable vowel check at the đ branch's call site), not just
+    // this helper.
     let has_vowel_after_second_d = {
         let mut d_count = 0usize;
         let second_d_pos = raw.iter().position(|&c| {
@@ -148,6 +162,14 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
         // the same vowel appears on both sides of a consonant boundary
         // (e.g. "fallbaack": earlier 'a' at pos 1, consonants "llb" before the
         // adjacent "aa"; "implemeent": earlier 'e' at pos 4, 'm' before "ee").
+        //
+        // KEEP (phase-03 adjudication table): this ADJACENT path is deliberately
+        // ungated by the attestation gate — the gate (`compose::mod`) only ever
+        // demotes marks flagged `non_adjacent`. Removing this guard would let
+        // every adjacent English double ("fallbaack", "implemeent") transform
+        // unconditionally; leniency here means "typed exactly like a real
+        // Vietnamese double" still gets one structural sanity check, not a
+        // lexical one.
         if !base.is_empty() {
             let last_base_lc = base.chars().last().unwrap().to_ascii_lowercase();
             if last_base_lc == lc && matches!(lc, 'a' | 'e' | 'o' | 'd') {
@@ -168,21 +190,38 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
 
         // ── Non-adjacent double (flexible typing: "vietej" → "việt") ───────
         // The repeated vowel refers back to the nucleus of an already-complete
-        // syllable.  This is only legitimate when the earlier part really IS one
-        // complete Vietnamese syllable, which requires BOTH:
-        //   1. exactly one contiguous vowel group (one nucleus) — rejects
+        // syllable.  `vowel_in_base` (KEEP, phase-03 adjudication table) is a
+        // structural precondition independent of attestation: without an
+        // earlier occurrence of `lc` in `base` at all, there is nothing for a
+        // non-adjacent mark to target — this is not a "is it a real word"
+        // question, it is "does the shape even make sense to attempt".
+        //
+        // The remaining two checks (KEEP for non-Vietnamese, gate-bypassed for
+        // Vietnamese — see `legacy_shape_guards_pass` below) used to ALSO gate
+        // Vietnamese configs:
+        //   1. exactly one contiguous vowel group (one nucleus) — rejected
         //      "implem" ('i' … 'e' = two groups, an English word); AND
         //   2. the consonants after the rightmost matching vowel form a VALID
-        //      Vietnamese coda — rejects "fallb" (coda "llb" is invalid, so
-        //      "fallback" stays literal instead of becoming "fâllback").
+        //      Vietnamese coda — rejected "fallb" (coda "llb" is invalid, so
+        //      "fallback" stayed literal instead of becoming "fâllback").
         // For "viet": one group + coda "t" (valid) → fires → "việt".
+        //
+        // DELETE for Vietnamese (phase-03 adjudication table, conditional-keep
+        // rule / red-team M1): the composed result of "implêm"/"fâllb"/"sâls"
+        // is unattested, so `compose::mod`'s attestation gate demotes it after
+        // the fact — these two structural pre-checks are now redundant work on
+        // that path. But the gate is Vietnamese-only (`opts.attest_non_adjacent`
+        // is false for Hmong/Custom/None), so for those validators the legacy
+        // guards must keep running exactly as before — there is no attestation
+        // table to catch a bad shape post-hoc.
         // count != 2 also disables non-adjacent (English word with repeats).
         if matches!(lc, 'a' | 'e' | 'o') {
             let count = double_candidates.get(&lc).copied().unwrap_or(0);
+            let legacy_shape_guards_pass = opts.attest_non_adjacent
+                || (count_vowel_groups(&base) <= 1 && coda_after_last_vowel_is_valid(&base, lc));
             if count == 2
                 && *vowel_in_base.get(&lc).unwrap_or(&false)
-                && count_vowel_groups(&base) <= 1
-                && coda_after_last_vowel_is_valid(&base, lc)
+                && legacy_shape_guards_pass
             {
                 let base_len = base.chars().count();
                 let non_adjacent = mark_non_adjacent(raw, i, lc, base_len, opts);
@@ -202,6 +241,13 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
         // syllable is "committed" — it already has a coda consonant OR a tone —
         // which signals genuine Vietnamese intent.  So "datjd"/"datd"/"datdj"
         // → đạt/đat, but bare "dad" stays "dad".
+        //
+        // KEEP unconditionally, for ALL validators (phase-03 adjudication
+        // table): "đa" (from bare "dad") IS an attested Vietnamese syllable —
+        // the attestation gate in `compose::mod` cannot distinguish this from
+        // a deliberate transform, so it can never protect English "d…d" words.
+        // This whole đ branch is NOT subject to the conditional-keep bypass
+        // used above for the vowel branch.
         if lc == 'd'
             && double_candidates.get(&'d').copied().unwrap_or(0) == 2
             && *vowel_in_base.get(&'d').unwrap_or(&false)
@@ -391,6 +437,12 @@ fn has_earlier_vowel_with_consonants(base: &str, vowel: char) -> bool {
 /// portion to be a complete syllable, its tail must be a legal coda.
 /// "viet" → tail after 'e' is "t" (valid). "fallb" → tail after 'a' is "llb"
 /// (invalid → not a syllable → keep "fallback" literal).
+///
+/// Phase-03: reachable only when `opts.attest_non_adjacent` is `false`
+/// (Hmong/Custom/None) — see `legacy_shape_guards_pass` at the call site.
+/// For Vietnamese configs the attestation gate in `compose::mod` catches the
+/// same class of false positive downstream, on the composed result rather
+/// than this structural pre-check.
 fn coda_after_last_vowel_is_valid(base: &str, vowel: char) -> bool {
     let chars: Vec<char> = base.chars().collect();
     let Some(pos) = chars.iter().rposition(|&c| c.to_ascii_lowercase() == vowel) else {
@@ -441,6 +493,12 @@ fn base_ends_with_coda(base: &str) -> bool {
 /// A valid Vietnamese syllable has exactly one vowel nucleus (one group).
 /// More than one group means the base spans a consonant-separated vowel
 /// boundary — not a single syllable.
+///
+/// Phase-03: reachable only when `opts.attest_non_adjacent` is `false`
+/// (Hmong/Custom/None) — see `legacy_shape_guards_pass` at the call site.
+/// For Vietnamese configs the attestation gate in `compose::mod` catches the
+/// same class of false positive downstream, on the composed result rather
+/// than this structural pre-check.
 fn count_vowel_groups(s: &str) -> usize {
     let mut groups = 0;
     let mut in_vowel = false;
@@ -503,7 +561,7 @@ fn is_standalone_transform_key(ch: char, opts: &ComposeOpts) -> bool {
 mod tests {
     use super::*;
     use crate::compose::ComposeOpts;
-    use crate::pipeline::config::{PipelineConfig, ToneMark};
+    use crate::pipeline::config::{PipelineConfig, ToneMark, ValidationSettings};
 
     fn telex_opts() -> ComposeOpts {
         let mut cfg = PipelineConfig::new("telex");
@@ -519,6 +577,28 @@ mod tests {
         cfg.add_tone('r', ToneMark::Hook);
         cfg.add_tone('x', ToneMark::Tilde);
         cfg.add_tone('j', ToneMark::Dot);
+        ComposeOpts::from_config(&cfg)
+    }
+
+    /// Same doubling/tone rules as `telex_opts`, but with a non-Vietnamese
+    /// validator — `opts.attest_non_adjacent` is `false`, so the legacy
+    /// `count_vowel_groups`/`coda_after_last_vowel_is_valid` shape guards must
+    /// stay active (phase-03 conditional-keep rule).
+    fn hmong_opts() -> ComposeOpts {
+        let mut cfg = PipelineConfig::new("hmong-test");
+        cfg.add_transform("aa", "â");
+        cfg.add_transform("aw", "ă");
+        cfg.add_transform("ee", "ê");
+        cfg.add_transform("oo", "ô");
+        cfg.add_transform("ow", "ơ");
+        cfg.add_transform("uw", "ư");
+        cfg.add_transform("dd", "đ");
+        cfg.add_tone('s', ToneMark::Acute);
+        cfg.add_tone('f', ToneMark::Grave);
+        cfg.add_tone('r', ToneMark::Hook);
+        cfg.add_tone('x', ToneMark::Tilde);
+        cfg.add_tone('j', ToneMark::Dot);
+        cfg.validation = Some(ValidationSettings { syllable_structure: "hmong".to_string(), allow_invalid: true });
         ComposeOpts::from_config(&cfg)
     }
 
@@ -623,36 +703,43 @@ mod tests {
         assert_eq!(seg.base, "implemeent");
     }
 
+    // ── Phase 3: conditional-keep rule (adjudication table DELETE¹ rows) ─────
+    //
+    // `count_vowel_groups(&base) <= 1` and `coda_after_last_vowel_is_valid`
+    // used to ALSO block "fallback"/"implement"/"impleme" at THIS layer for
+    // every validator. For Vietnamese configs they are now bypassed here —
+    // the attestation gate in `compose::mod` demotes the unattested result
+    // downstream instead (see `compose::tests::high_fallback_implement_class_words_stay_literal`
+    // for the end-to-end assertion that these words still end up literal).
+    // Zero scenarios dropped: the segment-level rejection assertion these
+    // tests used to make now lives at the compose level; what's asserted HERE
+    // is the new segment-level contract (mark fires, gate handles the rest).
+
     #[test]
-    fn fallback_real_word_no_transform() {
-        // Typing the real word "fallback": second 'a' must NOT transform the
-        // first ('fallb' has invalid coda "llb") — output stays "fallback".
+    fn vietnamese_config_bypasses_legacy_shape_guards() {
         let opts = telex_opts();
-        let raw: Vec<char> = "fallback".chars().collect();
-        let seg = segment(&raw, &opts, true);
-        assert!(seg.transforms.is_empty(), "no transform in 'fallback': {:?}", seg.transforms);
-        assert_eq!(seg.base, "fallback");
+        for word in ["fallback", "implement", "impleme"] {
+            let raw: Vec<char> = word.chars().collect();
+            let seg = segment(&raw, &opts, true);
+            assert!(!seg.transforms.is_empty(),
+                "Vietnamese config must bypass the legacy shape guards for '{word}' at segment level (gate demotes downstream): {:?}", seg.transforms);
+        }
     }
 
     #[test]
-    fn implement_real_word_no_transform() {
-        // Typing the real word "implement": no transform at all.
-        let opts = telex_opts();
-        let raw: Vec<char> = "implement".chars().collect();
-        let seg = segment(&raw, &opts, true);
-        assert!(seg.transforms.is_empty(), "no transform in 'implement': {:?}", seg.transforms);
-        assert_eq!(seg.base, "implement");
-    }
-
-    #[test]
-    fn implemeent_no_nonadjacent_transform() {
-        // "impleme" has two vowel groups ('i' … 'e') → not one Vietnamese
-        // syllable → non-adjacent 'e' transform must NOT fire.
-        let opts = telex_opts();
-        let raw: Vec<char> = "impleme".chars().collect();
-        let seg = segment(&raw, &opts, true);
-        assert!(seg.transforms.is_empty(), "non-adjacent must not fire in 'impleme': {:?}", seg.transforms);
-        assert_eq!(seg.base, "impleme");
+    fn hmong_config_legacy_shape_guards_still_block() {
+        // Non-Vietnamese-config regression guard (phase-03 conditional-keep
+        // rule): `opts.attest_non_adjacent` is `false` for Hmong/Custom/None
+        // validators, which have no attested-syllable table — the legacy
+        // structural guards must keep running EXACTLY as before for these.
+        let opts = hmong_opts();
+        for word in ["fallback", "implement", "impleme"] {
+            let raw: Vec<char> = word.chars().collect();
+            let seg = segment(&raw, &opts, true);
+            assert!(seg.transforms.is_empty(),
+                "Hmong config must keep the legacy shape guards active for '{word}': {:?}", seg.transforms);
+            assert_eq!(seg.base, word);
+        }
     }
 
     #[test]

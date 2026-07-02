@@ -333,6 +333,31 @@ fn high_data_class_words_stay_literal() {
     }
 }
 
+// ── Phase 3: guard simplification — segment-level rejection moved here ──────
+// `fallback_real_word_no_transform`/`implement_real_word_no_transform`/
+// `implemeent_no_nonadjacent_transform` used to assert REJECTION in
+// `compose::segment::tests` via `count_vowel_groups`/`coda_after_last_vowel_is_valid`.
+// Those two guards are now bypassed at the segment layer for Vietnamese
+// configs (see `segment::tests::vietnamese_config_bypasses_legacy_shape_guards`) —
+// the SAME end-to-end outcome (literal output) is now produced by the P2
+// attestation gate instead. Zero scenarios dropped; only the layer moved.
+
+#[test]
+fn high_fallback_implement_class_words_stay_literal() {
+    for word in ["fallback", "implement", "impleme", "salsa"] {
+        let r = compose(&raw(word), &telex_opts());
+        assert_eq!(r.text, word, "'{word}' must stay literal via the attestation gate (unattested non-adjacent result)");
+    }
+}
+
+#[test]
+fn high_banana_stays_literal_via_repeat_count_guard() {
+    // "banana" has THREE 'a's — blocked by the exactly-2-occurrence rule
+    // (KEEP, independent of attestation), never even reaches the gate.
+    let r = compose(&raw("banana"), &telex_opts());
+    assert_eq!(r.text, "banana");
+}
+
 #[test]
 fn high_tuongw_no_misflag_or_underflow() {
     // "tuongw": the compound trigger 'w' is separated from the vowel cluster

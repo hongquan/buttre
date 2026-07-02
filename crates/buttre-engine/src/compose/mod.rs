@@ -405,6 +405,9 @@ fn could_be_vietnamese(text: &str, opts: &ComposeOpts) -> bool {
     if s.nucleus.is_empty() && s.coda.is_empty() && !s.onset.is_empty() {
         return true;
     }
+    // KEEP (phase-03 adjudication table — REVISED from the original plan's
+    // DELETE verdict; re-adjudicated after a confirmed regression, see below).
+    //
     // VNI intermediate form: when the method uses non-alphabetic transform keys
     // (digit '6' for e→ê, '7' for u→ư, etc.), the user may type a tone before
     // the vowel-mark key (e.g. "mieng16": '1'=sắc, then '6'=e→ê).  The
@@ -415,6 +418,18 @@ fn could_be_vietnamese(text: &str, opts: &ComposeOpts) -> bool {
     // This path is skipped for Telex (transform_trigger_chars is empty — all
     // Telex mark keys are alphabetic), so "vietf" (tone on bare 'e' in Telex)
     // continues to fall through to English passthrough as intended.
+    //
+    // NOT subsumed by the P2 non-adjacent attestation gate: that gate (Step 5
+    // in `compose_internal`) only evaluates `applied_marks`, which is empty at
+    // this intermediate point — the tone fired via `assemble::apply_tone`, but
+    // the digit transform mark has not been typed yet, so nothing has been
+    // "applied" for the gate to check. This function (Step 6) is the ONLY
+    // place that sees this state. Confirmed by direct executor-level replay
+    // (`vni_edge_cases::test_vni_mieng16_incremental_no_flicker`): deleting
+    // this branch made `mieng1`→(latches English)→`6` produce literal
+    // "mieng16" instead of "miếng" — a real regression, not merely a
+    // theoretical one, since the golden corpus does not happen to exercise
+    // this specific tone-before-transform keystroke ordering.
     if !opts.transform_trigger_chars.is_empty()
         && s.nucleus == "ie"
         && matches!(s.coda.as_str(), "c" | "m" | "n" | "ng" | "p" | "t")

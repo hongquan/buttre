@@ -106,6 +106,63 @@ fn test_word_level_undo_toi1() {
     assert_eq!(result, "toi1", "Expected 'toi1' after tone undo, got '{}'", result);
 }
 
+// Priority 4: Phase 3 regression guard — VNI "ie" exception must stay (KEEP)
+//
+// `could_be_vietnamese`'s "ie"+coda exception (compose/mod.rs) exists for the
+// TONE-BEFORE-TRANSFORM ordering on digit-triggered nuclei: typing the tone key
+// before the circumflex/horn digit leaves an intermediate structural nucleus
+// ("ie" instead of "iê") that fails `SyllableStructure::is_valid()`. Unlike
+// `nhat6` (nucleus "a" is already a fully valid standalone syllable with any
+// coda, so no exception is needed there), a digit-nucleus base like "mieng"
+// genuinely needs the exception mid-typing — this is a DIFFERENT code path
+// from the P2 non-adjacent attestation gate (which only fires when a transform
+// mark has actually been extracted; at this intermediate point none has).
+//
+// Phase 3's original plan called for DELETING this exception as "subsumed by
+// P2's shape-attestation". Deleting it and running these two tests proved
+// that claim wrong: `mieng1`→(latches English)→`6` produced literal
+// "mieng16" instead of "miếng". The exception was restored; these tests are
+// the permanent regression guard against re-attempting that deletion. The
+// compose()-level `vni_mieng16_yields_mieng_acute` test alone would NOT catch
+// this — it only asserts the FINAL string, never this intermediate state.
+
+#[test]
+fn test_vni_mieng16_incremental_no_flicker() {
+    use buttre_engine::pipeline::PipelineExecutor;
+    // Typing "mieng16" one keystroke at a time: tone '1' arrives BEFORE the
+    // circumflex digit '6'. Mid-typing, after "mieng1", the nucleus is still
+    // bare "ie" (not yet "iê") — this must not latch English fallback, or the
+    // trailing '6' would append literally instead of completing the transform.
+    let config = vni_config();
+    let mut executor = PipelineExecutor::new(config);
+    for ch in "mieng1".chars() {
+        executor.process(ch);
+    }
+    assert!(!executor.is_temp_english_mode(),
+        "mid-typing 'mieng1' (bare 'ie' nucleus + tone) must not latch English fallback");
+    executor.process('6');
+    assert_eq!(executor.context().syllable_buffer, "miếng",
+        "incremental mieng->1->6 must complete to 'miếng', got '{}'", executor.context().syllable_buffer);
+}
+
+#[test]
+fn test_vni_nhat61_incremental_no_flicker() {
+    use buttre_engine::pipeline::PipelineExecutor;
+    // Digit-before-tone ordering (the P2 shape-attestation case): confirm the
+    // executor-level, character-by-character path matches the compose()-level
+    // `critical_vni_nhat61_shape_attested_no_flicker` assertion.
+    let config = vni_config();
+    let mut executor = PipelineExecutor::new(config);
+    for ch in "nhat6".chars() {
+        executor.process(ch);
+    }
+    assert!(!executor.is_temp_english_mode(),
+        "mid-typing 'nhat6' must not latch English fallback");
+    executor.process('1');
+    assert_eq!(executor.context().syllable_buffer, "nhất",
+        "incremental nhat->6->1 must complete to 'nhất', got '{}'", executor.context().syllable_buffer);
+}
+
 // Test case we're skipping (as per user request)
 // This would require complex multi-step history tracking
 
