@@ -1,5 +1,5 @@
 # Bối Cảnh Hệ Thống & Quy Tắc Thiết Kế buttre
-**Cập nhật lần cuối**: 2026-06-14
+**Cập nhật lần cuối**: 2026-07-03 (event-sourcing-completion: un-latch, boundary repair, learning, controls)
 **Đối tượng**: Developer & AI Agent
 
 ---

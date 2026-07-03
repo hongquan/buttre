@@ -2,7 +2,7 @@
 
 > Tổng quan kiến trúc đầy đủ của buttre Vietnamese Input Method Engine
 
-**Cập nhật lần cuối**: 2026-06-14
+**Cập nhật lần cuối**: 2026-07-03 (event-sourcing-completion: un-latch, boundary repair, learning, controls)
 **Phiên bản**: 0.7.0-beta
 **Trạng thái**: Core sẵn sàng production, Tích hợp platform đang thực hiện
 
@@ -304,6 +304,18 @@ Giai đoạn này là **lõi xử lý của buttre**. Khác với các pipeline 
 
 **Trade-off**: Delayed-mark Telex (không tone) không hiển thị dấu live — thay vào đó dấu xuất hiện sau khi gõ tone key. Ví dụ: `viete` → `viete` (literal) + `j` (tone sắc) → `việt`. Đây là cách duy nhất để chặn `data→dât` mà không mở lại lỗi trong VNI/VIQR.
 
+#### Un-Latch Dựa Trên Bằng Chứng (event-sourcing-completion Phase 2)
+
+`temp_english_mode` không còn là latch một chiều — mỗi phím bấm thuộc lớp trigger (tone key hoặc transform trigger) sẽ re-probe `compose(&full_raw)`. Un-latch tự động khi CẢ BỐN điều kiện đúng: probe không tự phân loại là tiếng Anh; text khớp âm tiết đã xác nhận trong bảng; trigger là ký tự cuối cùng trong raw buffer; từ không ở trạng thái vừa hoàn tác. Sửa lỗi như `"vietj"+"e"` → `"việt"` thay vì kẹt `"vietje"`.
+
+#### Word-Boundary Repair (event-sourcing-completion Phase 3)
+
+`compose_closed()` ép buộc khớp CHÍNH XÁC cho mọi lớp trigger tại ranh giới từ (separator/Enter/reset-key), không nới lỏng theo hình dạng. VNI `"nhat6"` hiển thị `"nhât"` khi đang gõ (open) nhưng phục hồi về literal `"nhat6"` tại khóa từ (closed). Áp dụng đồng nhất cho Hook (multiword) và TSF (ConfirmComposition).
+
+#### Coda-k & Nâng Cấp Bảng Âm Vị
+
+Mở rộng coda để bao gồm `"k"` cho các lớp địa danh như Đắk Lắk (`đắk`, `lắk`, `búk`). Làm chặt lớp trigger của attestation gate — chỉ số VNI nới lỏng theo hình dạng; mọi trigger khác đòi hỏi khớp chính xác.
+
 ### Kết Quả Giai Đoạn
 
 Mỗi giai đoạn trả về `StageResult`:
@@ -352,7 +364,7 @@ pub struct TypingContext {
     /// Âm tiết đang được xây dựng
     pub current_syllable: Syllable,
 
-    /// Chế độ tiếng Anh fallback (sau undo)
+    /// Chế độ tiếng Anh fallback (DERIVED từ evidence-based un-latch, không phải latch một chiều)
     pub temp_english_mode: bool,
 
     /// Biến đổi cuối cùng được áp dụng
@@ -366,6 +378,12 @@ pub struct TypingContext {
 
     /// Candidates (cho Hán Nôm)
     pub candidates: Vec<Candidate>,
+
+    /// Học tập được bật (từ Settings::learning_enabled)
+    pub learning_enabled: bool,
+
+    /// Đang hiển thị candidates từ tra cứu từ điển
+    pub showing_candidates: bool,
 }
 ```
 

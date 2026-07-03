@@ -2,7 +2,7 @@
 
 > Kế hoạch chiến lược cho sự phát triển buttre trên các nền tảng và tính năng
 
-**Cập nhật lần cuối**: 2026-06-14
+**Cập nhật lần cuối**: 2026-07-03 (event-sourcing-completion Phase 8 đã hoàn thành)
 **Phiên bản**: 0.7.0-beta
 **Trạng thái**: Windows Core & Installer Hoàn Thành, Đang Mở Rộng Đa Nền Tảng
 
@@ -71,6 +71,13 @@ Xây dựng một **bộ gõ tiếng Việt hiện đại, hiệu năng cao, đa
 - [x] macOS dylib artifact (unsigned, chỉ dành developer)
 - [x] GitHub Actions ma trận 4 nền tảng (windows/ubuntu/macos, song song)
 - [x] Cập nhật CHANGELOG.md với tất cả entries installer
+
+**Event-Sourcing-Completion (Q2 2026)** — ✅ HOÀN THÀNH:
+- [x] **Phase 2**: Evidence-based un-latch (temp_english_mode derived, không phải latch một chiều)
+- [x] **Phase 3**: Word-boundary repair (compose_closed) — TSF + Hook
+- [x] **Phase 4-5**: Coda-k & personal learning store (learning.toml)
+- [x] **Phase 6**: Word-toggle hotkey (Ctrl+Shift+Z) + raw backspace_mode
+- [x] **Phase 8**: Purity audit (purity_audit.rs, check-purity.ps1) — phân loại ghi chú
 
 **Nhiệm Vụ Còn Lại** (Q2 2026):
 - [ ] Sửa lỗi test đã biết
@@ -408,6 +415,6 @@ Muốn đóng góp cho buttre? Đây là cách:
 
 ---
 
-**Cập nhật lần cuối**: 2026-06-14
+**Cập nhật lần cuối**: 2026-07-03
 
 _Đây là tài liệu sống và sẽ được cập nhật khi dự án phát triển._

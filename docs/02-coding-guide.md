@@ -144,6 +144,24 @@ pub use presets::{telex_config, vni_config, viqr_config};
 
 ---
 
+## Event-Sourcing Purity Invariant
+
+**QUAN TRỌNG**: Mọi thay đổi engine phải tuân thủ **event-sourcing purity invariant** — raw keystroke buffer là immutable event log; displayed text là pure projection `compose(raw)`. TUYỆT ĐỐI không thêm quyết định "một chiều" (one-way flag/latch) vào `TypingContext` — nếu bạn thêm field `bool`, nó sẽ kích hoạt đơn vị kiểm tra.
+
+**Enforcement**:
+- `crates/buttre-engine/tests/purity_audit.rs` — Đóng băng số lượng field `bool` trên `TypingContext`. Thêm/xóa/đổi tên field bool sẽ làm test thất bại cho đến khi bạn cập nhật `EXPECTED_BOOL_FIELD_COUNT` và thêm dòng lý do vào bảng field-justification.
+- `scripts/check-purity.ps1` — Enforce assignment-site allowlist cho `temp_english_mode` + baseline workspace-wide `_mode: bool` fields.
+
+Chạy sau mọi thay đổi touch `TypingContext`:
+```bash
+cargo test -p buttre-engine -- purity_audit
+./scripts/check-purity.ps1
+```
+
+Tham khảo `AGENTS.md` mục "Event-sourcing purity (INVARIANT)" để hiểu chi tiết.
+
+---
+
 ## Tiêu Chuẩn Code Rust
 
 ### 1. Xử Lý Lỗi
