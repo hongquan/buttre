@@ -648,6 +648,39 @@ fn toggle_against_a_stored_pref_overwrites_it_self_correction() {
 }
 
 #[test]
+fn toggle_to_composed_overrides_an_already_active_literal_pref() {
+    // HIGH regression (adversarial review): a toggle → composed must OVERRIDE a
+    // preference ALREADY ACTIVE in the snapshot (Combined Contract: toggle > pref).
+    // Pre-fix, `compose_window`'s toggle-to-composed branch routed through the
+    // pref-consulting `compose_one_word`, so a stored `Pref::Literal` made the
+    // composed direction UNREACHABLE — the user could never toggle back to `rết`,
+    // and the invisible double-press silently corrupted the stored direction.
+    // Distinct from `toggle_against_a_stored_pref_*`: there the pref is recorded
+    // in-session (never active during the toggles); HERE it is live from keystroke 1.
+    let (store, tx) = fresh_learning();
+    // Seed an ACTIVE literal pref for "reset" (5 chars, Telex 's' tone trigger →
+    // passes the min-specificity floor), then wire it to a FRESH kb.
+    assert!(
+        store.lock().unwrap().record_pref("telex", "reset", PreferKind::Literal, true),
+        "seed pref must pass the min-specificity floor (len>=4 + trigger key)"
+    );
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    kb.set_learning(store.clone(), tx);
+
+    type_str(&mut kb, "reset");
+    assert_eq!(kb.buffer(), "reset", "the active Pref::Literal renders literal");
+
+    kb.toggle_last_word().expect("first toggle acts"); // no entry -> literal (no visible change)
+    assert_eq!(kb.buffer(), "reset", "first toggle: still literal");
+    kb.toggle_last_word().expect("second toggle acts"); // -> composed: MUST override the active pref
+    assert_eq!(
+        kb.buffer(),
+        "rết",
+        "toggle to composed must override the ALREADY-ACTIVE Pref::Literal (toggle > pref)"
+    );
+}
+
+#[test]
 fn collection_fires_once_at_commit_not_per_keystroke() {
     // medium row (red-team M7): the collector must never fire mid-word —
     // multiword recomputes the whole window every keystroke, so collecting

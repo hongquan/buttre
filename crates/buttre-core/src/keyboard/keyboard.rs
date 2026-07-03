@@ -673,6 +673,11 @@ impl Keyboard {
         // discards `raw` entirely, so every toggle offset is stale by
         // definition.
         self.toggle_map.clear();
+        // Also drop any un-drained learning signals: a hard reset (Enter, mouse,
+        // focus change) ends the editing session, so a pending signal whose word
+        // never re-commits with a matching raw must not survive to be mis-matched
+        // against an identical raw sequence typed later in a different context.
+        self.toggle_signals.clear();
     }
 
     /// Word-boundary final repair probe (event-sourcing-completion Phase 3):
@@ -843,7 +848,12 @@ impl Keyboard {
             let word = &raw[start..end];
             let rendered = match self.toggle_map.get(&end).copied() {
                 Some(true) => word.iter().collect::<String>(),
-                Some(false) => self.compose_one_word(word, true),
+                // Toggle → composed OVERRIDES any stored raw-pref (Combined
+                // Contract: toggle > pref). Route through the prefs-suppressed
+                // forced projection, not the pref-consulting `compose_one_word`,
+                // so a stored `Pref::Literal` can't make this direction
+                // unreachable.
+                Some(false) => self.executor.compose_word_forced_composed(word, true),
                 None => self.compose_one_word(word, end < raw.len()),
             };
             out.push_str(&rendered);

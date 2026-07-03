@@ -180,6 +180,50 @@ impl PipelineExecutor {
         }
     }
 
+    /// Compose `word` forcing the COMPOSED interpretation, IGNORING any stored
+    /// raw-preference (event-sourcing-completion Phase 4: a word toggle → composed
+    /// must override a `Pref::Literal`, per the Combined Contract's
+    /// `toggle > pref` precedence — otherwise a stored literal pref makes the
+    /// toggle-to-composed direction unreachable and the invisible double-press
+    /// silently corrupts the stored direction). The user-attested overlay still
+    /// applies — only the literal/composed preference is suppressed for the
+    /// duration of this one compose. Reuses the full pipeline (reset → process →
+    /// closed boundary repair) so case-mask + orthography match the normal path.
+    pub fn compose_word_forced_composed(&mut self, word: &[char], closed: bool) -> String {
+        // Null-and-save `raw_prefs` on both the live snapshot (read per keystroke
+        // by the compose stage) and the cached boundary-repair opts, so neither
+        // the open nor the closed projection consults a pref here; restore after.
+        let saved_snapshot_prefs = self
+            .compose_learning
+            .as_ref()
+            .and_then(|h| h.write().ok().and_then(|mut g| g.raw_prefs.take()));
+        let saved_boundary_prefs =
+            self.boundary_repair_opts.as_mut().and_then(|o| o.raw_prefs.take());
+
+        self.reset();
+        for &c in word {
+            self.process(c);
+        }
+        let out = if closed {
+            self.boundary_repair()
+                .unwrap_or_else(|| self.get_buffer().to_string())
+        } else {
+            self.get_buffer().to_string()
+        };
+
+        if let (Some(handle), Some(prefs)) = (&self.compose_learning, saved_snapshot_prefs) {
+            if let Ok(mut g) = handle.write() {
+                g.raw_prefs = Some(prefs);
+            }
+        }
+        if let (Some(opts), Some(prefs)) =
+            (self.boundary_repair_opts.as_mut(), saved_boundary_prefs)
+        {
+            opts.raw_prefs = Some(prefs);
+        }
+        out
+    }
+
     /// Recompute the CURRENT in-progress word's word-boundary "closed"
     /// projection (event-sourcing-completion Phase 3: [`compose_closed`])
     /// WITHOUT mutating any pipeline state.
