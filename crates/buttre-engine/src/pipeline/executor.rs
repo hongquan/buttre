@@ -54,14 +54,16 @@ pub struct PipelineExecutor {
     /// against otherwise). `None` makes [`Self::boundary_repair`] a no-op.
     boundary_repair_opts: Option<ComposeOpts>,
 
-    /// Shared handle into the live compose stage's learning snapshot
-    /// (event-sourcing-completion Phase 5) — `Some` only when a compose
-    /// stage is present. Captured at construction time, before the stage is
-    /// boxed into the type-erased `stages` vec (see [`Self::new`]), since
-    /// `PipelineStage` has no reason to expose a generic "set learning
+    /// Shared handle into the live compose stage's merged `ComposeOpts`
+    /// (event-sourcing-completion Phase 5; perf: the learning fields are
+    /// written in place here at word boundaries instead of being re-merged
+    /// into a full opts clone on every keystroke) — `Some` only when a
+    /// compose stage is present. Captured at construction time, before the
+    /// stage is boxed into the type-erased `stages` vec (see [`Self::new`]),
+    /// since `PipelineStage` has no reason to expose a generic "set learning
     /// data" method for the other 6 stages that never consult one. See
     /// [`Self::set_learning_snapshot`].
-    compose_learning: Option<Arc<RwLock<LearningSnapshot>>>,
+    compose_live_opts: Option<Arc<RwLock<ComposeOpts>>>,
 }
 
 impl PipelineExecutor {
@@ -100,12 +102,12 @@ impl PipelineExecutor {
         };
 
         let mut compose_stage_present = false;
-        let mut compose_learning: Option<Arc<RwLock<LearningSnapshot>>> = None;
+        let mut compose_live_opts: Option<Arc<RwLock<ComposeOpts>>> = None;
         for stage_name in &stage_order {
             match stage_name.as_str() {
                 "compose" => {
                     let stage = ComposeStage::from_config(&config);
-                    compose_learning = Some(stage.learning_handle());
+                    compose_live_opts = Some(stage.live_opts_handle());
                     stages.push(Box::new(stage));
                     compose_stage_present = true;
                 }
@@ -149,7 +151,7 @@ impl PipelineExecutor {
             context: TypingContext::new(),
             use_composition,
             boundary_repair_opts,
-            compose_learning,
+            compose_live_opts,
         }
     }
 
@@ -168,11 +170,13 @@ impl PipelineExecutor {
     /// without a compose stage (Nôm candidate-lookup configs, native
     /// scripts).
     pub fn set_learning_snapshot(&mut self, snapshot: LearningSnapshot) {
-        if let Some(handle) = &self.compose_learning {
-            match handle.write() {
-                Ok(mut guard) => *guard = snapshot.clone(),
-                Err(poisoned) => *poisoned.into_inner() = snapshot.clone(),
-            }
+        if let Some(handle) = &self.compose_live_opts {
+            let mut guard = match handle.write() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            guard.user_attested = snapshot.user_attested.clone();
+            guard.raw_prefs = snapshot.raw_prefs.clone();
         }
         if let Some(opts) = self.boundary_repair_opts.as_mut() {
             opts.user_attested = snapshot.user_attested.clone();
@@ -190,11 +194,11 @@ impl PipelineExecutor {
     /// duration of this one compose. Reuses the full pipeline (reset → process →
     /// closed boundary repair) so case-mask + orthography match the normal path.
     pub fn compose_word_forced_composed(&mut self, word: &[char], closed: bool) -> String {
-        // Null-and-save `raw_prefs` on both the live snapshot (read per keystroke
+        // Null-and-save `raw_prefs` on both the live opts (read per keystroke
         // by the compose stage) and the cached boundary-repair opts, so neither
         // the open nor the closed projection consults a pref here; restore after.
         let saved_snapshot_prefs = self
-            .compose_learning
+            .compose_live_opts
             .as_ref()
             .and_then(|h| h.write().ok().and_then(|mut g| g.raw_prefs.take()));
         let saved_boundary_prefs =
@@ -211,7 +215,7 @@ impl PipelineExecutor {
             self.get_buffer().to_string()
         };
 
-        if let (Some(handle), Some(prefs)) = (&self.compose_learning, saved_snapshot_prefs) {
+        if let (Some(handle), Some(prefs)) = (&self.compose_live_opts, saved_snapshot_prefs) {
             if let Ok(mut g) = handle.write() {
                 g.raw_prefs = Some(prefs);
             }

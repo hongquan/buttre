@@ -32,7 +32,7 @@
 
 use std::sync::{Arc, RwLock};
 
-use crate::compose::{compose, is_last_event_undo, ComposeOpts, ComposeResult, LearningSnapshot};
+use crate::compose::{compose, is_last_event_undo, ComposeOpts, ComposeResult};
 use crate::pipeline::config::PipelineConfig;
 use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
 use crate::pipeline::validation::is_attested_overlay;
@@ -57,61 +57,51 @@ thread_local! {
 
 /// Stage: Compose (replaces stages 4–8).
 ///
-/// Built once from `PipelineConfig`; holds the derived `ComposeOpts` for the
-/// lifetime of the executor. `opts` itself is the static per-method baseline
-/// (`user_attested`/`raw_prefs` always `None`) — event-sourcing-completion
-/// Phase 5's learning data lives in `learning` instead, a separately
-/// updatable handle (see its doc), and is merged into a per-call `opts`
-/// clone in [`Self::process`]. This split exists because `PipelineStage::
-/// process` takes `&self`, so mutating `opts` in place would need interior
-/// mutability anyway; keeping the small, frequently-cloned baseline
-/// lock-free and putting ONLY the two learning fields behind a lock is
-/// cheaper than locking the whole struct.
+/// Holds the LIVE, already-merged `ComposeOpts` behind one lock: the static
+/// per-method baseline from `from_config`, with the two learning fields
+/// (`user_attested`/`raw_prefs`, event-sourcing-completion Phase 5) written
+/// in place by `PipelineExecutor::set_learning_snapshot` at word boundaries.
+/// [`Self::process`] just takes a read guard — the previous design cloned
+/// the whole `ComposeOpts` (≈10 Arc bumps + drops) on EVERY keystroke to
+/// merge a snapshot that only ever changes at word boundaries; profiling
+/// put the compose-stage wrapper at ~870 ns/key on top of `compose()`'s
+/// ~450 ns, and this per-key clone was a major slice of it. `RwLock` (not
+/// `RefCell`) because `PipelineStage: Send + Sync` — see `pipeline::stage`.
 #[derive(Debug, Clone)]
 pub struct ComposeStage {
-    opts: ComposeOpts,
-    /// Live learning snapshot (event-sourcing-completion Phase 5), refreshed
-    /// by `buttre_core::keyboard::Keyboard` via `PipelineExecutor::
-    /// set_learning_snapshot` at word boundaries. `RwLock` (not `RefCell`)
-    /// because `PipelineStage: Send + Sync` — see `pipeline::stage`.
-    learning: Arc<RwLock<LearningSnapshot>>,
+    live_opts: Arc<RwLock<ComposeOpts>>,
 }
 
 impl ComposeStage {
     /// Build a `ComposeStage` from a pipeline configuration.
     pub fn from_config(config: &PipelineConfig) -> Self {
         Self {
-            opts: ComposeOpts::from_config(config),
-            learning: Arc::new(RwLock::new(LearningSnapshot::default())),
+            live_opts: Arc::new(RwLock::new(ComposeOpts::from_config(config))),
         }
     }
 
     /// Shared handle for `PipelineExecutor::new` to retain at construction
     /// time, before this stage is boxed into the type-erased
     /// `Vec<Box<dyn PipelineStage>>` (event-sourcing-completion Phase 5) —
-    /// see `PipelineExecutor::set_learning_snapshot`.
-    pub(crate) fn learning_handle(&self) -> Arc<RwLock<LearningSnapshot>> {
-        Arc::clone(&self.learning)
+    /// see `PipelineExecutor::set_learning_snapshot`, which writes the two
+    /// learning fields directly into these live opts at word boundaries.
+    pub(crate) fn live_opts_handle(&self) -> Arc<RwLock<ComposeOpts>> {
+        Arc::clone(&self.live_opts)
     }
 }
 
 impl PipelineStage for ComposeStage {
     fn process(&self, ctx: &mut TypingContext, _input: char) -> StageResult {
-        // Event-sourcing-completion Phase 5: merge in the live learning
-        // snapshot before doing anything else this keystroke. `self.opts`
-        // itself is never mutated (kept as the static per-method
-        // baseline — see the struct doc); this clone is small (a handful
-        // of config-table entries) and happens at most once per keystroke.
-        // Every `&self.opts` use below is replaced by `&opts` so BOTH the
-        // normal-path compose and the latched-branch probe (P2's
-        // `should_unlatch`) see the overlay/prefs uniformly.
-        let snapshot = match self.learning.read() {
-            Ok(guard) => guard.clone(),
-            Err(poisoned) => poisoned.into_inner().clone(),
+        // Event-sourcing-completion Phase 5: the learning fields are already
+        // merged into these live opts (written in place at word boundaries by
+        // `PipelineExecutor::set_learning_snapshot`) — a read guard is all a
+        // keystroke needs. Uncontended in practice: the IME pipeline runs a
+        // keystroke to completion before any boundary-time snapshot write.
+        let opts_guard = match self.live_opts.read() {
+            Ok(guard) => guard,
+            Err(poisoned) => poisoned.into_inner(),
         };
-        let mut opts = self.opts.clone();
-        opts.user_attested = snapshot.user_attested;
-        opts.raw_prefs = snapshot.raw_prefs;
+        let opts = &*opts_guard;
 
         // ── English / fallback: evidence-based un-latch (Phase 2) ─────────────
         // `temp_english_mode` is re-derived every keystroke, not a one-way
@@ -119,17 +109,12 @@ impl PipelineStage for ComposeStage {
         // in full by the time we get here, so the raw below is always
         // complete for this keystroke.
         if ctx.temp_english_mode {
-            // char_buffer is normalized-lowercase (see `to_char_vec` doc) —
-            // the same projection `compose()` expects and every raw_pos in
-            // `applied_marks`/`consumed_tone` indexes into.
-            let raw: Vec<char> = ctx.char_buffer.to_char_vec();
-
             // Run-on cap exemption (perf guard, red-team M2/M3): the cap
             // below is a pure length rule and monotonic within a word (raw
             // only grows), so once it has already fired, every subsequent
             // keystroke is STILL run-on with zero chance of un-latching —
             // probing would be pure waste on a buffer this large.
-            let past_cap = raw.len() > MAX_VIET_SYLLABLE_RAW;
+            let past_cap = ctx.char_buffer.len() > MAX_VIET_SYLLABLE_RAW;
 
             // Trigger pre-filter (red-team M2/M3): probe ONLY when the
             // just-typed key could possibly matter — a tone key or a
@@ -139,22 +124,29 @@ impl PipelineStage for ComposeStage {
             // stage does not reach into `fallback`'s private surface).
             // Plain letters — the overwhelming majority of keystrokes typed
             // while latched (`dessign`'s `ign`, `tissot`'s `t`) — fail this
-            // O(1) check and skip probing entirely.
-            let is_trigger = raw
+            // O(1) check and skip probing entirely. Both checks run on
+            // `char_buffer` directly so the `Vec<char>` raw copy (below) is
+            // only ever built for the rare keystroke that actually probes.
+            let is_trigger = ctx
+                .char_buffer
                 .last()
-                .is_some_and(|&k| is_probe_trigger_char(k.to_ascii_lowercase(), &opts));
+                .is_some_and(|c| is_probe_trigger_char(c.ch.to_ascii_lowercase(), opts));
 
             if !past_cap && is_trigger {
                 #[cfg(test)]
                 PROBE_CALLS.with(|c| c.set(c.get() + 1));
 
-                let probe = compose(&raw, &opts);
-                if should_unlatch(&probe, &raw, &opts) {
+                // char_buffer is normalized-lowercase (see `to_char_vec`
+                // doc) — the same projection `compose()` expects and every
+                // raw_pos in `applied_marks`/`consumed_tone` indexes into.
+                let raw: Vec<char> = ctx.char_buffer.to_char_vec();
+                let probe = compose(&raw, opts);
+                if should_unlatch(&probe, &raw, opts) {
                     // Evidence says Vietnamese: adopt the recompute and
                     // un-latch. Goes through the same case mask as the
                     // normal path so casing stays correct. OutputStage's
                     // diff emits the corrective Replace automatically.
-                    ctx.syllable_buffer = apply_case_mask(&probe.text, &ctx.char_buffer, &opts);
+                    ctx.syllable_buffer = apply_case_mask(&probe.text, &ctx.char_buffer, opts);
                     ctx.temp_english_mode = false;
                     return StageResult::Continue;
                 }
@@ -213,10 +205,10 @@ impl PipelineStage for ComposeStage {
         }
 
         // Run the pure recompute engine.
-        let result = compose(&raw, &opts);
+        let result = compose(&raw, opts);
 
         // Apply the case mask from the original keystrokes.
-        let text = apply_case_mask(&result.text, &ctx.char_buffer, &opts);
+        let text = apply_case_mask(&result.text, &ctx.char_buffer, opts);
 
         ctx.syllable_buffer = text;
         ctx.temp_english_mode = result.temp_english;
@@ -244,11 +236,12 @@ impl PipelineStage for ComposeStage {
 /// surface — same tables (`opts.transform_rules`/`opts.tone_map`), same O(1)
 /// cost per keystroke.
 fn is_probe_trigger_char(key_lc: char, opts: &ComposeOpts) -> bool {
+    // Same key classes as the old full `transform_rules.keys()` rescan, via
+    // the precomputed hot-path tables (`ComposeOpts::from_config`): a trigger
+    // is the second char of a 2-char rule or the sole char of a 1-char rule.
     opts.tone_map.contains_key(&key_lc)
-        || opts
-            .transform_rules
-            .keys()
-            .any(|rule| rule.chars().last().is_some_and(|c| c.to_ascii_lowercase() == key_lc))
+        || opts.single_rules.contains_key(&key_lc)
+        || opts.pair_rules.keys().any(|&(_, b)| b == key_lc)
 }
 
 /// Evidence-based un-latch decision: given a fresh `probe = compose(&raw,

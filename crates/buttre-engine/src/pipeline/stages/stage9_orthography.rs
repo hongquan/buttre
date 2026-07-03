@@ -228,18 +228,43 @@ impl OrthographyStage {
 
 impl PipelineStage for OrthographyStage {
     fn process(&self, ctx: &mut TypingContext, _input: char) -> StageResult {
-        // Step 1: Normalize tone position (if needed)
-        let normalized_tone = self.normalize_tone_position(&ctx.syllable_buffer);
+        use unicode_normalization::{is_nfc_quick, is_nfd_quick, IsNormalized};
 
-        // Step 2: Normalize Unicode form (if needed)
-        let normalized_unicode = self.normalize_unicode(&normalized_tone);
+        // Fast path (perf: this stage used to allocate two fresh Strings on
+        // EVERY keystroke): ComposeStage builds its output from precomposed
+        // table entries, so the buffer is virtually always already in the
+        // target form — verify with the O(n) quick check and skip the
+        // normalization allocations entirely when it is.
+        //
+        // COUPLING GUARD: skipping is valid ONLY while
+        // `normalize_tone_position` remains an identity function (it is — see
+        // its body: both styles return the input unchanged). If Old-style
+        // tone conversion is ever implemented there, it is orthogonal to
+        // Unicode form and must run REGARDLESS of this quick check — move it
+        // out of the `!already_normalized` branch at that point.
+        let already_normalized = match self.unicode_form {
+            UnicodeForm::NFC => {
+                matches!(is_nfc_quick(ctx.syllable_buffer.chars()), IsNormalized::Yes)
+            }
+            UnicodeForm::NFD => {
+                matches!(is_nfd_quick(ctx.syllable_buffer.chars()), IsNormalized::Yes)
+            }
+        };
 
-        // Step 3: Update syllable buffer.
-        // Note: Case restoration was previously done here via restore_case().
-        // Since Phase 4, ComposeStage applies the correct per-char case mask before
-        // this stage runs, so restore_case() must NOT be called here — it would
-        // overwrite the already-cased output with incorrect mask-based mapping.
-        ctx.syllable_buffer = normalized_unicode;
+        if !already_normalized {
+            // Step 1: Normalize tone position (if needed)
+            let normalized_tone = self.normalize_tone_position(&ctx.syllable_buffer);
+
+            // Step 2: Normalize Unicode form (if needed)
+            let normalized_unicode = self.normalize_unicode(&normalized_tone);
+
+            // Step 3: Update syllable buffer.
+            // Note: Case restoration was previously done here via restore_case().
+            // Since Phase 4, ComposeStage applies the correct per-char case mask before
+            // this stage runs, so restore_case() must NOT be called here — it would
+            // overwrite the already-cased output with incorrect mask-based mapping.
+            ctx.syllable_buffer = normalized_unicode;
+        }
 
         // Always continue to next stage
         StageResult::Continue

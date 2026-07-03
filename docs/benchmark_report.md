@@ -36,13 +36,15 @@ Hai thay đổi làm số liệu buttre ở bảng trên hết hiệu lực:
 
 | Bộ Gõ | Latency TB (ns) | P95 (ns) | Thông lượng (M Key/s) | Tỷ lệ chính xác |
 | :--- | :---: | :---: | :---: | :---: |
-| **buttre::compose** | **450.28** | 625 | **2.22** | **99.96%** (2428/2429) |
-| **buttre::PipelineExecutor** | **1670.33** | 3100 | **0.60** | 99.92% (2427/2429) |
-| gonhanh::Engine (đo lại, steady-state) | 180.53 | 500 | 5.54 | 98.52% (2393/2429) |
+| **buttre::compose** | **454.42** | 625 | **2.20** | **99.96%** (2428/2429) |
+| **buttre::PipelineExecutor** | **1386.51** | 2700 | **0.72** | 99.92% (2427/2429) |
+| gonhanh::Engine (đo lại, steady-state) | 178.94 | 500 | 5.59 | 98.52% (2393/2429) |
 
 Từ telex duy nhất còn fail ở `compose` là `wowts` (w **đầu từ** = ư) — bỏ qua có chủ đích để các từ tiếng Anh bắt đầu bằng w (`won`, `with`, `will`…) gõ tự nhiên. `PipelineExecutor` hiển thị thêm `chwowng` ở dạng literal giữa từ (tương tác latch English có sẵn), nhưng `boundary_repair` sửa thành `chương` tại thời điểm commit từ.
 
-Phân bổ chi phí per-stage của executor (~1.64 µs/key): compose stage 1,320 ns (81% — trong đó `compose()` thuần 450 ns, còn lại là wrapper clone opts/lock/alloc mỗi phím), output 225 ns, orthography (NFC) 124 ns, 4 stage còn lại ~86 ns. Overhead tracing + dyn dispatch đo được không đáng kể.
+Tối ưu stage (2026-07-04, executor 1,670 → 1,387 ns/key): compose stage đọc live opts qua một read-lock thay vì clone toàn bộ `ComposeOpts` mỗi phím; orthography chỉ normalize khi `is_nfc_quick` báo chưa chuẩn (124 → 26 ns); output diff hai chuỗi trực tiếp không qua `Vec<char>` trung gian (225 → 69 ns). Phần còn lại của compose stage (~1,295 ns/key) gần như toàn bộ là chính lời gọi `compose(prefix)` trên mỗi phím — chi phí bản chất của mô hình recompute-from-raw, không phải overhead wrapper. Overhead tracing + dyn dispatch đo được không đáng kể.
+
+Ngoài ra đã sửa bug pre-existing phát hiện trong quá trình đo: từ tiếng Anh kết thúc bằng 2 phím tone (`glass`, `class`, `success`, `press`, `asks`) bị nuốt mất một ký tự do undo-dấu kích hoạt cả khi dấu chưa từng hiển thị — nay undo được gate bằng "frame trước đó có phải âm tiết tiếng Việt khả dĩ".
 
 ## 3. Tốc độ tra cứu từ điển Hán Nôm (.reference/hannom-dictionaries)
 

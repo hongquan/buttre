@@ -718,7 +718,9 @@ impl TypingContext {
     /// Called after generating output actions to sync last_output with
     /// what was actually sent to the application.
     pub fn commit_output(&mut self) {
-        self.last_output = self.syllable_buffer.clone();
+        // clone_from reuses last_output's existing allocation (hot path:
+        // called once per keystroke by OutputStage).
+        self.last_output.clone_from(&self.syllable_buffer);
     }
 
     // ========================================

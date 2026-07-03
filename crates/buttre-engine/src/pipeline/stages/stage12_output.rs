@@ -79,17 +79,14 @@ impl OutputStage {
     /// Compare character by character until we find a difference.
     /// Returns the position of the first difference, or the length of the shorter string.
     pub fn find_diff_position(old: &str, new: &str) -> usize {
-        let old_chars: Vec<char> = old.chars().collect();
-        let new_chars: Vec<char> = new.chars().collect();
-        
-        for (i, (o, n)) in old_chars.iter().zip(new_chars.iter()).enumerate() {
-            if o != n {
-                return i;
-            }
-        }
-        
-        // No difference found in common prefix
-        old_chars.len().min(new_chars.len())
+        // Zip the two char streams directly (perf: this ran on every
+        // keystroke and used to collect BOTH strings into fresh Vec<char>s).
+        // Returns the index of the first mismatch, or the length of the
+        // shorter string when one is a prefix of the other.
+        old.chars()
+            .zip(new.chars())
+            .take_while(|(o, n)| o == n)
+            .count()
     }
 
     /// Calculate backspace count
@@ -98,12 +95,7 @@ impl OutputStage {
     ///
     /// Count characters from diff position to end of old string.
     pub fn calculate_backspace_count(old: &str, diff_pos: usize) -> usize {
-        let old_chars: Vec<char> = old.chars().collect();
-        if diff_pos >= old_chars.len() {
-            0
-        } else {
-            old_chars.len() - diff_pos
-        }
+        old.chars().count().saturating_sub(diff_pos)
     }
 
     /// Extract changed portion
@@ -112,12 +104,7 @@ impl OutputStage {
     ///
     /// Get substring from diff position to end of new string.
     pub fn get_changed_text(new: &str, diff_pos: usize) -> String {
-        let new_chars: Vec<char> = new.chars().collect();
-        if diff_pos >= new_chars.len() {
-            String::new()
-        } else {
-            new_chars[diff_pos..].iter().collect()
-        }
+        new.chars().skip(diff_pos).collect()
     }
 
     /// Generate output action
@@ -192,7 +179,7 @@ impl PipelineStage for OutputStage {
         
         // Algorithm Step 1: Generate main action (composition/replace/commit)
         let main_action = self.generate_action(&ctx.last_output, &ctx.syllable_buffer);
-        actions.push(main_action.clone());
+        actions.push(main_action);
         
         // Algorithm Step 2: Generate candidate UI action if candidates are available
         if ctx.showing_candidates && !ctx.candidates.is_empty() {
