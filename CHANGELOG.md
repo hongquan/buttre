@@ -4,6 +4,25 @@ Tất cả thay đổi đáng chú ý của buttre được ghi lại tại đâ
 
 ## [Unreleased]
 
+### Sửa lỗi nhân đôi ký tự trên thanh địa chỉ Chrome/Chromium ("dđ" thay vì "đ")
+
+Ba sửa lỗi độc lập cho lớp lỗi kinh điển: text do bộ gõ chèn vào thanh URL (omnibox) của
+Chrome/Chromium bị nhân đôi thành `"dđ"` thay vì `"đ"`. Áp dụng cho cả hai backend:
+
+- **Hook (SendInput)**: khi kết quả commit đúng bằng một ký tự vừa gõ (không biến đổi), cho
+  phím gốc đi qua tự nhiên thay vì chèn qua `KEYEVENTF_UNICODE`. Chrome coi text `VK_PACKET`
+  là "gợi ý tự-hoàn-thành đã chọn" (con trỏ nhảy về cuối gợi ý) nên phím lùi kế tiếp chỉ hủy
+  gợi ý chứ không xóa ký tự.
+- **TSF — chế độ phục hồi**: khi ứng dụng tự kết thúc composition dù ký tự đã được commit,
+  ghi đè tại chỗ bằng `ShiftStart(-previous_length)` thay vì mở composition mới tại con trỏ
+  (vốn chèn ký tự đã biến đổi *sau* ký tự đã commit).
+- **TSF — đếm ký tự**: dùng `chars().count()` thay vì `len()` (byte) cho `previous_length`/
+  `last_text_len` để `ShiftStart` của chế độ phục hồi đếm đúng số ký tự; không ghi đè
+  `previous_length` khi tái dùng edit-session đang chờ.
+
+Kèm `scripts/build-hook.ps1`: build nhanh bản hook-mode (`buttre.exe` + zip) để kiểm thử cục
+bộ, không cần installer/regsvr32/quyền admin.
+
 ### Hoàn thiện kiến trúc event-sourcing: un-latch, boundary repair, điều khiển người dùng, học cá nhân hóa (đợt 1+2+3)
 
 Bốn phase hoàn thiện nguyên tắc bất biến "raw keystroke là event log" (đã ghi trong
