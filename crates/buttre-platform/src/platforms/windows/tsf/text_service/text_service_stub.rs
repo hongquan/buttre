@@ -125,13 +125,16 @@ impl TextService {
     pub fn write_text(&self, context: &ITfContext, text: &str, cursor: usize, sink: ITfCompositionSink) -> Result<()> {
         debug!("TextService::write_text: {}", text);
 
-        // Reuse in-flight session if TSF hasn't executed it yet
+        // Reuse in-flight session if TSF hasn't executed it yet.
+        // Only update text/cursor — previous_length was captured at session-create
+        // time and represents chars committed BEFORE this composition started;
+        // clobbering it here would make the recovery path in DoEditSession
+        // mis-count the chars to replace (Chrome-omnibox recovery, see edit_session.rs).
         if let Some(rc) = self.pending_edit.borrow().upgrade() {
             let mut p = rc.borrow_mut();
-            p.previous_length = self.last_text_len.get();
             p.text = text.into();
             p.cursor = cursor;
-            self.last_text_len.set(text.len());
+            self.last_text_len.set(text.chars().count());
             return Ok(());
         }
 
@@ -142,7 +145,8 @@ impl TextService {
             previous_length,
         }));
         *self.pending_edit.borrow_mut() = Rc::downgrade(&pending);
-        self.last_text_len.set(text.len());
+        // Track char count (UTF-16 BMP units) so DoEditSession's ShiftStart is correct.
+        self.last_text_len.set(text.chars().count());
 
         let da = VARIANT::from(self.da_atom_input.get() as i32);
         let session = SetCompositionString::new(

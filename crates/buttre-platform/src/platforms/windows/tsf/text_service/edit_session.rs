@@ -140,8 +140,60 @@ impl ITfEditSession_Impl for SetCompositionString_Impl {
         unsafe {
             // 1. Start composition if not already started
             if !self.this.composition.is_started() {
+                // Recovery mode (Chrome-omnibox class): the app terminated our
+                // previous composition while its chars were already committed to
+                // the document. `previous_length` (char count) is how many chars
+                // the app committed. We shift the current selection back by that
+                // amount and overwrite in place, rather than starting a fresh
+                // composition at the current caret — which would insert the
+                // transformed char *after* the already-committed chars ("dđ").
+                let previous_length = self.this.pending.borrow().previous_length;
+                if previous_length > 0 {
+                    debug!("Recovery: replacing {} committed chars without composition", previous_length);
+
+                    let mut sel_buf = [TF_SELECTION::default(); 1];
+                    let mut sel_len = 0u32;
+                    let sel_ok = self.this.context.GetSelection(
+                        ec,
+                        TF_DEFAULT_SELECTION,
+                        &mut sel_buf,
+                        &mut sel_len,
+                    );
+
+                    let mut recovery_ok = false;
+                    if sel_ok.is_ok() && sel_len > 0 {
+                        if let Some(cur_range) = sel_buf[0].range.deref().as_ref() {
+                            let replace_range = cur_range.Clone()?;
+                            let mut moved = 0i32;
+                            // Extend backwards to cover the committed chars.
+                            let _ = replace_range.ShiftStart(
+                                ec,
+                                -(previous_length as i32),
+                                &mut moved,
+                                ptr::null(),
+                            );
+                            let pending = self.this.pending.borrow();
+                            if replace_range.SetText(ec, 0, &pending.text).is_ok() {
+                                replace_range.Collapse(ec, TF_ANCHOR_END)?;
+                                set_selection(&self.this.context, ec, replace_range, TF_AE_END)?;
+                                recovery_ok = true;
+                            }
+                        }
+                    }
+
+                    // Release the selection's COM reference.
+                    let [TF_SELECTION { range, .. }] = sel_buf;
+                    let _ = ManuallyDrop::into_inner(range);
+
+                    if recovery_ok {
+                        debug!("Recovery: completed successfully");
+                        return Ok(());
+                    }
+                    // Recovery failed — fall through to start a fresh composition.
+                }
+
                 debug!("Starting new composition");
-                
+
                 let context_composition: ITfContextComposition = self.this.context.cast()?;
                 let insert_at_selection: ITfInsertAtSelection = self.this.context.cast()?;
                 

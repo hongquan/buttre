@@ -1115,7 +1115,20 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             }
         }
         Action::Commit(text) => {
-            if !text.is_empty() {
+            // Chrome-omnibox fix: when the commit is exactly the single char the
+            // user just typed (no transformation), let the ORIGINAL keystroke pass
+            // through natively instead of injecting via KEYEVENTF_UNICODE (VK_PACKET).
+            // Chrome's URL bar treats VK_PACKET text as a selected inline-autocomplete
+            // (caret jumps to the end of the full suggestion), so the next Replace's
+            // VK_BACK only dismisses the suggestion instead of deleting the char —
+            // yielding "dđ" instead of "đ". A native VK_D gives gray-text autocomplete
+            // with the caret right after the char, where VK_BACK deletes correctly.
+            // Behaviour-neutral in normal apps (a single char appears either way).
+            let is_natural_passthrough =
+                text.chars().count() == 1 && text.chars().next() == Some(ch);
+            if is_natural_passthrough {
+                false // pass through — do not inject, do not block
+            } else if !text.is_empty() {
                 // Length only, never content: committed text is what the user
                 // typed (and, post-P5, can reflect learned preferences) — a
                 // privacy surface that must not reach INFO logs (review m1;
