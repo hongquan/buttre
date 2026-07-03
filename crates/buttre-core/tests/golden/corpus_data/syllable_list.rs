@@ -97,6 +97,15 @@ pub const SYLLABLES: &[&str] = &[
     "mat","mát","mạt",
     "nat","nát","nạt",
 
+    // ── coda "k" (Đắk Lắk class — P6 table extension, P8 golden regen) ──────
+    // The 9 dict entries P6 re-embedded into the attested-syllable table
+    // (`pipeline::validation`'s coda-k doc, `data/attested-syllables.txt`).
+    // Deferred from P6 to this phase per its own Architecture note ("Golden:
+    // đắk corpus lines added in P8") — added here so gen_golden emits them
+    // as Telex+VNI positives, alongside the already-committed hawk/gawk/murk
+    // ENGLISH_WORDS pins (P6).
+    "búk","lăk","lắk","măk","úk","ăk","đăk","đắk","ắk",
+
     // ── hard onset clusters ─────────────────────────────────────────────────
     // Note: chó and chú appear only here (removed duplicates from cho/chu rows)
     "cha","chá","chè","chí","chó","chú","chơ","chư",

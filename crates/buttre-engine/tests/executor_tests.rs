@@ -1831,3 +1831,96 @@ fn boundary_repair_enter_no_separator_no_pass_through_hook() {
     assert_eq!(ex.syllable(), "nhât");
     assert_eq!(ex.boundary_repair(), Some("nhat6".to_string()), "probe available on demand for platform Enter/reset-key handlers");
 }
+
+// ── Phase 8: cross-phase interaction tests ───────────────────────────────────
+// Test Scenario Matrix item 1 from phase-08-regression-suite.md — proving the
+// Combined Contract (plan.md) holds when P2/P3/P5/P6 coexist. The
+// un-latch(P2)+boundary(P3) row already has a dedicated test above
+// (`boundary_repair_noop_after_p2_unlatch_no_double_replace`); the remaining
+// rows follow.
+
+#[test]
+fn coda_k_overlay_promotes_via_single_consult_point() {
+    // Row: coda-k (P6) + overlay (P5) — a k-coda syllable counts as attested
+    // via the SAME single overlay-aware consult point
+    // (`pipeline::validation::is_attested_overlay`) any other syllable does,
+    // proving P6's coda-k table extension and P5's overlay don't need (and
+    // don't have) a separate k-coda-aware code path.
+    //
+    // "cakw" (c,a,k,w) fires Telex's standalone 'w' modifier non-adjacently
+    // on 'a' — separated from its target by the coda consonant 'k', the same
+    // shape as the flagship "cana"+'a' non-adjacent-doubling case — producing
+    // the structurally-valid (nucleus "ă" takes coda "k" per P6's table) but
+    // UNATTESTED k-coda shape "căk" (onset 'c' is not among the 9 P6-embedded
+    // k-coda dict entries: búk/lăk/lắk/măk/úk/ăk/đăk/đắk/ắk). Without an
+    // overlay this demotes to literal "cakw", exactly like "data"/"dât";
+    // with "căk" in the overlay it must survive.
+    use buttre_engine::compose::LearningSnapshot;
+    use buttre_engine::pipeline::validation::{bit_index, decompose_ids};
+    use std::collections::HashSet;
+    use std::sync::Arc;
+
+    let config = create_telex_config();
+    let mut ex = PipelineExecutor::new(config.clone());
+    for ch in "cakw".chars() { ex.process(ch); }
+    assert_eq!(ex.context().syllable_buffer, "cakw", "unattested k-coda shape must demote to literal without an overlay");
+
+    let (o, n, c, t) = decompose_ids("căk").expect("'căk' must be a decomposable k-coda shape (nucleus 'ă' + coda 'k' is a valid P6 combination)");
+    let mut overlay = HashSet::new();
+    overlay.insert(bit_index(o, n, c, t) as u32);
+
+    let mut ex2 = PipelineExecutor::new(config);
+    ex2.set_learning_snapshot(LearningSnapshot { user_attested: Some(Arc::new(overlay)), raw_prefs: None });
+    for ch in "cakw".chars() { ex2.process(ch); }
+    assert_eq!(ex2.context().syllable_buffer, "căk", "overlay-attested k-coda shape must survive the SAME consult point P6's static table uses");
+}
+
+#[test]
+fn gate_hardening_non_digit_trigger_demoted_before_probe_sees_it() {
+    // Row: gate hardening (P6) + un-latch probe (P2) — the strict
+    // (exact-attestation) trigger-class classification is honored INSIDE
+    // the probe too, not just at the top-level compose() call site.
+    //
+    // P2's `should_unlatch` probes via the exact same public `compose()`
+    // function exercised here directly — there is no separate/parallel gate
+    // implementation for the probe path (single source of truth). A
+    // non-digit trigger (P6 hardening: only ASCII-digit triggers get
+    // shape-relaxation; everything else — including a hypothetical
+    // punctuation trigger in a custom config — requires EXACT attestation)
+    // whose match is only shape-attested must be demoted BEFORE any probe
+    // ever inspects the result: `applied_marks` comes back empty, which is
+    // exactly what `should_unlatch`'s condition (c) ("was a mark reported
+    // fired at the last raw position") inspects. This is a SECOND,
+    // independent line of defense beyond condition (b)'s own exact check —
+    // gate hardening's classification is honored before the un-latch
+    // decision ever runs its own logic, not merely duplicated by it.
+    use buttre_engine::compose::{compose, ComposeOpts};
+    use buttre_engine::pipeline::config::PipelineConfig;
+
+    let mut cfg = PipelineConfig::new("custom-punct");
+    cfg.add_transform("a'", "â");
+    let opts = ComposeOpts::from_config(&cfg);
+
+    let raw: Vec<char> = "nhat'".chars().collect();
+    let r = compose(&raw, &opts);
+    assert_eq!(r.text, "nhat'", "a non-digit trigger's shape-only match must demote to literal (P6 hardening)");
+    assert!(
+        r.applied_marks.is_empty(),
+        "the demoted mark must not survive into applied_marks — the un-latch probe's condition (c) would see nothing to pin to the last raw position"
+    );
+    assert!(!r.temp_english, "a demote with no surviving mark/tone must not itself latch English (matches the 'data' class)");
+
+    // Contrast: VNI's digit trigger DOES get shape-relaxation for the exact
+    // same structural shape ("nhat6" -> shape-only "nhât" survives, mark
+    // present) — proving the distinction is real, not merely "nothing ever
+    // survives a non-adjacent mark on this shape".
+    let vni_cfg = buttre_engine::pipeline::presets::vni_config();
+    let vni_opts = ComposeOpts::from_config(&vni_cfg);
+    let vni_raw: Vec<char> = "nhat6".chars().collect();
+    let vni_r = compose(&vni_raw, &vni_opts);
+    assert_eq!(vni_r.text, "nhât", "VNI's digit trigger DOES get shape-relaxation for the same shape");
+    assert!(
+        !vni_r.applied_marks.is_empty(),
+        "the digit mark survives — this is exactly what condition (c) would see for a genuine VNI un-latch probe"
+    );
+}

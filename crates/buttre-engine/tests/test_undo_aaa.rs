@@ -33,7 +33,6 @@ fn test_undo_aaa() {
              executor.context().last_output,
              executor.context().transform_history.len());
     println!("temp_english_mode: {}", executor.context().temp_english_mode);
-    println!("last_was_undo: {}", executor.context().last_was_undo);
     
     if executor.context().syllable_buffer == "aa" {
         println!("\n✓ UNDO WORKED!");

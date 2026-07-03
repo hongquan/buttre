@@ -186,12 +186,6 @@ pub struct TypingContext {
     /// Each entry is (raw_buffer, syllable_buffer) at that point
     pub history: Vec<(String, String)>,
 
-    /// Whether the last operation was an undo
-    pub last_was_undo: bool,
-
-    /// EXPERIMENTAL: Whether an undo occurred in the CURRENT processing step
-    pub just_undid: bool,
-
     /// Dictionary candidates (from Stage 8: Dictionary Lookup)
     /// Populated when dictionary lookup finds matching entries
     /// Example: For "nguoi" → ["người", "𠊛"]
@@ -241,23 +235,22 @@ pub struct TypingContext {
     // Legacy fields — kept for context compatibility during transition.
     // These were used by the old Permutation/Reconciliation/Retrofix stages
     // (removed in Phase 4).  ComposeStage handles all of this internally.
+    //
+    // event-sourcing-completion Phase 8 purity audit: the sibling one-way
+    // BOOL flags this block used to carry (`has_pending_marks`,
+    // `had_successful_transform`, `used_permutation_result`) were deleted —
+    // grep-verified zero production readers anywhere in the crate (only
+    // written here at init/clear, never consulted by ComposeStage or any
+    // other stage). The two `Option<T>` slots below are out of this phase's
+    // scope (bool deletions only) but are equally dead; a future cleanup
+    // pass may remove them too.
     // ========================================
-
-    /// Whether there are pending marks that need fallback processing.
-    /// Retained for context struct compatibility; not used by ComposeStage.
-    pub has_pending_marks: bool,
 
     /// Legacy permutation result slot (not populated by ComposeStage).
     pub permutation_result: Option<PermutationResult>,
 
-    /// Whether the last transform was successful (legacy, not used).
-    pub had_successful_transform: bool,
-
     /// Incremental result slot (legacy, not used by ComposeStage).
     pub incremental_result: Option<String>,
-
-    /// Legacy reconciliation flag (not used by ComposeStage).
-    pub used_permutation_result: bool,
 
     // ========================================
     // Learning Support (Stage 5 — future)
@@ -399,8 +392,6 @@ impl TypingContext {
             cursor: 0,
             temp_english_mode: false,
             history: Vec::new(),
-            last_was_undo: false,
-            just_undid: false,
             candidates: Vec::new(),
             showing_candidates: false,
             selected_candidate: None,
@@ -411,11 +402,8 @@ impl TypingContext {
             flags: HashMap::new(),
             transform_history: Vec::new(),
             // Legacy permutation fields (not used by ComposeStage)
-            has_pending_marks: false,
             permutation_result: None,
-            had_successful_transform: false,
             incremental_result: None,
-            used_permutation_result: false,
             // Learning (Stage 5, future)
             learning_enabled: false,
             completed_syllables: Vec::new(),
@@ -437,8 +425,6 @@ impl TypingContext {
         self.cursor = 0;
         self.temp_english_mode = false;
         self.history.clear();
-        self.last_was_undo = false;
-        self.just_undid = false;
         self.candidates.clear();
         self.showing_candidates = false;
         self.selected_candidate = None;
@@ -449,11 +435,8 @@ impl TypingContext {
         self.flags.clear();
         self.transform_history.clear();
         // Clear legacy permutation state
-        self.has_pending_marks = false;
         self.permutation_result = None;
-        self.had_successful_transform = false;
         self.incremental_result = None;
-        self.used_permutation_result = false;
         // Cross-word backspace support
         self.word_start_indices = vec![0];  // Reset with first word at 0
         // Note: Don't clear learning_enabled or completed_syllables (session-level)

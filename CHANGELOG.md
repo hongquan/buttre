@@ -4,6 +4,47 @@ Tất cả thay đổi đáng chú ý của buttre được ghi lại tại đâ
 
 ## [Unreleased]
 
+### Hoàn thiện kiến trúc event-sourcing: un-latch, boundary repair, điều khiển người dùng, học cá nhân hóa (đợt 1+2+3)
+
+Bốn phase hoàn thiện nguyên tắc bất biến "raw keystroke là event log" (đã ghi trong
+`AGENTS.md` mục "Event-sourcing purity"), xây trên cổng chứng thực âm tiết bên dưới:
+
+- **Un-latch dựa trên bằng chứng** (thay `temp_english_mode` latch một chiều bằng
+  tái-suy-diễn mỗi phím): sửa lớp lỗi dấu-thanh-đến-sau-transform `"vietj"`+`"e"` →
+  `"việt"` (trước đây kẹt literal `"vietje"` vĩnh viễn). Mọi hành vi cũ vẫn giữ nguyên
+  (`dessign`/`tissot` vẫn literal, double-tap undo vẫn literal, `data`-class không
+  nhấp nháy) — xem PIPELINE_ARCHITECTURE.md mục "Un-latch dựa trên bằng chứng".
+- **Sửa lỗi cuối cùng tại ranh giới từ (word-boundary final repair)**: một từ dùng mark
+  suy luận không liền kề mà dấu thanh chưa từng đến (VNI `"nhat6"` + dấu cách) nay phục
+  hồi về literal thay vì commit dạng chỉ-khớp-hình-dạng `"nhât"`. Áp dụng đồng nhất cho
+  cả Hook (multiword) và TSF (`ConfirmComposition`/Enter/reset-key), cấu hình bật mặc
+  định cho cả hai backend.
+- **Toggle từ hai chiều + backspace thô** (`Ctrl+Shift+Z`, chỉ Hook multiword): đảo
+  ngược lặp lại giữa `literal(raw)` ⇄ `compose(raw)` cho từ đang mở/vừa gõ — khác
+  Unikey `Ctrl+Shift+Esc` (one-shot, phá hủy dạng đã ghép). Kèm chord-exemption (giữ
+  Ctrl/Shift không reset engine) và focus-guard (alt-tab trước khi bấm hotkey → no-op,
+  không xóa nhầm app khác). `Settings::backspace_mode` mới: `"raw"` xóa theo phím thô
+  thay vì grapheme hiển thị.
+- **Học cá nhân hóa** (`learning.toml`, tắt được qua `Settings::learning_enabled`):
+  âm tiết gõ trực tiếp không suy luận, chưa có trong bảng tĩnh, gõ đủ 3 lần riêng biệt
+  → tự "chứng thực" cho người dùng đó (mở khóa gõ trễ cho đúng âm tiết); hành động chủ
+  ý (double-tap undo, toggle) ghi lại ưu tiên literal/composed theo đúng chuỗi phím thô
+  — lần gõ sau áp dụng ngay. Xem 00-context.md mục "Điều Khiển Người Dùng & Cá Nhân Hóa"
+  để biết vị trí file + ghi chú riêng tư.
+- **Bảng cấu trúc**: mở rộng coda `"k"` (lớp địa danh Đắk Lắk: `đắk`, `lắk`, `búk`...)
+  và làm chặt lớp trigger của cổng chứng thực (chỉ số VNI được nới lỏng theo hình dạng;
+  mọi trigger khác — kể cả dấu câu trong config tùy chỉnh — đòi hỏi khớp chính xác).
+- **Kiểm chứng thuần khiết (Phase 8)**: đóng băng số field `bool` trên `TypingContext`
+  (`crates/buttre-engine/tests/purity_audit.rs`), xóa 5 field `bool` một chiều chết từ
+  dual-engine cũ (`last_was_undo`, `just_undid`, `has_pending_marks`,
+  `had_successful_transform`, `used_permutation_result` — grep xác nhận không còn nơi
+  nào đọc), thêm deny-script `scripts/check-purity.ps1`. Bổ sung test tương tác xuyên
+  phase (un-latch+boundary-repair, toggle+boundary-repair, pref+boundary-repair,
+  coda-k+overlay, gate-hardening+un-latch-probe) và regen golden snapshot (+9 âm tiết
+  lớp coda-k, không có flip nào khác ngoài dự kiến).
+- VIQR bị loại khỏi phạm vi (descoped) — trigger dấu câu của nó kích hoạt lớp va chạm
+  đã chứng thực ở mọi cuối câu; xem bản ghi thiết kế trong `.agents/`.
+
 ### Cổng chứng thực âm tiết cho transform không liền kề (engine)
 - **Sửa lớp lỗi `"data"` → `"dât"`**: nhúng bảng 7.884 âm tiết tiếng Việt có thật (từ điển `ibus-bamboo`, GPLv3) dưới dạng bitset nén (~13 KB). Mark suy luận KHÔNG liền kề (gõ nhanh xen kẽ, dấu thanh chen giữa hai nguyên âm như `reset`/`nasa`, `đ` suy ra từ `d` cuối từ...) chỉ được giữ khi âm tiết ghép ra là âm tiết có thật; nếu không sẽ giáng cấp về đúng ký tự gốc đã gõ. Áp dụng cho cả Telex và VNI; các đường tái dựng prefix trong fallback (toggle dấu thanh/transform) cũng đi qua cùng cổng này để không bị bỏ sót (`dataeee`, `vietess`, `databaaa` không còn rò rỉ dấu phụ âm). VIQR chưa triển khai — cổng tự áp dụng khi preset VIQR hoàn thiện, không cần sửa thêm.
 - **Hoàn tác không liền kề** (escape hatch cho va chạm âm tiết có thật): gõ lại đúng phím trigger ngay sau khi nó vừa kích hoạt sẽ hoàn nguyên về ký tự gốc — Telex `cana`+`a` → `cana`; VNI `can6`+`6` → `can6`; `đ` suy luận `dand`+`d` → `dand`. Điều kiện tức thời (immediacy): phím gõ lại phải là phím cuối cùng của chuỗi vừa gõ, nếu không sẽ không hoàn tác (`vietej`+`e` không hoàn tác vì phím cuối lúc đó là dấu nặng `j`).

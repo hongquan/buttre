@@ -297,13 +297,11 @@ fn test_preserves_context_flags() {
     let stage = NormalizationStage::new();
     let mut ctx = TypingContext::new();
     ctx.temp_english_mode = true;
-    ctx.last_was_undo = true;
 
     stage.process(&mut ctx, 'a');
 
     // Flags should not be modified
     assert!(ctx.temp_english_mode);
-    assert!(ctx.last_was_undo);
 }
 
 // === Vietnamese Input Tests ===

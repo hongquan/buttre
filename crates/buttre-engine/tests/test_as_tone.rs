@@ -21,9 +21,8 @@ fn test_as_creates_history() {
     
     // Now try 'ass'
     executor.process('s');
-    println!("After 'ass': syllable='{}', history={}, temp_english={}, last_was_undo={}", 
+    println!("After 'ass': syllable='{}', history={}, temp_english={}",
              executor.context().syllable_buffer,
              executor.context().transform_history.len(),
-             executor.context().temp_english_mode,
-             executor.context().last_was_undo);
+             executor.context().temp_english_mode);
 }

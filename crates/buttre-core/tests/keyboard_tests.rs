@@ -1,5 +1,5 @@
 use buttre_core::keyboard::{BackspaceMode, Config, Keyboard, KeyboardBuilder};
-use buttre_core::state::learning::{LearningFile, LearningStore};
+use buttre_core::state::learning::{LearningFile, LearningStore, PreferKind};
 use buttre_engine::compose::Pref;
 use buttre_engine::pipeline::presets::vni_config;
 use std::sync::mpsc;
@@ -688,4 +688,61 @@ fn short_undo_below_min_specificity_floor_records_nothing() {
         store.lock().unwrap().prefs_snapshot_for_method("telex").is_empty(),
         "a raw shorter than the min-specificity floor must never be recorded, even from a genuine undo shape"
     );
+}
+
+// ── Phase 8: cross-phase interaction tests ───────────────────────────────────
+// Test Scenario Matrix item 1 from phase-08-regression-suite.md, Keyboard-
+// level rows — the un-latch(P2)+boundary(P3) row already has a dedicated
+// test above (`boundary_repair_noop_after_p2_unlatch_single_word`); the
+// remaining rows follow.
+
+#[test]
+fn toggle_literal_survives_separator_commit_untouched_by_boundary_repair() {
+    // Row: toggle (P4) then boundary repair — toggled-literal survives
+    // commit. Combined Contract precedence: P4 toggle (freshest deliberate
+    // act) beats P3 boundary repair / default policy.
+    //
+    // "reset" naturally composes to the attested collision "rết" — a form
+    // boundary repair leaves untouched at a separator
+    // (`boundary_repair_reset_space_accepted_collision_untouched` above), so
+    // WITHOUT the toggle, typing a trailing space would commit "rết ".
+    // Toggling to literal freezes the word as `literal(raw)`
+    // (`compose_window`'s `Some(true)` branch renders the raw span directly,
+    // never calling `compose_one_word`/`boundary_repair` at all) — the
+    // separator that follows must therefore commit the frozen "reset ",
+    // proving the toggle's literal projection is never reinterpreted by
+    // whatever boundary-repair/default-compose policy would otherwise apply.
+    let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
+    type_str(&mut kb, "reset");
+    assert_eq!(kb.buffer(), "rết", "pre-toggle: reset composes normally");
+
+    kb.toggle_last_word().expect("toggle must act on the open trailing word");
+    assert_eq!(kb.buffer(), "reset", "toggle renders literal(raw)");
+
+    type_str(&mut kb, " "); // separator: would normally close+consider-repairing the word
+    assert_eq!(kb.buffer(), "reset ", "toggled literal must survive the boundary commit untouched by repair");
+}
+
+#[test]
+fn learning_pref_composed_overrides_boundary_repair_shape_only_demote() {
+    // Row: learning pref (P5) vs boundary repair — pref wins (deliberate
+    // beats policy, Combined Contract precedence toggle > pref > repair >
+    // policy).
+    //
+    // VNI "nhat6" is the flagship shape-only case: with no pref, boundary
+    // repair demotes it to literal "nhat6 " at the separator
+    // (`boundary_repair_vni_nhat6_space_restores_literal` above). A stored
+    // `Pref::Composed` for this exact raw sequence short-circuits
+    // `compose_internal` at Step 0 — BEFORE the closed-projection gate ever
+    // runs (Combined Contract: "P5 pref lookup" is evaluated first) — so the
+    // word must commit composed ("nhât ") at the separator instead, proving
+    // the pref is consulted by `compose_closed`/`boundary_repair` too, not
+    // just the open per-keystroke path.
+    let (store, tx) = fresh_learning();
+    store.lock().unwrap().record_pref("vni", "nhat6", PreferKind::Composed, true);
+    let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
+    kb.set_learning(store, tx);
+
+    type_str(&mut kb, "nhat6 ");
+    assert_eq!(kb.buffer(), "nhât ", "a stored Composed pref must survive boundary repair's closed-gate demote");
 }

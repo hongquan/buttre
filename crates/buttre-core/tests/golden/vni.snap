@@ -442,6 +442,15 @@ mat5	mạt	VietnameseValid
 nat	nat	VietnameseValid
 nat1	nát	VietnameseValid
 nat5	nạt	VietnameseValid
+buk1	búk	VietnameseValid
+la8k	lăk	VietnameseValid
+la8k1	lắk	VietnameseValid
+ma8k	măk	VietnameseValid
+uk1	úk	VietnameseValid
+a8k	ăk	VietnameseValid
+d9a8k	đăk	VietnameseValid
+d9a8k1	đắk	VietnameseValid
+a8k1	ắk	VietnameseValid
 cha	cha	VietnameseValid
 cha1	chá	VietnameseValid
 che2	chè	VietnameseValid
@@ -864,6 +873,11 @@ ma1t	mát	FlexibleTyping
 ma5t	mạt	FlexibleTyping
 na1t	nát	FlexibleTyping
 na5t	nạt	FlexibleTyping
+bu1k	búk	FlexibleTyping
+la81k	lắk	FlexibleTyping
+u1k	úk	FlexibleTyping
+d9a81k	đắk	FlexibleTyping
+a81k	ắk	FlexibleTyping
 cha81n	chắn	FlexibleTyping
 cha62n	chần	FlexibleTyping
 cha63n	chẩn	FlexibleTyping
