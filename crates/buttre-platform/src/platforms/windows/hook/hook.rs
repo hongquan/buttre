@@ -1115,15 +1115,17 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             }
         }
         Action::Commit(text) => {
-            // Chrome-omnibox fix: when the commit is exactly the single char the
+            // Natural passthrough: when the commit is exactly the single char the
             // user just typed (no transformation), let the ORIGINAL keystroke pass
-            // through natively instead of injecting via KEYEVENTF_UNICODE (VK_PACKET).
-            // Chrome's URL bar treats VK_PACKET text as a selected inline-autocomplete
-            // (caret jumps to the end of the full suggestion), so the next Replace's
-            // VK_BACK only dismisses the suggestion instead of deleting the char —
-            // yielding "dđ" instead of "đ". A native VK_D gives gray-text autocomplete
-            // with the caret right after the char, where VK_BACK deletes correctly.
-            // Behaviour-neutral in normal apps (a single char appears either way).
+            // through natively instead of injecting via KEYEVENTF_UNICODE
+            // (VK_PACKET). Apps then see a real scancode keystroke — more faithful
+            // for anything that inspects keys (games, terminals, RDP), and one less
+            // synthetic injection per plain character. NOTE: this does NOT fix the
+            // Chromium omnibox "dđ" duplication (measured 2026-07: the bug
+            // reproduces identically with natural first chars — the omnibox eats
+            // the *later* Replace's VK_BACK to dismiss its autocomplete selection
+            // regardless of how the first char arrived). That fix lives in
+            // `common::omnibox_fix` + `send_replacement`'s selection variant.
             let is_natural_passthrough =
                 text.chars().count() == 1 && text.chars().next() == Some(ch);
             if is_natural_passthrough {

@@ -10,6 +10,7 @@
 
 pub mod input;
 pub mod key_utils;
+pub mod omnibox_fix;
 pub mod vk_codes;
 pub mod candidate_window;
 

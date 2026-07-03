@@ -6,7 +6,8 @@ use tracing::debug;
 
 #[cfg(windows)]
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE, VK_BACK,
+    SendInput, INPUT, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_EXTENDEDKEY, KEYEVENTF_KEYUP,
+    KEYEVENTF_UNICODE, VK_BACK, VK_LEFT, VK_LSHIFT,
 };
 
 /// Extra info flag to identify our own injected keys
@@ -131,15 +132,124 @@ pub fn send_string(s: &str) {
     }
 }
 
-/// Send backspaces and string in one batch
+/// Send backspaces and string in one batch.
+///
+/// In a Chromium omnibox (and ONLY there — see `omnibox_fix` for the
+/// two-gate detection) a raw `VK_BACK` is consumed dismissing the inline
+/// autocomplete selection instead of deleting the typed character, so the
+/// plain batch under-deletes by one. In that context this switches to the
+/// select-and-overwrite variant below; everywhere else the behavior is
+/// byte-for-byte what it always was.
 #[cfg(windows)]
 pub fn send_replacement(backspace_count: usize, text: &str) {
+    if backspace_count > 0 && super::omnibox_fix::should_apply_omnibox_fix() {
+        debug!("Omnibox fix: selection replacement, {} backspaces", backspace_count);
+        send_replacement_via_selection(backspace_count, text);
+        return;
+    }
+    send_replacement_plain(backspace_count, text);
+}
+
+/// Omnibox variant (OpenKey's mechanism, verified against live Chrome):
+/// `Shift+Left` pre-selects the last real character — collapsing any inline
+/// autocomplete ghost selection in the process. With exactly one char to
+/// delete and text to insert, no backspace is sent at all (the text types
+/// over the selection — an atomic replace the autocomplete can't disturb);
+/// otherwise all `backspace_count` backspaces are sent, the first consuming
+/// the 1-char selection so the net deleted count is unchanged. Everything
+/// ships in a single `SendInput` batch, all tagged `BUTTRE_INJECTED` so our
+/// own hook ignores them.
+///
+/// Modifier note: transforms only ever fire on plain character keystrokes
+/// (Ctrl/Alt chords never reach the engine as text), so injecting an
+/// LSHIFT-down/LEFT/LSHIFT-up sandwich cannot compose with a held Ctrl/Alt
+/// into a word-selection chord. A physically held Shift is compatible — the
+/// selection semantics are the same, and the replacement text is injected
+/// via `KEYEVENTF_UNICODE`, which ignores shift state.
+#[cfg(windows)]
+fn send_replacement_via_selection(backspace_count: usize, text: &str) {
+    let key = |vk: u16, flags: u32| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: vk,
+                wScan: 0,
+                dwFlags: flags,
+                time: 0,
+                dwExtraInfo: BUTTRE_INJECTED,
+            },
+        },
+    };
+
+    let char_count = text.chars().count();
+    let mut inputs = Vec::with_capacity(6 + backspace_count.saturating_sub(1) * 2 + char_count * 2);
+
+    // Shift+Left — KEYEVENTF_EXTENDEDKEY marks the real arrow key (not numpad-4).
+    inputs.push(key(VK_LSHIFT as u16, 0));
+    inputs.push(key(VK_LEFT as u16, KEYEVENTF_EXTENDEDKEY));
+    inputs.push(key(VK_LEFT as u16, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP));
+    inputs.push(key(VK_LSHIFT as u16, KEYEVENTF_KEYUP));
+
+    // OpenKey's counting rule: with exactly one char to delete AND text to
+    // insert, send zero backspaces — the overwrite consumes the selection.
+    // In every other case send ALL backspaces unchanged: the first one
+    // deletes the 1-char selection (same net count as deleting one char),
+    // the rest act on real text — the ghost suggestion is already collapsed.
+    let backspaces_to_send = if backspace_count == 1 && !text.is_empty() {
+        0
+    } else {
+        backspace_count
+    };
+    for _ in 0..backspaces_to_send {
+        inputs.push(key(VK_BACK as u16, 0));
+        inputs.push(key(VK_BACK as u16, KEYEVENTF_KEYUP));
+    }
+
+    for ch in text.chars() {
+        let code = ch as u32;
+        if code > 0xFFFF {
+            let code = code - 0x10000;
+            let high = ((code >> 10) + 0xD800) as u16;
+            let low = ((code & 0x3FF) + 0xDC00) as u16;
+            add_unicode_inputs(&mut inputs, high);
+            add_unicode_inputs(&mut inputs, low);
+        } else {
+            add_unicode_inputs(&mut inputs, code as u16);
+        }
+    }
+
+    // SAFETY:
+    // 1. inputs is a valid Vec<INPUT>, non-empty (≥ the 4 selection events)
+    // 2. as_mut_ptr()/len() form a valid array for SendInput
+    // 3. size_of::<INPUT>() is the correct structure size
+    // 4. All INPUT structs are fully initialized with valid VK codes/flags
+    // 5. Batching preserves event order (selection → deletes → text)
+    unsafe {
+        let expected = inputs.len() as u32;
+        let sent = SendInput(
+            expected,
+            inputs.as_mut_ptr(),
+            std::mem::size_of::<INPUT>() as i32,
+        );
+        if sent != expected {
+            tracing::error!(
+                "SendInput selection-replacement failed: expected {}, sent {}",
+                expected,
+                sent
+            );
+        }
+    }
+}
+
+/// The original path: N backspaces + text, one batch.
+#[cfg(windows)]
+fn send_replacement_plain(backspace_count: usize, text: &str) {
     if backspace_count == 0 && text.is_empty() {
         return;
     }
 
     debug!("Sending replacement: {} backspaces + '{}'", backspace_count, text);
-    
+
     // Calculate total capacity needed
     let char_count = text.chars().count();
     // 2 inputs per backspace (down/up), 2 inputs per char (down/up) + extras for surrogates

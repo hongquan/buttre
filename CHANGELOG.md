@@ -6,13 +6,25 @@ Tất cả thay đổi đáng chú ý của buttre được ghi lại tại đâ
 
 ### Sửa lỗi nhân đôi ký tự trên thanh địa chỉ Chrome/Chromium ("dđ" thay vì "đ")
 
-Ba sửa lỗi độc lập cho lớp lỗi kinh điển: text do bộ gõ chèn vào thanh URL (omnibox) của
-Chrome/Chromium bị nhân đôi thành `"dđ"` thay vì `"đ"`. Áp dụng cho cả hai backend:
+Lớp lỗi kinh điển: trong omnibox Chromium đang hiện inline-autocomplete (gõ `d`, phần gợi ý
+`uckduckgo.com` bôi đen), phím `VK_BACK` do bộ gõ bơm vào bị omnibox "nuốt" để hủy phần gợi ý
+thay vì xóa ký tự → thiếu đúng một backspace → `dđ` thay vì `đ`. Đây là hành vi by-design phía
+Chromium (bug 383093/514928 treo cả thập kỷ — phối hợp IME chỉ kích hoạt cho composition TSF
+thật, không cho phím bơm qua hook). Chẩn đoán và fix đều được **kiểm chứng tự động trên Chrome
+thật** (harness bơm phím + đọc omnibox qua UI Automation):
 
-- **Hook (SendInput)**: khi kết quả commit đúng bằng một ký tự vừa gõ (không biến đổi), cho
-  phím gốc đi qua tự nhiên thay vì chèn qua `KEYEVENTF_UNICODE`. Chrome coi text `VK_PACKET`
-  là "gợi ý tự-hoàn-thành đã chọn" (con trỏ nhảy về cuối gợi ý) nên phím lùi kế tiếp chỉ hủy
-  gợi ý chứ không xóa ký tự.
+- **Hook — fix chính (`common/omnibox_fix.rs` + biến thể selection của `send_replacement`)**:
+  cơ chế của OpenKey — `Shift+Left` chọn ký tự thật cuối (đồng thời thu hồi phần gợi ý bôi
+  đen) rồi gõ đè; đúng ở cả 3 trạng thái omnibox (có autocomplete, không có, con trỏ giữa
+  chuỗi). Khoanh vùng bằng **cổng kép**: exe foreground thuộc allowlist Chromium (chrome,
+  edge, brave, vivaldi, opera, Cốc Cốc...; cache theo PID) **và** phần tử focus qua UIA có
+  class `OmniboxViewViews` (định danh omnibox độc lập ngôn ngữ) — nên Google Sheets/Docs/ô
+  nhập trong trang không bao giờ dính fix (lỗi mà chính tác giả OpenKey ghi nhận khi áp
+  browser-wide). UIA lỗi/timeout → tự rơi về đường backspace cũ.
+- **Hook — passthrough tự nhiên**: commit đúng một ký tự vừa gõ (không biến đổi) thì cho
+  phím gốc đi qua thay vì bơm `KEYEVENTF_UNICODE` — app nhận scancode thật (tốt cho
+  game/terminal/RDP). Lưu ý: đo đạc cho thấy passthrough *không* tự sửa được lỗi omnibox
+  (bug tái hiện y hệt với ký tự đầu tự nhiên) — fix thật là gạch đầu dòng trên.
 - **TSF — chế độ phục hồi**: khi ứng dụng tự kết thúc composition dù ký tự đã được commit,
   ghi đè tại chỗ bằng `ShiftStart(-previous_length)` thay vì mở composition mới tại con trỏ
   (vốn chèn ký tự đã biến đổi *sau* ký tự đã commit).
