@@ -26,6 +26,16 @@
 //! A tone key typed twice removes the tone and yields a literal tone key suffix.
 //! Example: `ass` → "as" (literal), `a11` → "a1" (raw undo, current engine).
 //!
+//! **Visibility gate:** the undo fires ONLY when the toned form of the base
+//! is a plausible Vietnamese syllable (`could_be_vietnamese`, the same
+//! validator gate as `compose_internal` step 6) — i.e. the tone was actually
+//! on screen for there to be something to undo. English words ending in a
+//! double tone key were already in literal English fallback before the repeat
+//! (`glá`/`clá`/`succé` never displayed), so the repeat key is a plain letter:
+//! `glass`/`class`/`success`/`press` compose to their full literal selves and
+//! no keystroke is dropped. Valid-syllable collisions (`boss`: `bó` WAS on
+//! screen) keep Unikey undo semantics (`boss` → "bos").
+//!
 //! **Partial undo (transform-preserving):** when the base before the tone key
 //! contains transform triggers (e.g. `a611`: `a6` → `â`, then `11` undo pair),
 //! the undo strips ONLY the tone and keeps the diacritic transform.  The
@@ -282,6 +292,35 @@ fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) 
             // Even count → undo: apply transforms to base_part (no tone) to
             // preserve diacritics, then append n/2 literal tone key chars.
             let transformed_base = apply_transforms_only(base_part, opts, allow_nonadjacent);
+
+            // An undo is only meaningful when the tone was ever VISIBLE: the
+            // frame BEFORE this repeat key (prefix = raw minus the final key,
+            // recomposed through the same segment+transform+tone+gate steps
+            // the screen ran) must be a plausible Vietnamese syllable — same
+            // validator gate as compose_internal's step 6. English words
+            // ending in a double tone key ("glass", "class", "success",
+            // "press") were ALREADY in literal English fallback before the
+            // repeat — "glá" never displayed, so there is no tone to undo and
+            // the repeat key is just a letter. Returning None lets normal
+            // compose run, whose step-6 fallback yields the FULL literal raw
+            // ("glass", not "glas" — one keystroke must never vanish).
+            // Valid-syllable collisions ("boss": "bó" was really on screen)
+            // keep Unikey undo semantics unchanged, and delayed-mark words
+            // ("vietess": the frame was attested "viết") still undo — the
+            // prefix compose runs WITH its tone, so the attestation gate sees
+            // the same text the screen did.
+            if opts.validator == super::Validator::Vietnamese {
+                let visible = compose_base_and_transforms_with_tone(
+                    &raw[..raw.len() - 1],
+                    opts,
+                    allow_nonadjacent,
+                )
+                .is_some_and(|frame| super::could_be_vietnamese(&frame, opts));
+                if !visible {
+                    return None;
+                }
+            }
+
             let suffix: String = std::iter::repeat(last_lc).take(n / 2).collect();
             let text = format!("{transformed_base}{suffix}");
             return Some(FallbackResult::handled(text, true));
@@ -316,6 +355,14 @@ fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) 
 
     // Compose raw-without-last to get the candidate toned syllable.
     let candidate = compose_base_and_transforms_with_tone(raw_without_last, opts, allow_nonadjacent)?;
+
+    // Same visibility gate as Path 1: the toned candidate must be a plausible
+    // Vietnamese syllable, or the earlier tone key never actually displayed a
+    // tone (English word, e.g. "asks": "ák" was never on screen) and this
+    // repeat is a plain letter, not a repress.
+    if opts.validator == super::Validator::Vietnamese && !super::could_be_vietnamese(&candidate, opts) {
+        return None;
+    }
 
     let expected_tone = *opts.tone_map.get(&last_lc)?;
     if expected_tone == ToneMark::None {
@@ -862,15 +909,19 @@ mod tests {
     // trailing "ss"/"ff" undo pair.  These tests guard the trailing-count fix.
 
     #[test]
-    fn telex_fanss_triggers_tone_undo() {
-        // "fans" typed with trailing "ss": 'f' is Telex Grave key *and* consonant.
-        // trailing run of 's' = 2, base_part = ['f','a','n'] → "fan", text = "fans".
+    fn telex_fanss_is_literal_no_undo() {
+        // Visibility gate (double-s English fix): "fán" has an invalid 'f'
+        // onset, so the tone from the first 's' never displayed — there is
+        // nothing to undo, and the trailing "ss" must NOT eat a keystroke.
+        // Fallback defers; compose's step-6 English fallback yields the full
+        // literal "fanss". (This test originally guarded the trailing-run
+        // counting fix with expected text "fans"; that algorithm is still
+        // guarded by `telex_seess_triggers_tone_undo_with_ee_transform`,
+        // whose toned prefix "sế" IS valid and still undoes.)
         let opts = telex_opts();
         let raw: Vec<char> = "fanss".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "fanss should trigger tone undo (trailing-run fix)");
-        assert_eq!(result.text, "fans", "fanss → fans + temp_english");
-        assert!(result.temp_english);
+        assert!(!result.is_handled, "fanss: tone never displayed → repeat 's' is a plain letter");
     }
 
     #[test]
@@ -887,13 +938,26 @@ mod tests {
 
     #[test]
     fn telex_sass_triggers_tone_undo() {
-        // Simple case: 's' as leading consonant, 'a' vowel, then "ss" undo pair.
+        // 's' as leading consonant, 'a' vowel, then "ss" undo pair. The frame
+        // before the repeat ("sas") displayed valid "sá", so — unlike the
+        // "glass"/"fanss" class — this undo is visible and must keep firing.
         let opts = telex_opts();
         let raw: Vec<char> = "sass".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "sass should trigger tone undo");
+        assert!(result.is_handled, "sass should trigger tone undo (frame 'sá' was visible)");
         assert_eq!(result.text, "sas");
         assert!(result.temp_english);
+    }
+
+    #[test]
+    fn telex_ass_still_undoes_valid_tone() {
+        // Control for the visibility gate: "á" IS a valid displayed syllable,
+        // so the classic Unikey double-tone undo must keep firing.
+        let opts = telex_opts();
+        let raw: Vec<char> = "ass".chars().collect();
+        let result = check_fallback(&raw, &opts, true);
+        assert!(result.is_handled);
+        assert_eq!(result.text, "as");
     }
 
     #[test]
