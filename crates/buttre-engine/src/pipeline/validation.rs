@@ -26,6 +26,8 @@
 //! decomposition is the single source of truth shared by the accessors here
 //! and by `examples/gen_attested_syllables.rs`, which builds the bitset.
 
+use std::collections::HashSet;
+
 use crate::pipeline::attested_data;
 use crate::pipeline::config::ToneMark;
 
@@ -556,5 +558,31 @@ pub fn is_shape_attested(syllable: &str) -> bool {
         return false;
     };
     (0..NUM_TONES).any(|t| attested_data::is_set(o, n, c, t))
+}
+
+/// Overlay-aware attested check (event-sourcing-completion Phase 5): ORs
+/// the static bitset with a user-attested overlay — bit-indices (via
+/// [`bit_index`]) for syllables the user typed directly and committed ≥3
+/// distinct times (see `buttre_core::state::learning::LearningStore`).
+///
+/// `overlay: None` (no store wired, or nothing learned yet) is
+/// BYTE-IDENTICAL to [`is_attested`] — every golden/regression test that
+/// never wires a store exercises exactly that path.
+///
+/// This is the SINGLE consult point both P3's word-boundary closed gate
+/// (`compose::passes_attestation_gate`) and P2's evidence-based un-latch
+/// probe (`pipeline::stages::compose_stage::should_unlatch`) call through —
+/// do not duplicate this OR-check elsewhere.
+///
+/// Fails open exactly like [`is_attested`]: an unparseable `syllable`
+/// returns `false`, never panics.
+pub fn is_attested_overlay(syllable: &str, overlay: Option<&HashSet<u32>>) -> bool {
+    match decompose_ids(syllable) {
+        Some((o, n, c, t)) => {
+            attested_data::is_set(o, n, c, t)
+                || overlay.is_some_and(|set| set.contains(&(bit_index(o, n, c, t) as u32)))
+        }
+        None => false,
+    }
 }
 

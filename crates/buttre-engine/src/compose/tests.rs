@@ -1,7 +1,11 @@
 //! Integration tests for the compose module.
 
-use crate::compose::{compose, compose_closed, ComposeOpts, ComposeResult};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+use crate::compose::{compose, compose_closed, ComposeOpts, ComposeResult, Pref};
 use crate::pipeline::config::{PipelineConfig, ToneMark, ToneStyle};
+use crate::pipeline::validation::{bit_index, decompose_ids};
 
 fn telex_opts() -> ComposeOpts {
     let mut cfg = PipelineConfig::new("telex");
@@ -201,6 +205,7 @@ fn empty_raw() {
         temp_english: false,
         applied_marks: Vec::new(),
         consumed_tone: None,
+        demoted: false,
     });
 }
 
@@ -749,5 +754,113 @@ fn medium_closed_flag_is_a_pure_parameter_not_shared_state() {
         assert_eq!(compose(&raw_buf, &opts).text, "nhât");
         assert_eq!(compose_closed(&raw_buf, &opts).text, "nhat6");
     }
+}
+
+// ── Phase 5: learning — user-attested overlay + preference memory ────────────
+// Test Scenario Matrix from phase-05-learning-stores.md, compose-level rows.
+// Empty-store determinism is checked FIRST, per the phase's own ordering.
+
+#[test]
+fn p5_empty_store_determinism_byte_identical() {
+    // `ComposeOpts::from_config` always starts with `user_attested: None,
+    // raw_prefs: None` — every OTHER test in this file (Telex/VNI/Cham,
+    // undo, gate, boundary-repair) already proves this exhaustively by
+    // never touching either field. This test pins the contract explicitly:
+    // an opts value with the fields SET but EMPTY (not `None`) must ALSO be
+    // byte-identical — an empty overlay/pref map is observationally the
+    // same as no store at all (Success Criteria: "goldens unaffected").
+    let base = telex_opts();
+    let with_empty_store = ComposeOpts {
+        user_attested: Some(Arc::new(HashSet::new())),
+        raw_prefs: Some(Arc::new(HashMap::new())),
+        ..base.clone()
+    };
+    for word in ["data", "reset", "vietje", "aaa", "cana", "nasa"] {
+        assert_eq!(
+            compose(&raw(word), &base),
+            compose(&raw(word), &with_empty_store),
+            "an empty (but Some) learning store must be byte-identical to no store at all for '{word}'"
+        );
+    }
+}
+
+#[test]
+fn p5_overlay_or_check_rescues_unattested_non_adjacent_mark() {
+    // "data" demotes to literal because "dât" is unattested
+    // (critical_data_stays_literal). Adding "dât"'s bit to the overlay must
+    // make it survive the gate instead — via the SAME single consult point
+    // (`pipeline::validation::is_attested_overlay`) P3's closed gate and
+    // P2's probe also use.
+    let (o, n, c, t) = decompose_ids("dât").expect("'dât' must be a decomposable shape");
+    let mut overlay = HashSet::new();
+    overlay.insert(bit_index(o, n, c, t) as u32);
+    let opts = ComposeOpts { user_attested: Some(Arc::new(overlay)), ..telex_opts() };
+
+    let r = compose(&raw("data"), &opts);
+    assert_eq!(r.text, "dât", "an overlay-attested syllable must survive the non-adjacent gate");
+    assert!(!r.demoted, "a gate PASS is not a demote");
+    assert!(!r.temp_english);
+
+    // Sanity: WITHOUT the overlay, the original demote behavior is unchanged.
+    assert_eq!(compose(&raw("data"), &telex_opts()).text, "data");
+}
+
+#[test]
+fn p5_pref_literal_short_circuits_before_fallback() {
+    // "reset" naturally composes to attested "rết"
+    // (high_reset_accepted_attested_collision). A stored `Pref::Literal`
+    // for this exact raw must short-circuit to the literal keystrokes
+    // instead, from the very top of `compose_internal` — before
+    // fallback/segment/transform/tone ever run.
+    let mut prefs = HashMap::new();
+    prefs.insert("reset".to_string(), Pref::Literal);
+    let opts = ComposeOpts { raw_prefs: Some(Arc::new(prefs)), ..telex_opts() };
+
+    let r = compose(&raw("reset"), &opts);
+    assert_eq!(r.text, "reset", "a literal pref must short-circuit compose entirely");
+
+    // Unaffected: a DIFFERENT raw sequence still composes normally.
+    assert_eq!(compose(&raw("viet"), &opts).text, "viet");
+}
+
+#[test]
+fn p5_pref_composed_short_circuits_undo_detection() {
+    // "ass" normally undoes via `check_fallback` (telex_ass_undo: "ass" ->
+    // "as" + literal 's', temp_english). A stored `Pref::Composed` for this
+    // exact raw must bypass fallback/gate/English-check entirely and force
+    // the plain segment->transform->tone pipeline: 'a' + tone 's' -> "á".
+    let mut prefs = HashMap::new();
+    prefs.insert("ass".to_string(), Pref::Composed);
+    let opts = ComposeOpts { raw_prefs: Some(Arc::new(prefs)), ..telex_opts() };
+
+    let r = compose(&raw("ass"), &opts);
+    assert_eq!(r.text, "á", "a composed pref must bypass undo detection");
+    assert!(!r.temp_english);
+    assert!(!r.demoted);
+
+    // Sanity: WITHOUT the pref, the original undo behavior is unchanged.
+    let plain = compose(&raw("ass"), &telex_opts());
+    assert_eq!(plain.text, "as");
+    assert!(plain.temp_english);
+}
+
+#[test]
+fn p5_pref_lookup_is_exact_full_raw_never_prefix() {
+    // The pref short-circuit is gated on `allow_nonadjacent` (never
+    // consulted inside a demoted recursive call) and is structurally
+    // unreachable from `fallback`'s internal prefix-reconstruction helpers
+    // (`apply_transforms_only` et al. call segment/transform/assemble
+    // directly, never re-entering `compose_internal`). This test pins BOTH
+    // guarantees at once: storing a pref for the PREFIX "dd" alone must
+    // have zero effect on `"ddaaa"` (whose full raw is "ddaaa", not "dd") —
+    // the transform-preserving undo still reconstructs the prefix as the
+    // TRANSFORMED "đ", exactly as it does with no pref at all
+    // (telex_ddaaa_preserves_dstroke in `compose::fallback`'s own tests).
+    let mut prefs = HashMap::new();
+    prefs.insert("dd".to_string(), Pref::Literal);
+    let opts = ComposeOpts { raw_prefs: Some(Arc::new(prefs)), ..telex_opts() };
+
+    let r = compose(&raw("ddaaa"), &opts);
+    assert_eq!(r.text, "đaa", "a pref stored for a raw PREFIX must never leak into a longer raw's compose, nor into fallback's own prefix reconstruction");
 }
 

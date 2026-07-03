@@ -30,17 +30,21 @@ mod fallback;
 mod tests;
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 use crate::pipeline::config::{PipelineConfig, ToneMark, ToneStyle};
-use crate::pipeline::validation::{is_attested, is_shape_attested};
+use crate::pipeline::validation::{is_attested_overlay, is_shape_attested};
 
 // Re-export public types only.
 pub use segment::{AppliedMark, SegmentMode};
 
-// Crate-internal re-export: the P6 last-event parity fold, consumed by P2's
-// evidence-based un-latch condition (d) in
-// `pipeline::stages::compose_stage::should_unlatch` (see `plan.md`'s
-// Combined Contract).
-pub(crate) use fallback::is_last_event_undo;
+// Re-export: the P6 last-event parity fold, consumed by P2's evidence-based
+// un-latch condition (d) in `pipeline::stages::compose_stage::should_unlatch`
+// (see `plan.md`'s Combined Contract) AND by P5's word-commit signal
+// collector (`buttre_core::keyboard::Keyboard`) to detect a deliberate
+// "undo at commit" preference signal. Public (widened from `pub(crate)` in
+// Phase 5) specifically so buttre-core — the only external consumer — can
+// call it directly rather than re-deriving the same classification.
+pub use fallback::is_last_event_undo;
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -103,6 +107,62 @@ pub struct ComposeOpts {
     /// `Hmong`/`Custom`/`None`, which have no attested-syllable table to
     /// check against.
     pub attest_non_adjacent: bool,
+
+    /// User-attested overlay (event-sourcing-completion Phase 5): bit-indices
+    /// (via [`crate::pipeline::validation::bit_index`] — the SAME id space
+    /// the static attested-syllable bitset uses) for syllables the user
+    /// typed directly and committed ≥3 distinct times. Consulted by ORing
+    /// it with the static table at the SINGLE shared consult point,
+    /// [`crate::pipeline::validation::is_attested_overlay`] — never
+    /// duplicate that OR-check elsewhere. `None` (the `from_config`
+    /// default, and every existing caller that doesn't opt in) is
+    /// byte-identical to having no overlay at all: goldens and every
+    /// pre-Phase-5 test run this way. Populated by
+    /// `buttre_core::state::learning::LearningStore`; never mutated by
+    /// `compose()` itself (purity: stores enter as DATA, never as a
+    /// pipeline side-effect).
+    pub user_attested: Option<Arc<HashSet<u32>>>,
+
+    /// Raw-sequence preference memory (event-sourcing-completion Phase 5):
+    /// exact raw sequence (lowercase, already scoped to THIS method by the
+    /// caller — see `LearningStore::prefs_snapshot_for_method`) → the
+    /// preferred projection. Consulted at the very top of
+    /// [`compose_internal`], before fallback/segment/transform/tone/gate
+    /// ever run (Combined Contract). `None` by default — same determinism
+    /// guarantee as `user_attested`.
+    pub raw_prefs: Option<Arc<HashMap<String, Pref>>>,
+}
+
+/// A learned preference for one raw sequence (event-sourcing-completion
+/// Phase 5). `Literal` outputs the raw keystrokes verbatim, exactly like
+/// every other literal-output path in this module (case is re-applied
+/// afterward by `apply_case_mask`, unaffected by this choice). `Composed`
+/// forces the normal segment → transform → tone pipeline (steps 2-4 of
+/// [`compose_internal`]), skipping BOTH the undo/toggle fallback detection
+/// (step 1) and the attestation gate / English-fallback (steps 5-6) — a
+/// deliberate user override must never be silently re-demoted by the same
+/// heuristics it is overriding. See [`compose_forced`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Pref {
+    /// Prefer the literal raw keystrokes over any composed projection.
+    Literal,
+    /// Prefer the composed Vietnamese projection, ungated.
+    Composed,
+}
+
+/// The two learning-derived `ComposeOpts` fields, bundled for a single
+/// atomic hand-off from `buttre_core::keyboard::Keyboard` to the running
+/// pipeline (event-sourcing-completion Phase 5 — see
+/// `pipeline::executor::PipelineExecutor::set_learning_snapshot`).
+/// `Default` (`None`/`None`) is byte-identical to having no learning store
+/// at all — every golden/regression test that never touches this type
+/// exercises exactly that path.
+#[derive(Debug, Clone, Default)]
+pub struct LearningSnapshot {
+    /// See [`ComposeOpts::user_attested`].
+    pub user_attested: Option<Arc<HashSet<u32>>>,
+    /// See [`ComposeOpts::raw_prefs`].
+    pub raw_prefs: Option<Arc<HashMap<String, Pref>>>,
 }
 
 impl ComposeOpts {
@@ -152,7 +212,29 @@ impl ComposeOpts {
             tone_enabled: !config.tone_map.is_empty(),
             transform_trigger_chars,
             attest_non_adjacent,
+            user_attested: None,
+            raw_prefs: None,
         }
+    }
+
+    /// True when ANY character in `raw` (any case) can trigger a tone or
+    /// transform mark under this method's tables — config-driven, no
+    /// hardcoded key set (mirrors the private per-call idioms in
+    /// `compose::fallback`/`pipeline::stages::compose_stage`, generalized
+    /// to a whole slice). Used by `buttre_core::state::learning`'s
+    /// preference min-specificity floor (event-sourcing-completion Phase 5,
+    /// red-team M4): a learned preference's raw sequence must contain at
+    /// least one such key, or a single stray undo on an ultra-common short
+    /// word (`"ba"`) could force-literal it forever.
+    pub fn has_trigger_key(&self, raw: &[char]) -> bool {
+        raw.iter().any(|&c| {
+            let lc = c.to_ascii_lowercase();
+            self.tone_map.contains_key(&lc)
+                || self
+                    .transform_rules
+                    .keys()
+                    .any(|rule| rule.chars().last().is_some_and(|last| last.to_ascii_lowercase() == lc))
+        })
     }
 }
 
@@ -194,6 +276,22 @@ pub struct ComposeResult {
     /// preset) — so the applied tone key's own occurrence is necessarily the
     /// last raw index carrying that character value.
     pub consumed_tone: Option<(char, usize)>,
+
+    /// `true` when this result passed through the non-adjacent attestation
+    /// gate's demote branch (Step 5) — a non-adjacent mark was ATTEMPTED
+    /// and then stripped, as opposed to no candidate mark ever existing.
+    /// Distinguishes "the algorithm inferred and then rejected a mark" from
+    /// "nothing was ever inferred at all", which `applied_marks` alone
+    /// cannot: after a demote, `applied_marks` reports the marks of the
+    /// RE-derived (mark-free) parse, so an empty `applied_marks` is
+    /// ambiguous between the two cases (event-sourcing-completion Phase 5,
+    /// consumed by `buttre_core::keyboard::Keyboard`'s anti-feedback rule
+    /// (i): an automatic demote must never be mistaken for genuinely
+    /// direct, uninferred typing). Propagated through
+    /// [`try_elongation_fallback`]'s recursive base compose; always
+    /// `false` for [`compose_forced`] (a deliberate override never
+    /// consults the gate at all).
+    pub demoted: bool,
 }
 
 // ── Entry point ───────────────────────────────────────────────────────────────
@@ -264,7 +362,31 @@ pub fn compose_closed(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
 /// top-level call and is bounded by the ≤16-char syllable cap.)
 fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, closed: bool) -> ComposeResult {
     if raw.is_empty() {
-        return ComposeResult { text: String::new(), temp_english: false, applied_marks: Vec::new(), consumed_tone: None };
+        return ComposeResult { text: String::new(), temp_english: false, applied_marks: Vec::new(), consumed_tone: None, demoted: false };
+    }
+
+    // Step 0 — P5 preference short-circuit (Combined Contract: pref lookup
+    // runs before fallback). Gated on `allow_nonadjacent` — the SAME
+    // top-level recursion-guard threaded through every other re-entry
+    // point: never re-consulted inside the attestation-gate demote
+    // recursion below (that call is re-deriving THIS SAME raw's
+    // already-decided top-level outcome), and structurally unreachable from
+    // `fallback`'s prefix-reconstruction helpers (they call
+    // segment/transform/assemble directly and never re-enter
+    // `compose_internal` at all — see `compose::fallback`'s module doc).
+    if allow_nonadjacent {
+        if let Some(pref) = lookup_pref(raw, opts) {
+            return match pref {
+                Pref::Literal => ComposeResult {
+                    text: raw.iter().collect(),
+                    temp_english: true,
+                    applied_marks: Vec::new(),
+                    consumed_tone: None,
+                    demoted: false,
+                },
+                Pref::Composed => compose_forced(raw, opts),
+            };
+        }
     }
 
     // Step 1 — fallback / undo detection (reads raw counts only).
@@ -275,6 +397,7 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, c
             temp_english: fb.temp_english,
             applied_marks: Vec::new(),
             consumed_tone: None,
+            demoted: false,
         };
     }
 
@@ -313,13 +436,24 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, c
     // so it can fire at most once per top-level `compose()` call.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !passes_attestation_gate(&text, &applied, closed)
+        && !passes_attestation_gate(&text, &applied, closed, opts)
     {
         // Demote: recompose with non-adjacent mark extraction disabled at the
         // source (segment). This re-derives the base/marks split from raw —
         // it does NOT mutate `text` — so already-completed ADJACENT
         // transforms elsewhere in the word are preserved untouched.
-        return compose_internal(raw, opts, false, closed);
+        //
+        // `demoted` is forced `true` on whatever this recursive call
+        // returns (event-sourcing-completion Phase 5): it distinguishes "a
+        // non-adjacent mark was attempted and stripped" from "nothing was
+        // ever inferred" — see `ComposeResult::demoted`'s doc. Forcing it
+        // HERE, at the single call site, correctly covers every path the
+        // recursive call might take internally (including through
+        // `try_elongation_fallback`), without needing to thread it through
+        // each of those paths individually.
+        let mut demoted_result = compose_internal(raw, opts, false, closed);
+        demoted_result.demoted = true;
+        return demoted_result;
     }
 
     // Step 6 — validation-first English fallback.
@@ -347,10 +481,51 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, c
             return elong;
         }
         let literal: String = raw.iter().collect();
-        return ComposeResult { text: literal, temp_english: true, applied_marks: Vec::new(), consumed_tone: None };
+        return ComposeResult { text: literal, temp_english: true, applied_marks: Vec::new(), consumed_tone: None, demoted: false };
     }
 
-    ComposeResult { text, temp_english: false, applied_marks: applied, consumed_tone }
+    ComposeResult { text, temp_english: false, applied_marks: applied, consumed_tone, demoted: false }
+}
+
+/// Step 0 (Combined Contract) — a raw sequence with a stored, deliberate
+/// preference short-circuits straight to the preferred projection, before
+/// fallback/segment/transform/tone/gate ever run. Lookup key is the raw
+/// buffer collected verbatim: `compose()`'s callers always hand it
+/// already-lowercased raw (see `ComposeStage`'s doc on `char_buffer`
+/// normalization), and `raw_prefs` snapshots
+/// (`buttre_core::state::learning::LearningStore::prefs_snapshot_for_method`)
+/// are built pre-lowercased and pre-scoped to the current method — this
+/// function does no further normalization itself.
+fn lookup_pref(raw: &[char], opts: &ComposeOpts) -> Option<Pref> {
+    let prefs = opts.raw_prefs.as_ref()?;
+    let key: String = raw.iter().collect();
+    prefs.get(&key).copied()
+}
+
+/// Apply a `Pref::Composed` override: run segment → transform → tone
+/// (steps 2-4 of [`compose_internal`]) UNGATED — no undo/toggle detection,
+/// no attestation gate, no English-fallback. See [`Pref`]'s doc for why a
+/// deliberate override must not be re-demoted by the same heuristics it is
+/// overriding.
+fn compose_forced(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
+    let seg = segment::segment(raw, opts, true);
+    let (transformed, applied) = transform::apply_transforms(&seg.base, &seg.transforms, opts);
+    let mut consumed_tone = None;
+    let text = if opts.tone_enabled {
+        match seg.tones.last() {
+            Some(&last_tone_key) => match assemble::apply_tone(&transformed, last_tone_key, opts) {
+                Some(toned) => {
+                    consumed_tone = last_tone_raw_pos(raw, last_tone_key).map(|pos| (last_tone_key, pos));
+                    toned
+                }
+                None => transformed,
+            },
+            None => transformed,
+        }
+    } else {
+        transformed
+    };
+    ComposeResult { text, temp_english: false, applied_marks: applied, consumed_tone, demoted: false }
 }
 
 /// Recover the raw index of the tone key actually consumed by
@@ -417,7 +592,20 @@ fn last_tone_raw_pos(raw: &[char], tone_key: char) -> Option<usize> {
 /// VNI: all digit). A hypothetical custom config mixing digit and non-digit
 /// triggers would relax a co-occurring non-digit mark to the shape check. No
 /// shipped preset does this.
-fn passes_attestation_gate(text: &str, applied: &[AppliedMark], closed: bool) -> bool {
+///
+/// ## Overlay (event-sourcing-completion Phase 5)
+///
+/// The EXACT-match branch consults `opts.user_attested` through
+/// [`is_attested_overlay`] — the single shared consult point P2's
+/// evidence-based un-latch probe (`pipeline::stages::compose_stage::
+/// should_unlatch`) also uses, so both the word-boundary closed gate and
+/// the un-latch probe agree on what counts as attested. The SHAPE-relaxed
+/// branch (digit triggers, open projection only) is deliberately NOT
+/// overlay-aware: overlay entries are individual exact syllables (a
+/// specific onset/nucleus/coda/TONE tuple), not shape families, so
+/// widening a shape check to the overlay would double-relax an
+/// already-permissive path for no corresponding user signal.
+fn passes_attestation_gate(text: &str, applied: &[AppliedMark], closed: bool, opts: &ComposeOpts) -> bool {
     let mut flagged = applied.iter().filter(|m| m.non_adjacent).peekable();
     if flagged.peek().is_none() {
         return true;
@@ -425,7 +613,7 @@ fn passes_attestation_gate(text: &str, applied: &[AppliedMark], closed: bool) ->
     if !closed && flagged.all(|m| m.key.is_ascii_digit()) {
         is_shape_attested(text)
     } else {
-        is_attested(text)
+        is_attested_overlay(text, opts.user_attested.as_deref())
     }
 }
 
@@ -495,6 +683,12 @@ fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: 
         temp_english: true,
         applied_marks: Vec::new(),
         consumed_tone: None,
+        // Propagate the base compose's own demote status (event-sourcing-
+        // completion Phase 5): elongation recurses into `compose_internal`
+        // on a shorter, still-top-level buffer, which may itself have gone
+        // through the gate/demote branch — an honest `demoted` flag must
+        // reflect that, not silently reset to `false`.
+        demoted: base.demoted,
     })
 }
 

@@ -30,10 +30,12 @@
 //! - Any leading uppercase → capitalise only the first output char.
 //! - No uppercase → return as-is.
 
-use crate::compose::{compose, is_last_event_undo, ComposeOpts, ComposeResult};
+use std::sync::{Arc, RwLock};
+
+use crate::compose::{compose, is_last_event_undo, ComposeOpts, ComposeResult, LearningSnapshot};
 use crate::pipeline::config::PipelineConfig;
 use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
-use crate::pipeline::validation::is_attested;
+use crate::pipeline::validation::is_attested_overlay;
 use crate::pipeline::{PipelineStage, StageResult, TypingContext};
 
 /// Maximum raw keystrokes a single Vietnamese syllable can occupy before the
@@ -56,10 +58,23 @@ thread_local! {
 /// Stage: Compose (replaces stages 4–8).
 ///
 /// Built once from `PipelineConfig`; holds the derived `ComposeOpts` for the
-/// lifetime of the executor.
+/// lifetime of the executor. `opts` itself is the static per-method baseline
+/// (`user_attested`/`raw_prefs` always `None`) — event-sourcing-completion
+/// Phase 5's learning data lives in `learning` instead, a separately
+/// updatable handle (see its doc), and is merged into a per-call `opts`
+/// clone in [`Self::process`]. This split exists because `PipelineStage::
+/// process` takes `&self`, so mutating `opts` in place would need interior
+/// mutability anyway; keeping the small, frequently-cloned baseline
+/// lock-free and putting ONLY the two learning fields behind a lock is
+/// cheaper than locking the whole struct.
 #[derive(Debug, Clone)]
 pub struct ComposeStage {
     opts: ComposeOpts,
+    /// Live learning snapshot (event-sourcing-completion Phase 5), refreshed
+    /// by `buttre_core::keyboard::Keyboard` via `PipelineExecutor::
+    /// set_learning_snapshot` at word boundaries. `RwLock` (not `RefCell`)
+    /// because `PipelineStage: Send + Sync` — see `pipeline::stage`.
+    learning: Arc<RwLock<LearningSnapshot>>,
 }
 
 impl ComposeStage {
@@ -67,12 +82,37 @@ impl ComposeStage {
     pub fn from_config(config: &PipelineConfig) -> Self {
         Self {
             opts: ComposeOpts::from_config(config),
+            learning: Arc::new(RwLock::new(LearningSnapshot::default())),
         }
+    }
+
+    /// Shared handle for `PipelineExecutor::new` to retain at construction
+    /// time, before this stage is boxed into the type-erased
+    /// `Vec<Box<dyn PipelineStage>>` (event-sourcing-completion Phase 5) —
+    /// see `PipelineExecutor::set_learning_snapshot`.
+    pub(crate) fn learning_handle(&self) -> Arc<RwLock<LearningSnapshot>> {
+        Arc::clone(&self.learning)
     }
 }
 
 impl PipelineStage for ComposeStage {
     fn process(&self, ctx: &mut TypingContext, _input: char) -> StageResult {
+        // Event-sourcing-completion Phase 5: merge in the live learning
+        // snapshot before doing anything else this keystroke. `self.opts`
+        // itself is never mutated (kept as the static per-method
+        // baseline — see the struct doc); this clone is small (a handful
+        // of config-table entries) and happens at most once per keystroke.
+        // Every `&self.opts` use below is replaced by `&opts` so BOTH the
+        // normal-path compose and the latched-branch probe (P2's
+        // `should_unlatch`) see the overlay/prefs uniformly.
+        let snapshot = match self.learning.read() {
+            Ok(guard) => guard.clone(),
+            Err(poisoned) => poisoned.into_inner().clone(),
+        };
+        let mut opts = self.opts.clone();
+        opts.user_attested = snapshot.user_attested;
+        opts.raw_prefs = snapshot.raw_prefs;
+
         // ── English / fallback: evidence-based un-latch (Phase 2) ─────────────
         // `temp_english_mode` is re-derived every keystroke, not a one-way
         // valve: Normalization (stage 1) has already populated `char_buffer`
@@ -102,19 +142,19 @@ impl PipelineStage for ComposeStage {
             // O(1) check and skip probing entirely.
             let is_trigger = raw
                 .last()
-                .is_some_and(|&k| is_probe_trigger_char(k.to_ascii_lowercase(), &self.opts));
+                .is_some_and(|&k| is_probe_trigger_char(k.to_ascii_lowercase(), &opts));
 
             if !past_cap && is_trigger {
                 #[cfg(test)]
                 PROBE_CALLS.with(|c| c.set(c.get() + 1));
 
-                let probe = compose(&raw, &self.opts);
-                if should_unlatch(&probe, &raw, &self.opts) {
+                let probe = compose(&raw, &opts);
+                if should_unlatch(&probe, &raw, &opts) {
                     // Evidence says Vietnamese: adopt the recompute and
                     // un-latch. Goes through the same case mask as the
                     // normal path so casing stays correct. OutputStage's
                     // diff emits the corrective Replace automatically.
-                    ctx.syllable_buffer = apply_case_mask(&probe.text, &ctx.char_buffer, &self.opts);
+                    ctx.syllable_buffer = apply_case_mask(&probe.text, &ctx.char_buffer, &opts);
                     ctx.temp_english_mode = false;
                     return StageResult::Continue;
                 }
@@ -173,10 +213,10 @@ impl PipelineStage for ComposeStage {
         }
 
         // Run the pure recompute engine.
-        let result = compose(&raw, &self.opts);
+        let result = compose(&raw, &opts);
 
         // Apply the case mask from the original keystrokes.
-        let text = apply_case_mask(&result.text, &ctx.char_buffer, &self.opts);
+        let text = apply_case_mask(&result.text, &ctx.char_buffer, &opts);
 
         ctx.syllable_buffer = text;
         ctx.temp_english_mode = result.temp_english;
@@ -218,9 +258,12 @@ fn is_probe_trigger_char(key_lc: char, opts: &ComposeOpts) -> bool {
 /// All four conditions must hold (strict, flip-flop-proof — phase-02 doc):
 ///
 /// (a) the probe itself does not classify the word as English;
-/// (b) the probe's text is EXACT-attested (`is_attested`) — shape alone is
-///     not enough, so an in-progress VNI intermediate form never falsely
-///     un-latches;
+/// (b) the probe's text is EXACT-attested, OR-ing in the user-attested
+///     overlay (`pipeline::validation::is_attested_overlay`,
+///     event-sourcing-completion Phase 5 — the SAME consult point P3's
+///     word-boundary closed gate uses, via `opts.user_attested`) — shape
+///     alone is not enough, so an in-progress VNI intermediate form never
+///     falsely un-latches;
 /// (c) the keystroke that just fired — a transform mark or the consumed
 ///     tone — is pinned to the LAST raw position, never "whatever key was
 ///     physically typed" (red-team M5: position-independence would let an
@@ -244,19 +287,23 @@ fn is_probe_trigger_char(key_lc: char, opts: &ComposeOpts) -> bool {
 ///     `vie65t5` — P6's table) by the executor regression suite.
 ///
 /// (a) and the `is_last_event_undo` half of (d) happen to overlap in every
-/// shipped config today: `probe` and the fold both start from the identical
-/// `check_fallback(raw, opts, true)` call, so `is_last_event_undo(raw) ==
-/// true` already forces `probe.temp_english == true`, which (a) alone would
-/// already reject. That half is kept as its own explicit check per the
-/// plan's Combined Contract: P5's preference lookup will run BEFORE the
-/// fallback checks in the eventual evaluation order, which can break this
-/// implication — the explicit check here is what keeps this function
-/// correct once that lands, not just today.
+/// shipped config WITHOUT a P5 preference for this raw sequence: `probe` and
+/// the fold both start from the identical `check_fallback(raw, opts, true)`
+/// call, so `is_last_event_undo(raw) == true` already forces
+/// `probe.temp_english == true`, which (a) alone would already reject. Now
+/// that P5's preference lookup runs BEFORE the fallback checks (Combined
+/// Contract, `compose::compose_internal` step 0), that implication no
+/// longer holds universally — a raw sequence with a stored `Pref::Composed`
+/// entry short-circuits past `check_fallback` entirely, so `probe` could
+/// come back non-English while `is_last_event_undo` (which does NOT consult
+/// prefs — it calls `compose::fallback::check_fallback` directly) still
+/// says "undone". The explicit (d) check below is what keeps this function
+/// correct in that case, not just a redundant belt-and-suspenders check.
 fn should_unlatch(probe: &ComposeResult, raw: &[char], opts: &ComposeOpts) -> bool {
     if probe.temp_english {
         return false; // (a)
     }
-    if !is_attested(&probe.text) {
+    if !is_attested_overlay(&probe.text, opts.user_attested.as_deref()) {
         return false; // (b)
     }
     let Some(last_idx) = raw.len().checked_sub(1) else {
@@ -615,6 +662,7 @@ mod tests {
             temp_english: false,
             applied_marks: vec![mark('e', 5)],
             consumed_tone: None,
+            demoted: false,
         };
         assert!(should_unlatch(&r, &raw("vietje"), &opts));
     }
@@ -630,6 +678,7 @@ mod tests {
             temp_english: false,
             applied_marks: vec![mark('6', 3)],
             consumed_tone: None,
+            demoted: false,
         };
         assert!(should_unlatch(&r, &raw("can6"), &opts));
     }
@@ -644,6 +693,7 @@ mod tests {
             temp_english: false,
             applied_marks: Vec::new(),
             consumed_tone: Some(('1', 3)),
+            demoted: false,
         };
         assert!(should_unlatch(&r, &raw("can1"), &opts));
     }
@@ -656,6 +706,7 @@ mod tests {
             temp_english: true, // (a) fails
             applied_marks: Vec::new(),
             consumed_tone: None,
+            demoted: false,
         };
         assert!(!should_unlatch(&r, &raw("vietje"), &opts));
     }
@@ -668,8 +719,40 @@ mod tests {
             temp_english: false,
             applied_marks: vec![mark('z', 4)],
             consumed_tone: None,
+            demoted: false,
         };
         assert!(!should_unlatch(&r, &raw("xyzzz"), &opts));
+    }
+
+    #[test]
+    fn should_unlatch_overlay_rescues_unattested_probe_text() {
+        // Event-sourcing-completion Phase 5: condition (b) ORs in the
+        // user-attested overlay via the SAME single consult point
+        // (`is_attested_overlay`) P3's closed gate uses. Without an
+        // overlay, "xyzzz" fails exactly like the test above; WITH it,
+        // condition (b) must pass.
+        use std::collections::HashSet;
+        use std::sync::Arc;
+        // A real decomposable-but-unattested shape ("dât") so the overlay
+        // bit is meaningful — "xyzzz" above isn't a decomposable Vietnamese
+        // shape at all (invalid onset/nucleus/coda), so it could never gain
+        // an overlay bit either way.
+        let (o, n, c, t) = crate::pipeline::validation::decompose_ids("dât")
+            .expect("'dât' must be a decomposable shape");
+        let mut overlay = HashSet::new();
+        overlay.insert(crate::pipeline::validation::bit_index(o, n, c, t) as u32);
+        let opts = ComposeOpts { user_attested: Some(Arc::new(overlay)), ..telex_opts() };
+        let r = ComposeResult {
+            text: "dât".to_string(),
+            temp_english: false,
+            applied_marks: vec![mark('a', 3)],
+            consumed_tone: None,
+            demoted: false,
+        };
+        assert!(should_unlatch(&r, &raw("data"), &opts), "overlay-attested text must satisfy condition (b)");
+        // Same probe, WITHOUT the overlay, must still be rejected.
+        let plain_opts = telex_opts();
+        assert!(!should_unlatch(&r, &raw("data"), &plain_opts));
     }
 
     #[test]
@@ -682,6 +765,7 @@ mod tests {
             temp_english: false,
             applied_marks: vec![mark('e', 3)], // raw_pos 3, but raw has 6 chars
             consumed_tone: None,
+            demoted: false,
         };
         assert!(!should_unlatch(&r, &raw("vietje"), &opts));
     }
@@ -697,6 +781,7 @@ mod tests {
             temp_english: false,
             applied_marks: Vec::new(),
             consumed_tone: None,
+            demoted: false,
         };
         assert!(!should_unlatch(&r, &raw("loan"), &opts));
     }
@@ -716,6 +801,7 @@ mod tests {
             temp_english: false,
             applied_marks: Vec::new(),
             consumed_tone: Some(('s', 4)),
+            demoted: false,
         };
         assert!(!should_unlatch(&r, &raw("tisss"), &opts));
     }
@@ -731,6 +817,7 @@ mod tests {
             temp_english: false, // artificially forced true→false to isolate (d)
             applied_marks: vec![mark('a', 4)],
             consumed_tone: None,
+            demoted: false,
         };
         assert!(!should_unlatch(&r, &raw("canaa"), &opts),
             "condition (d) must veto even when (a)-(c) are synthetically satisfied");

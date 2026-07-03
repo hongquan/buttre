@@ -231,7 +231,7 @@ pub fn check_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
 /// redo, …) lives in `compose_stage::should_unlatch` — no redo behavior is
 /// implemented here, and `a6116` keeps its literal undo-is-final outcome
 /// (see `tests/vni_edge_cases.rs`).
-pub(crate) fn is_last_event_undo(raw: &[char], opts: &ComposeOpts) -> bool {
+pub fn is_last_event_undo(raw: &[char], opts: &ComposeOpts) -> bool {
     check_fallback(raw, opts, true).is_handled
 }
 
@@ -528,7 +528,7 @@ fn recompute_prefix_marks(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: b
     // `raw`, via its own (possibly `closed=true`) gate check.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !super::passes_attestation_gate(&text, &applied, false)
+        && !super::passes_attestation_gate(&text, &applied, false, opts)
     {
         return recompute_prefix_marks(raw, opts, false);
     }
@@ -567,7 +567,7 @@ fn apply_transforms_only(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bo
     // `raw`, via its own (possibly `closed=true`) gate check.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !super::passes_attestation_gate(&text, &applied, false)
+        && !super::passes_attestation_gate(&text, &applied, false, opts)
     {
         return apply_transforms_only(raw, opts, false);
     }
@@ -598,7 +598,7 @@ fn compose_base_and_transforms_with_tone(raw: &[char], opts: &ComposeOpts, allow
     // `raw`, via its own (possibly `closed=true`) gate check.
     if allow_nonadjacent
         && opts.attest_non_adjacent
-        && !super::passes_attestation_gate(&text, &applied, false)
+        && !super::passes_attestation_gate(&text, &applied, false, opts)
     {
         return compose_base_and_transforms_with_tone(raw, opts, false);
     }

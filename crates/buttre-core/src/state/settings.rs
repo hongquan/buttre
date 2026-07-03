@@ -37,12 +37,29 @@ pub struct Settings {
     /// value (never fails to load).
     #[serde(default = "default_backspace_mode")]
     pub backspace_mode: String,
+
+    /// Enable personal learning (event-sourcing-completion Phase 5): the
+    /// user-attested syllable overlay and raw-sequence preference memory
+    /// persisted to `learning.toml`. When `false`, no signals are collected
+    /// and no snapshot is applied (behavior is byte-identical to no store).
+    /// PRIVACY: `learning.toml` holds fragments of typed words (raw key
+    /// sequences the user corrected); it is local-only, never logged, and is
+    /// removed/reset by deleting the file. Default on — the feature silently
+    /// improves typing over time; flip to `false` to disable and stop
+    /// collection.
+    #[serde(default = "default_learning_enabled")]
+    pub learning_enabled: bool,
 }
 
 /// `serde(default)` value for `Settings::backspace_mode` — also the fallback
 /// `Settings::default()` uses, so both paths agree on one literal.
 fn default_backspace_mode() -> String {
     "grapheme".to_string()
+}
+
+/// `serde(default)` value for `Settings::learning_enabled`.
+fn default_learning_enabled() -> bool {
+    true
 }
 
 impl Default for Settings {
@@ -53,6 +70,7 @@ impl Default for Settings {
             shorthand: false,
             startup: false,
             backspace_mode: default_backspace_mode(),
+            learning_enabled: default_learning_enabled(),
         }
     }
 }

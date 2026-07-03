@@ -35,6 +35,7 @@
 mod app_state;
 mod observer;
 mod settings;
+pub mod learning;
 pub mod observers;
 
 pub use app_state::AppState;

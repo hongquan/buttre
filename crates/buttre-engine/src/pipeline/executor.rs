@@ -16,11 +16,13 @@
 //! has been retired.  All composition logic lives in `crates/buttre-engine/src/compose/`
 //! and is invoked by `ComposeStage` as a single recompute-from-raw step.
 
+use std::sync::{Arc, RwLock};
+
 use crate::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig};
 use crate::pipeline::stages::*;
 use crate::pipeline::stages::compose_stage::apply_case_mask;
 use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
-use crate::compose::{compose_closed, ComposeOpts, Validator};
+use crate::compose::{compose_closed, ComposeOpts, LearningSnapshot, Validator};
 use crate::types::Action;
 use tracing::{instrument, debug, trace, warn};
 
@@ -51,6 +53,15 @@ pub struct PipelineExecutor {
     /// `Validator::Vietnamese` (there is no attested-syllable table to gate
     /// against otherwise). `None` makes [`Self::boundary_repair`] a no-op.
     boundary_repair_opts: Option<ComposeOpts>,
+
+    /// Shared handle into the live compose stage's learning snapshot
+    /// (event-sourcing-completion Phase 5) — `Some` only when a compose
+    /// stage is present. Captured at construction time, before the stage is
+    /// boxed into the type-erased `stages` vec (see [`Self::new`]), since
+    /// `PipelineStage` has no reason to expose a generic "set learning
+    /// data" method for the other 6 stages that never consult one. See
+    /// [`Self::set_learning_snapshot`].
+    compose_learning: Option<Arc<RwLock<LearningSnapshot>>>,
 }
 
 impl PipelineExecutor {
@@ -89,10 +100,13 @@ impl PipelineExecutor {
         };
 
         let mut compose_stage_present = false;
+        let mut compose_learning: Option<Arc<RwLock<LearningSnapshot>>> = None;
         for stage_name in &stage_order {
             match stage_name.as_str() {
                 "compose" => {
-                    stages.push(Box::new(ComposeStage::from_config(&config)));
+                    let stage = ComposeStage::from_config(&config);
+                    compose_learning = Some(stage.learning_handle());
+                    stages.push(Box::new(stage));
                     compose_stage_present = true;
                 }
                 "orthography" => {
@@ -135,6 +149,34 @@ impl PipelineExecutor {
             context: TypingContext::new(),
             use_composition,
             boundary_repair_opts,
+            compose_learning,
+        }
+    }
+
+    /// Refresh the learning-store snapshot consulted by every `compose()`/
+    /// `compose_closed()` call this pipeline makes (event-sourcing-
+    /// completion Phase 5). Updates BOTH the live compose stage's opts
+    /// (via the shared handle captured in [`Self::new`]) AND the cached
+    /// `boundary_repair_opts` (P3's closed-gate projection) — the
+    /// "single consult point" (`pipeline::validation::is_attested_overlay`)
+    /// must see the SAME data from every caller, or the open-projection and
+    /// closed-projection gates could silently diverge.
+    ///
+    /// Callers (`buttre_core::keyboard::Keyboard`) refresh this at word
+    /// boundaries only, never mid-word — see the phase's Combined Contract.
+    /// A no-op (aside from the `boundary_repair_opts` half) for pipelines
+    /// without a compose stage (Nôm candidate-lookup configs, native
+    /// scripts).
+    pub fn set_learning_snapshot(&mut self, snapshot: LearningSnapshot) {
+        if let Some(handle) = &self.compose_learning {
+            match handle.write() {
+                Ok(mut guard) => *guard = snapshot.clone(),
+                Err(poisoned) => *poisoned.into_inner() = snapshot.clone(),
+            }
+        }
+        if let Some(opts) = self.boundary_repair_opts.as_mut() {
+            opts.user_attested = snapshot.user_attested.clone();
+            opts.raw_prefs = snapshot.raw_prefs.clone();
         }
     }
 

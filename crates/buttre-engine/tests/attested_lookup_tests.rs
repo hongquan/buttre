@@ -1,7 +1,12 @@
-//! Tests for `pipeline::validation::{is_attested, is_shape_attested}` —
-//! the embedded attested-Vietnamese-syllable bitset lookup.
+//! Tests for `pipeline::validation::{is_attested, is_shape_attested,
+//! is_attested_overlay}` — the embedded attested-Vietnamese-syllable bitset
+//! lookup, plus its Phase 5 user-attested-overlay OR-check.
 
-use buttre_engine::pipeline::validation::{is_attested, is_shape_attested};
+use std::collections::HashSet;
+
+use buttre_engine::pipeline::validation::{
+    bit_index, decompose_ids, is_attested, is_attested_overlay, is_shape_attested,
+};
 
 #[test]
 fn attested_true_for_common_words() {
@@ -90,4 +95,57 @@ fn attested_false_for_unattested_k_coda_shapes() {
         assert!(!is_attested(w), "{w} should NOT be attested");
         assert!(!is_shape_attested(w), "{w} should NOT be shape-attested either");
     }
+}
+
+// ── Phase 5: user-attested overlay OR-check ──────────────────────────────────
+
+#[test]
+fn overlay_none_is_byte_identical_to_is_attested() {
+    for w in ["việt", "dât", "mêm", "fâllb", ""] {
+        assert_eq!(is_attested_overlay(w, None), is_attested(w), "{w}: None overlay must match is_attested exactly");
+    }
+}
+
+#[test]
+fn overlay_empty_set_is_byte_identical_to_is_attested() {
+    let empty = HashSet::new();
+    for w in ["việt", "dât", "mêm", "fâllb"] {
+        assert_eq!(is_attested_overlay(w, Some(&empty)), is_attested(w), "{w}: an empty overlay must match is_attested exactly");
+    }
+}
+
+#[test]
+fn overlay_rescues_an_unattested_but_decomposable_syllable() {
+    // "dât" is decomposable but NOT in the static bitset (see
+    // `attested_false_for_non_words`). Adding its bit to the overlay must
+    // flip `is_attested_overlay` to `true`, while leaving the STATIC
+    // `is_attested` result unaffected (the overlay never mutates the
+    // embedded bitset — it is data ORed in at the call site).
+    assert!(!is_attested("dât"));
+    let (o, n, c, t) = decompose_ids("dât").expect("'dât' must be a decomposable shape");
+    let mut overlay = HashSet::new();
+    overlay.insert(bit_index(o, n, c, t) as u32);
+
+    assert!(is_attested_overlay("dât", Some(&overlay)), "overlay bit must rescue an unattested-but-learned syllable");
+    assert!(!is_attested("dât"), "the static table itself must be unaffected by the overlay");
+}
+
+#[test]
+fn overlay_does_not_rescue_an_unrelated_syllable() {
+    // The overlay is bit-exact: adding "dât"'s bit must not accidentally
+    // rescue a completely different unattested syllable.
+    let (o, n, c, t) = decompose_ids("dât").expect("'dât' must be a decomposable shape");
+    let mut overlay = HashSet::new();
+    overlay.insert(bit_index(o, n, c, t) as u32);
+
+    assert!(!is_attested("mêm"));
+    assert!(!is_attested_overlay("mêm", Some(&overlay)), "an unrelated overlay bit must not rescue a different syllable");
+}
+
+#[test]
+fn overlay_fails_open_on_unparseable_input_just_like_is_attested() {
+    let mut overlay = HashSet::new();
+    overlay.insert(0u32); // arbitrary bit — irrelevant since decompose fails first
+    assert!(!is_attested_overlay("!!!", Some(&overlay)));
+    assert!(!is_attested_overlay("", Some(&overlay)));
 }
