@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-only
 // Display Attributes for buttre TSF
 //
 // **Tests**: Integration tests for this module are located in `crates/buttre-platform/tests/platform_windows_tsf_tests.rs`.
@@ -15,11 +15,13 @@ const COLOR_WINDOWTEXT: i32 = 8;
 
 // GUID for Input Attribute (Dashed or Dot underline)
 // {E6B8A6C2-1234-5678-9ABC-DEF012345678}
-pub const GUID_DISPLAY_ATTRIBUTE_INPUT: GUID = GUID::from_u128(0xE6B8A6C2_1234_5678_9ABC_DEF012345678);
+pub const GUID_DISPLAY_ATTRIBUTE_INPUT: GUID =
+    GUID::from_u128(0xE6B8A6C2_1234_5678_9ABC_DEF012345678);
 
 // GUID for Converted/Selected Attribute (Solid underline / Thick)
 // {E6B8A6C3-1234-5678-9ABC-DEF012345678}
-pub const GUID_DISPLAY_ATTRIBUTE_CONVERTED: GUID = GUID::from_u128(0xE6B8A6C3_1234_5678_9ABC_DEF012345678);
+pub const GUID_DISPLAY_ATTRIBUTE_CONVERTED: GUID =
+    GUID::from_u128(0xE6B8A6C3_1234_5678_9ABC_DEF012345678);
 
 /// Info for a specific display attribute
 #[implement(ITfDisplayAttributeInfo)]
@@ -41,46 +43,58 @@ impl DisplayAttributeInfo {
     /// Create standard "Input" attribute (Dotted underline)
     pub fn create_input() -> Self {
         let info = TF_DISPLAYATTRIBUTE {
-            crText: TF_DA_COLOR { 
-                r#type: TF_CT_SYSCOLOR, 
-                Anonymous: TF_DA_COLOR_0 { nIndex: COLOR_WINDOWTEXT }
+            crText: TF_DA_COLOR {
+                r#type: TF_CT_SYSCOLOR,
+                Anonymous: TF_DA_COLOR_0 {
+                    nIndex: COLOR_WINDOWTEXT,
+                },
             },
-            crBk: TF_DA_COLOR { 
-                r#type: TF_CT_SYSCOLOR, 
-                Anonymous: TF_DA_COLOR_0 { nIndex: COLOR_WINDOW }
+            crBk: TF_DA_COLOR {
+                r#type: TF_CT_SYSCOLOR,
+                Anonymous: TF_DA_COLOR_0 {
+                    nIndex: COLOR_WINDOW,
+                },
             },
             lsStyle: TF_LS_DOT,
             fBoldLine: BOOL(0),
-            crLine: TF_DA_COLOR { 
-                r#type: TF_CT_SYSCOLOR, 
-                Anonymous: TF_DA_COLOR_0 { nIndex: COLOR_WINDOWTEXT }
+            crLine: TF_DA_COLOR {
+                r#type: TF_CT_SYSCOLOR,
+                Anonymous: TF_DA_COLOR_0 {
+                    nIndex: COLOR_WINDOWTEXT,
+                },
             },
             bAttr: TF_ATTR_INPUT,
         };
-        
+
         Self::new(GUID_DISPLAY_ATTRIBUTE_INPUT, "buttre Input", info)
     }
 
     /// Create standard "Converted" attribute (Solid underline)
     pub fn create_converted() -> Self {
-         let info = TF_DISPLAYATTRIBUTE {
-            crText: TF_DA_COLOR { 
-                r#type: TF_CT_SYSCOLOR, 
-                Anonymous: TF_DA_COLOR_0 { nIndex: COLOR_WINDOWTEXT }
+        let info = TF_DISPLAYATTRIBUTE {
+            crText: TF_DA_COLOR {
+                r#type: TF_CT_SYSCOLOR,
+                Anonymous: TF_DA_COLOR_0 {
+                    nIndex: COLOR_WINDOWTEXT,
+                },
             },
-            crBk: TF_DA_COLOR { 
-                r#type: TF_CT_SYSCOLOR, 
-                Anonymous: TF_DA_COLOR_0 { nIndex: COLOR_WINDOW }
+            crBk: TF_DA_COLOR {
+                r#type: TF_CT_SYSCOLOR,
+                Anonymous: TF_DA_COLOR_0 {
+                    nIndex: COLOR_WINDOW,
+                },
             },
             lsStyle: TF_LS_SOLID,
             fBoldLine: BOOL(1), // Thick line
-            crLine: TF_DA_COLOR { 
-                r#type: TF_CT_SYSCOLOR, 
-                Anonymous: TF_DA_COLOR_0 { nIndex: COLOR_WINDOWTEXT }
+            crLine: TF_DA_COLOR {
+                r#type: TF_CT_SYSCOLOR,
+                Anonymous: TF_DA_COLOR_0 {
+                    nIndex: COLOR_WINDOWTEXT,
+                },
             },
             bAttr: TF_ATTR_TARGET_CONVERTED,
         };
-        
+
         Self::new(GUID_DISPLAY_ATTRIBUTE_CONVERTED, "buttre Converted", info)
     }
 }
@@ -94,6 +108,11 @@ impl ITfDisplayAttributeInfo_Impl for DisplayAttributeInfo_Impl {
         Ok(BSTR::from(self.this.description.to_string()))
     }
 
+    // Signature is fixed by the windows-rs-generated
+    // `ITfDisplayAttributeInfo_Impl` trait (COM vtable contract) — cannot be
+    // `unsafe fn`. The raw pointer write is scoped to an inner `unsafe`
+    // block below.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn GetAttributeInfo(&self, pda: *mut TF_DISPLAYATTRIBUTE) -> Result<()> {
         // SAFETY:
         // 1. pda pointer is provided by TSF framework - valid during call
@@ -142,10 +161,17 @@ impl DisplayAttributeEnum {
 impl IEnumTfDisplayAttributeInfo_Impl for DisplayAttributeEnum_Impl {
     fn Clone(&self) -> Result<IEnumTfDisplayAttributeInfo> {
         let new_enum = DisplayAttributeEnum::new();
-        new_enum.index.store(self.this.index.load(Ordering::SeqCst), Ordering::SeqCst);
+        new_enum
+            .index
+            .store(self.this.index.load(Ordering::SeqCst), Ordering::SeqCst);
         Ok(new_enum.into())
     }
 
+    // Signature is fixed by the windows-rs-generated
+    // `IEnumTfDisplayAttributeInfo_Impl` trait (COM vtable contract) —
+    // cannot be `unsafe fn`. Raw pointer writes are scoped to an inner
+    // `unsafe` block below.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn Next(
         &self,
         count: u32,
@@ -204,4 +230,3 @@ impl IEnumTfDisplayAttributeInfo_Impl for DisplayAttributeEnum_Impl {
         Ok(())
     }
 }
-

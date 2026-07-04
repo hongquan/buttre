@@ -18,7 +18,11 @@ pub fn execute_action(
     insert_text: &str,
 ) -> Result<()> {
     // Log for debugging (optimized - no file I/O)
-    tracing::trace!("TEXT_ACTION: delete={}, insert='{}'", delete_count, insert_text);
+    tracing::trace!(
+        "TEXT_ACTION: delete={}, insert='{}'",
+        delete_count,
+        insert_text
+    );
 
     // TODO: Full implementation
     // 1. Request edit session with TF_ES_READWRITE | TF_ES_SYNC

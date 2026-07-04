@@ -31,7 +31,7 @@ pub fn send_backspaces(count: usize) {
             r#type: INPUT_KEYBOARD,
             Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                 ki: KEYBDINPUT {
-                    wVk: VK_BACK as u16,
+                    wVk: VK_BACK,
                     wScan: 0,
                     dwFlags: 0,
                     time: 0,
@@ -45,7 +45,7 @@ pub fn send_backspaces(count: usize) {
             r#type: INPUT_KEYBOARD,
             Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                 ki: KEYBDINPUT {
-                    wVk: VK_BACK as u16,
+                    wVk: VK_BACK,
                     wScan: 0,
                     dwFlags: KEYEVENTF_KEYUP,
                     time: 0,
@@ -143,7 +143,10 @@ pub fn send_string(s: &str) {
 #[cfg(windows)]
 pub fn send_replacement(backspace_count: usize, text: &str) {
     if backspace_count > 0 && super::omnibox_fix::should_apply_omnibox_fix() {
-        debug!("Omnibox fix: selection replacement, {} backspaces", backspace_count);
+        debug!(
+            "Omnibox fix: selection replacement, {} backspaces",
+            backspace_count
+        );
         send_replacement_via_selection(backspace_count, text);
         return;
     }
@@ -202,12 +205,12 @@ fn send_replacement_via_selection(backspace_count: usize, text: &str) {
     // numpad-4). Only synthesize the Shift chord ourselves when the user
     // isn't already holding it physically.
     if !shift_already_held {
-        inputs.push(key(VK_LSHIFT as u16, 0));
+        inputs.push(key(VK_LSHIFT, 0));
     }
-    inputs.push(key(VK_LEFT as u16, KEYEVENTF_EXTENDEDKEY));
-    inputs.push(key(VK_LEFT as u16, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP));
+    inputs.push(key(VK_LEFT, KEYEVENTF_EXTENDEDKEY));
+    inputs.push(key(VK_LEFT, KEYEVENTF_EXTENDEDKEY | KEYEVENTF_KEYUP));
     if !shift_already_held {
-        inputs.push(key(VK_LSHIFT as u16, KEYEVENTF_KEYUP));
+        inputs.push(key(VK_LSHIFT, KEYEVENTF_KEYUP));
     }
 
     // OpenKey's counting rule: with exactly one char to delete AND text to
@@ -221,8 +224,8 @@ fn send_replacement_via_selection(backspace_count: usize, text: &str) {
         backspace_count
     };
     for _ in 0..backspaces_to_send {
-        inputs.push(key(VK_BACK as u16, 0));
-        inputs.push(key(VK_BACK as u16, KEYEVENTF_KEYUP));
+        inputs.push(key(VK_BACK, 0));
+        inputs.push(key(VK_BACK, KEYEVENTF_KEYUP));
     }
 
     for ch in text.chars() {
@@ -268,13 +271,16 @@ fn send_replacement_plain(backspace_count: usize, text: &str) {
         return;
     }
 
-    debug!("Sending replacement: {} backspaces + '{}'", backspace_count, text);
+    debug!(
+        "Sending replacement: {} backspaces + '{}'",
+        backspace_count, text
+    );
 
     // Calculate total capacity needed
     let char_count = text.chars().count();
     // 2 inputs per backspace (down/up), 2 inputs per char (down/up) + extras for surrogates
-    let capacity = (backspace_count * 2) + (char_count * 2); 
-    
+    let capacity = (backspace_count * 2) + (char_count * 2);
+
     let mut inputs = Vec::with_capacity(capacity);
 
     // 1. Add Backspaces
@@ -283,7 +289,7 @@ fn send_replacement_plain(backspace_count: usize, text: &str) {
             r#type: INPUT_KEYBOARD,
             Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                 ki: KEYBDINPUT {
-                    wVk: VK_BACK as u16,
+                    wVk: VK_BACK,
                     wScan: 0,
                     dwFlags: 0,
                     time: 0,
@@ -296,7 +302,7 @@ fn send_replacement_plain(backspace_count: usize, text: &str) {
             r#type: INPUT_KEYBOARD,
             Anonymous: windows_sys::Win32::UI::Input::KeyboardAndMouse::INPUT_0 {
                 ki: KEYBDINPUT {
-                    wVk: VK_BACK as u16,
+                    wVk: VK_BACK,
                     wScan: 0,
                     dwFlags: KEYEVENTF_KEYUP,
                     time: 0,
@@ -339,7 +345,11 @@ fn send_replacement_plain(backspace_count: usize, text: &str) {
             );
 
             if sent != expected {
-                tracing::error!("SendInput batch failed: expected {}, sent {}", expected, sent);
+                tracing::error!(
+                    "SendInput batch failed: expected {}, sent {}",
+                    expected,
+                    sent
+                );
             }
         }
     }

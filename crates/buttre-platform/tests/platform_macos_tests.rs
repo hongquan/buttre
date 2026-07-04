@@ -16,8 +16,14 @@ fn test_engine_lifecycle() {
 #[test]
 fn test_invalid_handle() {
     // All functions handle invalid ID gracefully
-    assert_eq!(buttre_engine_process_key(0, 0, false, false), std::ptr::null());
-    assert_eq!(buttre_engine_process_key(99999, 0, false, false), std::ptr::null());
+    assert_eq!(
+        buttre_engine_process_key(0, 0, false, false),
+        std::ptr::null()
+    );
+    assert_eq!(
+        buttre_engine_process_key(99999, 0, false, false),
+        std::ptr::null()
+    );
     assert_eq!(buttre_engine_process_backspace(0), std::ptr::null());
     buttre_engine_reset(0); // No crash
     buttre_engine_free(0); // No crash

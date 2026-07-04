@@ -51,8 +51,7 @@ use windows::Win32::System::Com::{
     CoCreateInstance, CoInitializeEx, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED,
 };
 use windows::Win32::System::Threading::{
-    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
-    PROCESS_QUERY_LIMITED_INFORMATION,
+    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
 };
 use windows::Win32::UI::Accessibility::{CUIAutomation, IUIAutomation, IUIAutomation2};
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, GetWindowThreadProcessId};
@@ -188,7 +187,7 @@ fn focused_element_is_omnibox() -> bool {
                 return false;
             };
             match element.CurrentClassName() {
-                Ok(class_name) => class_name.to_string() == OMNIBOX_CLASS,
+                Ok(class_name) => class_name == OMNIBOX_CLASS,
                 Err(_) => false,
             }
         }
@@ -244,7 +243,7 @@ mod tests {
         for exe in [
             "firefox.exe", // Gecko: focus classes differ, mechanism unverified there
             "notepad.exe",
-            "chrome",     // no extension — basename must be exact
+            "chrome", // no extension — basename must be exact
             "chrome.exe.bak",
             "CHROME.EXE", // caller lowercases; raw uppercase must not match
         ] {

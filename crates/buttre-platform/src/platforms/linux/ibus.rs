@@ -5,21 +5,21 @@
 //! D-Bus service for Vietnamese input via IBus (zbus 3).
 
 use anyhow::Result;
-use std::sync::{Arc, Mutex};
 use buttre_core::Action;
 use buttre_core::{Keyboard, KeyboardBuilder};
-use zbus::{dbus_interface, ConnectionBuilder, SignalContext};
+use std::sync::{Arc, Mutex};
 use zbus::zvariant;
+use zbus::{dbus_interface, ConnectionBuilder, SignalContext};
 
 // ============================================================================
 // IBus modifier state bitmask (ibus.h)
 // ============================================================================
 
-const IBUS_SHIFT_MASK:   u32 = 0x01;
-const IBUS_LOCK_MASK:    u32 = 0x02; // Caps Lock
+const IBUS_SHIFT_MASK: u32 = 0x01;
+const IBUS_LOCK_MASK: u32 = 0x02; // Caps Lock
 const IBUS_CONTROL_MASK: u32 = 0x04;
-const IBUS_MOD1_MASK:    u32 = 0x08; // Alt
-const IBUS_SUPER_MASK:   u32 = 0x40;
+const IBUS_MOD1_MASK: u32 = 0x08; // Alt
+const IBUS_SUPER_MASK: u32 = 0x40;
 
 // ============================================================================
 // IBus Engine
@@ -43,11 +43,11 @@ impl ButtreEngine {
     pub fn new_with_method(method_name: &str) -> Self {
         let keyboard = match method_name {
             "vni" => KeyboardBuilder::vni().expect("Failed to create VNI keyboard"),
-            _     => KeyboardBuilder::telex().expect("Failed to create Telex keyboard"),
+            _ => KeyboardBuilder::telex().expect("Failed to create Telex keyboard"),
         };
         Self {
             keyboard: Arc::new(Mutex::new(keyboard)),
-            preedit:  Arc::new(Mutex::new(String::new())),
+            preedit: Arc::new(Mutex::new(String::new())),
         }
     }
 }
@@ -75,11 +75,13 @@ fn is_modifier_keyval(keyval: u32) -> bool {
 
 /// True for non-character keys that should reset and pass through.
 fn is_break_keyval(keyval: u32) -> bool {
-    matches!(keyval,
+    matches!(
+        keyval,
         0xFF09 // Tab
         | 0xFF1B // Escape
         | 0xFF50 // Home
-        | 0xFF51..=0xFF54 // Left/Up/Right/Down
+        | 0xFF51
+            ..=0xFF54 // Left/Up/Right/Down
         | 0xFF55 // Page_Up
         | 0xFF56 // Page_Down
         | 0xFF57 // End
@@ -90,20 +92,49 @@ fn is_break_keyval(keyval: u32) -> bool {
 
 /// True for punctuation / whitespace chars that break the composition.
 fn is_break_char(ch: char) -> bool {
-    matches!(ch,
-        ' ' | '\n' | '\t'
-        | '.' | ',' | ';' | ':' | '!' | '?' | '\'' | '"'
-        | '(' | ')' | '[' | ']' | '{' | '}'
-        | '/' | '\\' | '|' | '`' | '~'
-        | '@' | '#' | '$' | '%' | '^' | '&' | '*'
-        | '+' | '=' | '-' | '_' | '<' | '>'
+    matches!(
+        ch,
+        ' ' | '\n'
+            | '\t'
+            | '.'
+            | ','
+            | ';'
+            | ':'
+            | '!'
+            | '?'
+            | '\''
+            | '"'
+            | '('
+            | ')'
+            | '['
+            | ']'
+            | '{'
+            | '}'
+            | '/'
+            | '\\'
+            | '|'
+            | '`'
+            | '~'
+            | '@'
+            | '#'
+            | '$'
+            | '%'
+            | '^'
+            | '&'
+            | '*'
+            | '+'
+            | '='
+            | '-'
+            | '_'
+            | '<'
+            | '>'
     )
 }
 
 /// Convert GDK keyval + state to a character, applying CapsLock XOR Shift for letters.
 pub fn keyval_to_char(keyval: u32, state: u32) -> Option<char> {
     let shift = state & IBUS_SHIFT_MASK != 0;
-    let caps  = state & IBUS_LOCK_MASK  != 0;
+    let caps = state & IBUS_LOCK_MASK != 0;
     let upper = shift ^ caps;
 
     match keyval {
@@ -153,12 +184,7 @@ fn build_ibus_text(text: &str) -> zvariant::Value<'static> {
     ));
 
     // IBusText: ("IBusText", a{sv}={}, text, v=attr_list)
-    Value::from((
-        "IBusText".to_string(),
-        empty,
-        text.to_string(),
-        attr_list,
-    ))
+    Value::from(("IBusText".to_string(), empty, text.to_string(), attr_list))
 }
 
 // ============================================================================
@@ -200,7 +226,11 @@ impl ButtreEngine {
         _keycode: u32,
         state: u32,
     ) -> bool {
-        tracing::debug!("ProcessKeyEvent: keyval=0x{:x}, state=0x{:x}", keyval, state);
+        tracing::debug!(
+            "ProcessKeyEvent: keyval=0x{:x}, state=0x{:x}",
+            keyval,
+            state
+        );
 
         // Pass through modifier combos (Ctrl+C, Alt+F4, etc.)
         if is_control_combo(state) {
@@ -216,7 +246,11 @@ impl ButtreEngine {
         if is_break_keyval(keyval) {
             let preedit_text = {
                 let p = self.preedit.lock().unwrap();
-                if p.is_empty() { None } else { Some(p.clone()) }
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.clone())
+                }
             };
             if let Some(text) = preedit_text {
                 self.reset();
@@ -252,7 +286,8 @@ impl ButtreEngine {
                     let visible = !text.is_empty();
                     if visible {
                         Self::update_preedit_text(&ctx, build_ibus_text(&text), cursor, true)
-                            .await.ok();
+                            .await
+                            .ok();
                     } else {
                         Self::hide_preedit_text(&ctx).await.ok();
                     }
@@ -266,7 +301,11 @@ impl ButtreEngine {
         if is_break_char(ch) {
             let preedit_text = {
                 let p = self.preedit.lock().unwrap();
-                if p.is_empty() { None } else { Some(p.clone()) }
+                if p.is_empty() {
+                    None
+                } else {
+                    Some(p.clone())
+                }
             };
             if let Some(text) = preedit_text {
                 self.reset();
@@ -288,7 +327,11 @@ impl ButtreEngine {
         };
 
         match action {
-            Action::Replace { text, backspace_count, .. } => {
+            Action::Replace {
+                text,
+                backspace_count,
+                ..
+            } => {
                 let cursor = text.chars().count() as u32;
                 {
                     let mut p = self.preedit.lock().unwrap();
@@ -296,10 +339,13 @@ impl ButtreEngine {
                 }
                 if backspace_count > 0 {
                     let n = backspace_count as u32;
-                    Self::delete_surrounding_text(&ctx, -(n as i32), n).await.ok();
+                    Self::delete_surrounding_text(&ctx, -(n as i32), n)
+                        .await
+                        .ok();
                 }
                 Self::update_preedit_text(&ctx, build_ibus_text(&text), cursor, true)
-                    .await.ok();
+                    .await
+                    .ok();
                 true
             }
             Action::Commit(text) => {
@@ -354,8 +400,7 @@ impl ButtreEngine {
 /// Returns "vni" if the file contains "vni" (trimmed, case-insensitive),
 /// "telex" for any other content or on read failure.
 fn load_method_config() -> String {
-    let path = dirs::config_dir()
-        .map(|p| p.join("buttre/method"));
+    let path = dirs::config_dir().map(|p| p.join("buttre/method"));
     if let Some(path) = path {
         if let Ok(content) = std::fs::read_to_string(&path) {
             let method = content.trim().to_lowercase();
@@ -395,9 +440,7 @@ pub async fn run_engine() -> Result<()> {
 /// Run the IBus engine service with a graceful shutdown channel.
 ///
 /// Used by `LinuxBackend::init` so the engine thread can be stopped cleanly.
-pub async fn run_engine_with_shutdown(
-    shutdown: tokio::sync::oneshot::Receiver<()>,
-) -> Result<()> {
+pub async fn run_engine_with_shutdown(shutdown: tokio::sync::oneshot::Receiver<()>) -> Result<()> {
     let method = load_method_config();
     tracing::info!("Starting buttre IBus Engine (method={}, managed)", method);
 

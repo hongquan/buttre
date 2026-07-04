@@ -5,4 +5,4 @@ pub mod method_registry;
 
 // Re-export commonly used items
 pub use keyboard_manager::KeyboardManager;
-pub use method_registry::{MethodRegistry, MethodInfo, MethodSource};
+pub use method_registry::{MethodInfo, MethodRegistry, MethodSource};

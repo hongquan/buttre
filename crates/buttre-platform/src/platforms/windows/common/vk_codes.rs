@@ -11,7 +11,7 @@ pub const VK_SPACE: u16 = 0x20;
 
 // Navigation keys
 pub const VK_PRIOR: u16 = 0x21; // Page Up
-pub const VK_NEXT: u16 = 0x22;  // Page Down
+pub const VK_NEXT: u16 = 0x22; // Page Down
 pub const VK_END: u16 = 0x23;
 pub const VK_HOME: u16 = 0x24;
 pub const VK_LEFT: u16 = 0x25;

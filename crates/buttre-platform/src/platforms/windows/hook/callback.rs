@@ -56,16 +56,15 @@
 //! - Shares KEYBOARD Arc with KeyboardManager (automatic sync!)
 //! - Executes Action by injecting backspaces/text via SendInput
 
-
-use std::sync::{Arc, Mutex, RwLock, OnceLock};
-use std::sync::atomic::{AtomicBool, AtomicU64, AtomicU8, AtomicIsize, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
-use tracing::{debug, error, info, warn};
 use buttre_core::Action;
 use buttre_core::Keyboard;
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU64, AtomicU8, Ordering};
+use std::sync::{Arc, Mutex, OnceLock, RwLock};
+use std::time::{SystemTime, UNIX_EPOCH};
+use tracing::{debug, error, info, warn};
 
 use super::profiling::{ProfileTimer, HOOK_PROFILER};
-use super::queue::{QueueProcessor, KeyEvent, timestamp_us};
+use super::queue::{timestamp_us, KeyEvent, QueueProcessor};
 
 #[cfg(windows)]
 use windows_sys::Win32::Foundation::{LPARAM, LRESULT, WPARAM};
@@ -74,19 +73,15 @@ use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 #[cfg(windows)]
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CallNextHookEx, GetForegroundWindow, GetMessageW, SetWindowsHookExW, UnhookWindowsHookEx,
-    KBDLLHOOKSTRUCT, MSG,
-    WH_KEYBOARD_LL, WH_MOUSE_LL,
-    WM_KEYDOWN, WM_KEYUP, WM_SYSKEYDOWN, WM_SYSKEYUP,
-    WM_LBUTTONDOWN, WM_RBUTTONDOWN, WM_MBUTTONDOWN,
+    KBDLLHOOKSTRUCT, MSG, WH_KEYBOARD_LL, WH_MOUSE_LL, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN,
+    WM_MBUTTONDOWN, WM_RBUTTONDOWN, WM_SYSKEYDOWN, WM_SYSKEYUP,
 };
 
-use crate::platforms::windows::common::{
-    is_buffer_reset_key, is_modifier_key, is_special_key, send_backspaces, send_string,
-    send_replacement,
-    VK_BACK,
-    show_candidates, hide_candidates,
-};
 use crate::platforms::windows::common::input::BUTTRE_INJECTED;
+use crate::platforms::windows::common::{
+    hide_candidates, is_buffer_reset_key, is_modifier_key, is_special_key, send_backspaces,
+    send_replacement, send_string, show_candidates, VK_BACK,
+};
 
 /// Global state - necessary for hook callback
 static HOOK_HANDLE: AtomicIsize = AtomicIsize::new(0);
@@ -270,7 +265,10 @@ pub fn dispatch_toggle_last_word(keyboard: &Arc<RwLock<Option<Keyboard>>>) {
     };
 
     match action {
-        Some(Action::Replace { backspace_count, text }) => {
+        Some(Action::Replace {
+            backspace_count,
+            text,
+        }) => {
             send_replacement(backspace_count, &text);
             record_output_hwnd();
         }
@@ -331,29 +329,32 @@ fn reset_engine() {
 unsafe extern "system" fn mouse_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     // Get mouse hook handle for CallNextHookEx
     let hook_handle = MOUSE_HOOK_HANDLE.load(Ordering::Relaxed);
-    
+
     // Always call next hook if code < 0
     if code < 0 {
         // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
         return unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) };
     }
-    
+
     // Check for mouse button down events
-    let is_click = matches!(wparam as u32, WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN);
-    
+    let is_click = matches!(
+        wparam as u32,
+        WM_LBUTTONDOWN | WM_RBUTTONDOWN | WM_MBUTTONDOWN
+    );
+
     if is_click {
         // Reset keyboard buffer on mouse click using optimized helper
         reset_engine();
         hide_candidates(); // Hide candidate window on mouse click
         if KEYBOARD_DIRTY.load(Ordering::Relaxed) {
-             debug!("Buffer reset on mouse click");
+            debug!("Buffer reset on mouse click");
         }
-        
+
         // Reset fast typing state on mouse click
         LAST_KEY.store(0, Ordering::Relaxed);
         LAST_KEY_TIME.store(0, Ordering::Relaxed);
     }
-    
+
     // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
     unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) }
 }
@@ -389,7 +390,8 @@ unsafe fn get_modifier_state() -> ModifierState {
             ctrl: (GetKeyState(VK_CONTROL as i32) as i16) < 0,
             alt: (GetKeyState(VK_MENU as i32) as i16) < 0,
             shift: (GetKeyState(VK_SHIFT as i32) as i16) < 0,
-            win: (GetKeyState(VK_LWIN as i32) as i16) < 0 || (GetKeyState(VK_RWIN as i32) as i16) < 0,
+            win: (GetKeyState(VK_LWIN as i32) as i16) < 0
+                || (GetKeyState(VK_RWIN as i32) as i16) < 0,
             caps: (GetKeyState(VK_CAPITAL as i32) & 1) != 0,
         }
     }
@@ -405,7 +407,7 @@ pub fn install_hook(
     // Note: Hooks are atomics now, no need to init mutex
     let _ = KEYBOARD.set(keyboard.clone());
     // PROCESSING is now a plain AtomicBool — no initialization needed.
-    
+
     // Initialize and start queue processor (if async-queue feature enabled)
     #[cfg(feature = "async-queue")]
     {
@@ -418,7 +420,7 @@ pub fn install_hook(
     {
         info!("Queue processor disabled (sync mode)");
     }
-    
+
     // Initialize candidate window
     use crate::platforms::windows::common::candidate_window;
     if let Err(e) = candidate_window::init() {
@@ -485,7 +487,7 @@ pub fn install_hook(
         "Keyboard hook installed (handle: {:?}, priority: ABOVE_NORMAL)",
         kb_handle
     );
-    
+
     // Start profiling stats printer thread (prints stats every 30 seconds)
     std::thread::spawn(|| {
         use std::time::Duration;
@@ -497,7 +499,7 @@ pub fn install_hook(
             }
         }
     });
-    
+
     Ok(())
 }
 
@@ -521,7 +523,7 @@ pub fn uninstall_hook() -> anyhow::Result<()> {
             }
         }
     }
-    
+
     // Uninstall keyboard hook
     let current_kb_handle = HOOK_HANDLE.load(Ordering::SeqCst);
     if current_kb_handle != 0 {
@@ -534,7 +536,7 @@ pub fn uninstall_hook() -> anyhow::Result<()> {
         HOOK_HANDLE.store(0, Ordering::SeqCst);
         info!("Keyboard hook uninstalled");
     }
-    
+
     // Uninstall mouse hook
     let current_mouse_handle = MOUSE_HOOK_HANDLE.load(Ordering::SeqCst);
     if current_mouse_handle != 0 {
@@ -545,7 +547,7 @@ pub fn uninstall_hook() -> anyhow::Result<()> {
         MOUSE_HOOK_HANDLE.store(0, Ordering::SeqCst);
         info!("Mouse hook uninstalled");
     }
-    
+
     Ok(())
 }
 
@@ -602,7 +604,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
     // Start profiling timer - will automatically record on drop
     // Track as passthrough initially, will update if we process Vietnamese
     let mut _timer = ProfileTimer::start(false);
-    
+
     // Get hook handle for CallNextHookEx
     let hook_handle = HOOK_HANDLE.load(Ordering::Relaxed);
 
@@ -638,7 +640,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
     // Get all modifier states in one pass
     // SAFETY: get_modifier_state calls GetKeyState which is safe from hook context
     let mods = unsafe { get_modifier_state() };
-    
+
     // HOTKEY REMOVED: Now using global-hotkey crate
 
     // Only process key DOWN events for Vietnamese conversion from here
@@ -693,7 +695,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
         KEYBOARD_DIRTY.store(true, Ordering::Release);
         reset_engine();
         hide_candidates(); // Hide candidate window on buffer reset
-        // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
+                           // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
         return unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) };
     }
 
@@ -702,19 +704,19 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
         // SPECIAL CASE: Backspace when candidates are showing
         // Need to delete input text + candidates, then re-display updated state with new candidates
         if is_candidates_showing() {
-            use crate::platforms::windows::common::{get_input_text_len, get_candidates_text_len};
-            
+            use crate::platforms::windows::common::{get_candidates_text_len, get_input_text_len};
+
             let input_len = get_input_text_len();
             let candidates_len = get_candidates_text_len();
             let total_len = input_len + candidates_len;
-            
+
             // Hide candidates first (will be re-shown if buffer not empty)
             hide_candidates();
-            
+
             if total_len > 0 {
                 // Delete all displayed text (input + candidates)
                 send_backspaces(total_len);
-                
+
                 // Update internal buffer, sync executor state, and get new candidates
                 if let Some(keyboard) = KEYBOARD.get() {
                     if let Ok(mut kb_opt) = keyboard.try_write() {
@@ -724,42 +726,47 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
                                 // Display remaining buffer (if any)
                                 if !buffer_str.is_empty() {
                                     send_string(&buffer_str);
-                                    
+
                                     // If we have candidates, show them
                                     if !candidates.is_empty() {
                                         // Convert to buttre_engine::pipeline::Candidate format
                                         use buttre_engine::pipeline::Candidate as EngineCandidate;
-                                        
-                                        let engine_candidates: Vec<EngineCandidate> = candidates.into_iter()
+
+                                        let engine_candidates: Vec<EngineCandidate> = candidates
+                                            .into_iter()
                                             .take(10) // Limit to 10
                                             .collect();
-                                        
-                                        if let Some(formatted) = show_candidates(engine_candidates.clone(), buffer_str.clone()) {
+
+                                        if let Some(formatted) = show_candidates(
+                                            engine_candidates.clone(),
+                                            buffer_str.clone(),
+                                        ) {
                                             send_string(&formatted);
                                         }
-                                        
                                     }
                                 }
                             }
                         }
                     }
                 }
-                
+
                 return 1; // Block original backspace
             }
         }
-        
+
         // ASYNC MODE: Enqueue backspace event
         #[cfg(feature = "async-queue")]
         let use_async = true;
         #[cfg(not(feature = "async-queue"))]
         let use_async = false;
-        
+
         if use_async {
             if let Some(processor_mutex) = QUEUE_PROCESSOR.get() {
                 if let Ok(processor_opt) = processor_mutex.lock() {
                     if let Some(processor) = processor_opt.as_ref() {
-                        let event = KeyEvent::Backspace { timestamp_us: timestamp_us() };
+                        let event = KeyEvent::Backspace {
+                            timestamp_us: timestamp_us(),
+                        };
                         if !processor.enqueue(event) {
                             warn!("Failed to enqueue backspace - queue full");
                         }
@@ -769,7 +776,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             }
             // Fallback to sync if queue not available
         }
-        
+
         // SYNC MODE: Process in callback.
         // Blocking, poison-tolerant write() — see the char path for the full
         // rationale.  A dropped backspace here would let the SYSTEM delete a
@@ -787,9 +794,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
                 if let Some(ref mut kb) = *kb_opt {
                     // Keyboard loaded - handle backspace through engine
                     match kb.backspace() {
-                        Ok(action) => {
-                            action
-                        },
+                        Ok(action) => action,
                         Err(e) => {
                             warn!("Keyboard backspace error: {}", e);
                             Action::DoNothing
@@ -800,35 +805,36 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
                     Action::DoNothing
                 }
             };
-            
-            match result {
-                Action::Replace { backspace_count, text } => {
-                    // IMPORTANT: Always emit backspaces manually, NEVER let system handle!
-                    // Letting system handle causes buffer desync because:
-                    // 1. kb.backspace() already modified internal buffer
-                    // 2. CallNextHookEx passes to system, which deletes on screen
-                    // 3. But next backspace enters hook with NEW context, finds empty buffer
-                    // This is why Unikey always emits fake backspaces via keybd_event.
-                    
-                    if backspace_count > 0 || !text.is_empty() {
-                        if backspace_count > 0 {
-                            send_backspaces(backspace_count);
-                        }
 
-                        // NOTE: Removed thread::sleep() - NEVER sleep in hook callback!
-                        // Sleep causes keystroke backlog and system freeze.
-                        // SendInput batching should handle timing.
+            if let Action::Replace {
+                backspace_count,
+                text,
+            } = result
+            {
+                // IMPORTANT: Always emit backspaces manually, NEVER let system handle!
+                // Letting system handle causes buffer desync because:
+                // 1. kb.backspace() already modified internal buffer
+                // 2. CallNextHookEx passes to system, which deletes on screen
+                // 3. But next backspace enters hook with NEW context, finds empty buffer
+                // This is why Unikey always emits fake backspaces via keybd_event.
 
-                        if !text.is_empty() {
-                            send_string(&text);
-                        }
-                        // Focus-guard baseline (event-sourcing-completion
-                        // Phase 4) — see `LAST_OUTPUT_HWND`'s module docs.
-                        record_output_hwnd();
-                        return 1; // Block original Backspace
+                if backspace_count > 0 || !text.is_empty() {
+                    if backspace_count > 0 {
+                        send_backspaces(backspace_count);
                     }
+
+                    // NOTE: Removed thread::sleep() - NEVER sleep in hook callback!
+                    // Sleep causes keystroke backlog and system freeze.
+                    // SendInput batching should handle timing.
+
+                    if !text.is_empty() {
+                        send_string(&text);
+                    }
+                    // Focus-guard baseline (event-sourcing-completion
+                    // Phase 4) — see `LAST_OUTPUT_HWND`'s module docs.
+                    record_output_hwnd();
+                    return 1; // Block original Backspace
                 }
-                _ => {}
             }
         }
         // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
@@ -844,7 +850,10 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
     // 6. RECURSION CHECK (atomic, panic-safe)
     // CAS-claim the flag; bail out if another invocation is already in flight.
     // No panic-on-poison failure mode (unlike the previous Mutex<bool>).
-    if PROCESSING.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+    if PROCESSING
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_err()
+    {
         // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
         return unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) };
     }
@@ -887,28 +896,31 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
         if let Ok(kb_opt) = keyboard.try_read() {
             if kb_opt.is_none() {
                 // No keyboard loaded = English mode
-                                // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
+                // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
                 return unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) };
             }
             // Drop lock immediately - we'll lock again for processing below
         } else {
             // Lock failed - keyboard busy, skip this keystroke
-                        // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
+            // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
             return unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) };
         }
     } else {
         // KEYBOARD not initialized yet
-                // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
+        // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
         return unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) };
     }
 
     // 9. CANDIDATE SELECTION (1-5)
     // Check if candidates are showing and user pressed 1-5
     use crate::platforms::windows::common::is_candidates_showing;
-    if is_candidates_showing() && ch >= '1' && ch <= '5' {
+    if is_candidates_showing() && ('1'..='5').contains(&ch) {
         let number = (ch as u8) - b'0';
         if let Some((selected, backspace_count)) = select_candidate(number) {
-            info!("Candidate selected: {} -> {} (backspace: {})", number, selected, backspace_count);
+            info!(
+                "Candidate selected: {} -> {} (backspace: {})",
+                number, selected, backspace_count
+            );
             // Xóa các ký tự đã gõ trước
             if backspace_count > 0 {
                 send_backspaces(backspace_count);
@@ -920,7 +932,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             // Reset engine state
             reset_engine();
             // Block the number key
-                        return 1; // Block key
+            return 1; // Block key
         }
     }
 
@@ -930,42 +942,45 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
     // - Multiple candidates → block space, let engine process internally without outputting space
     use crate::platforms::windows::common::{get_candidates_count, select_candidate};
     let candidates_showing = is_candidates_showing();
-    let candidate_count = if candidates_showing { get_candidates_count() } else { 0 };
-    
-    if ch == ' ' && candidates_showing {
-        
-        if candidate_count == 1 {
-            // Exactly 1 candidate - auto-select it
-            if let Some((selected, backspace_count)) = select_candidate(1) {
-                info!("Space auto-select: {} (backspace: {})", selected, backspace_count);
-                // Delete input + candidates display
-                if backspace_count > 0 {
-                    send_backspaces(backspace_count);
-                }
-                // Insert selected Nôm character
-                send_string(&selected);
-                // Insert space after selection
-                send_string(" ");
-                // Hide candidates UI state
-                hide_candidates();
-                // Mark engine as dirty so reset_engine() will actually reset
-                KEYBOARD_DIRTY.store(true, Ordering::Release);
-                // Reset engine state
-                reset_engine();
-                // Block the space key
-                                return 1; // Block key
+    let candidate_count = if candidates_showing {
+        get_candidates_count()
+    } else {
+        0
+    };
+
+    // Exactly 1 candidate - auto-select it. Otherwise (0 or multiple
+    // candidates showing), fall through to normal processing: multiple
+    // candidates BLOCK space to prevent buffer commit, allowing the user to
+    // keep typing for multi-keyword search — so we just don't return here.
+    if ch == ' ' && candidates_showing && candidate_count == 1 {
+        if let Some((selected, backspace_count)) = select_candidate(1) {
+            info!(
+                "Space auto-select: {} (backspace: {})",
+                selected, backspace_count
+            );
+            // Delete input + candidates display
+            if backspace_count > 0 {
+                send_backspaces(backspace_count);
             }
+            // Insert selected Nôm character
+            send_string(&selected);
+            // Insert space after selection
+            send_string(" ");
+            // Hide candidates UI state
+            hide_candidates();
+            // Mark engine as dirty so reset_engine() will actually reset
+            KEYBOARD_DIRTY.store(true, Ordering::Release);
+            // Reset engine state
+            reset_engine();
+            // Block the space key
+            return 1; // Block key
         }
-        // Multiple candidates - BLOCK space to prevent buffer commit
-        // This allows continuing to type for multi-keyword search
-        // But we need to let the space go through to engine for the buffer
-        // So we'll just continue to normal processing (don't return)
     }
 
     // 10. FAST TYPING ESCAPE
     if check_fast_typing_escape(ch) {
         debug!("Fast typing escape detected for '{}'", ch);
-                reset_engine();
+        reset_engine();
         // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
         return unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) };
     }
@@ -976,25 +991,28 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
     let use_async = true;
     #[cfg(not(feature = "async-queue"))]
     let use_async = false;
-    
+
     if use_async {
         // ASYNC MODE: Enqueue event and return immediately (~10-50μs)
         if let Some(processor_mutex) = QUEUE_PROCESSOR.get() {
             if let Ok(processor_opt) = processor_mutex.lock() {
                 if let Some(processor) = processor_opt.as_ref() {
                     _timer.mark_vietnamese();
-                    let event = KeyEvent::Character { ch, timestamp_us: timestamp_us() };
+                    let event = KeyEvent::Character {
+                        ch,
+                        timestamp_us: timestamp_us(),
+                    };
                     if !processor.enqueue(event) {
                         warn!("Failed to enqueue character '{}' - queue full", ch);
                     }
                     // Clear processing flag and return
-                                        return 1; // Block key - will be processed async
+                    return 1; // Block key - will be processed async
                 }
             }
         }
         // Fallback to sync if queue not available
     }
-    
+
     // SYNC MODE: Process in callback (original behavior).
     //
     // Lock acquisition is a BLOCKING, poison-tolerant write() — NOT try_write().
@@ -1023,25 +1041,31 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
                     Ok(actions) => {
                         // Mark dirty - engine state changed (or at least processed input)
                         KEYBOARD_DIRTY.store(true, Ordering::Release);
-                        
+
                         // Process all actions (main action + candidate UI)
                         let mut main_action = Action::DoNothing;
-                        
+
                         for action in actions {
                             match action {
                                 Action::ShowCandidates { candidates, input } => {
                                     // Xóa candidates cũ trước nếu đang hiển thị
                                     use crate::platforms::windows::common::get_candidates_text_len;
                                     let old_candidates_len = get_candidates_text_len();
-                                    
+
                                     // Show candidates inline: "1天 2𡗶 3霄 4𡗶 5天"
-                                    if let Some(candidates_text) = show_candidates(candidates, input) {
+                                    if let Some(candidates_text) =
+                                        show_candidates(candidates, input)
+                                    {
                                         // Merge main_action with candidates display
                                         main_action = match main_action {
-                                            Action::Replace { backspace_count, text } => {
+                                            Action::Replace {
+                                                backspace_count,
+                                                text,
+                                            } => {
                                                 // Merge: backspace old candidates + main backspaces, then show main text + candidates
                                                 Action::Replace {
-                                                    backspace_count: backspace_count + old_candidates_len,
+                                                    backspace_count: backspace_count
+                                                        + old_candidates_len,
                                                     text: text + &candidates_text,
                                                 }
                                             }
@@ -1080,9 +1104,9 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
                                 }
                             }
                         }
-                        
+
                         main_action
-                    },
+                    }
                     Err(e) => {
                         warn!("Keyboard process error: {}", e);
                         Action::DoNothing
@@ -1099,7 +1123,10 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
 
     // 11. HANDLE RESULT
     let block_key = match result {
-        Action::Replace { backspace_count, text } => {
+        Action::Replace {
+            backspace_count,
+            text,
+        } => {
             if backspace_count > 0 || !text.is_empty() {
                 // IMPORTANT: Always emit backspaces manually, NEVER let system handle!
                 // See comment in backspace handler (step 5) for detailed explanation.
@@ -1126,8 +1153,7 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
             // the *later* Replace's VK_BACK to dismiss its autocomplete selection
             // regardless of how the first char arrived). That fix lives in
             // `common::omnibox_fix` + `send_replacement`'s selection variant.
-            let is_natural_passthrough =
-                text.chars().count() == 1 && text.chars().next() == Some(ch);
+            let is_natural_passthrough = text.chars().count() == 1 && text.starts_with(ch);
             if is_natural_passthrough {
                 // The OS still delivers this keystroke to the current window
                 // (we return false, unblocked) — record it as real output so
@@ -1182,18 +1208,18 @@ unsafe extern "system" fn keyboard_proc(code: i32, wparam: WPARAM, lparam: LPARA
         }
         // Candidate UI actions are ignored in Hook mode (only for TSF)
         // TODO: Implement fake candidate window for Hook mode
-        Action::ShowCandidates { .. } | Action::HideCandidates => {
-            false
-        }
+        Action::ShowCandidates { .. } | Action::HideCandidates => false,
     };
 
     // PROCESSING flag is cleared automatically by ProcessingGuard's Drop impl.
 
     // SAFETY: CallNextHookEx is safe because hook_handle is valid from SetWindowsHookExW
-    if block_key { 1 } else { unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) } }
+    if block_key {
+        1
+    } else {
+        unsafe { CallNextHookEx(hook_handle as _, code, wparam, lparam) }
+    }
 }
-
-
 
 /// Convert virtual key code to character
 #[cfg(windows)]
@@ -1273,18 +1299,21 @@ fn check_fast_typing_escape(ch: char) -> bool {
     let now = current_time_ms();
     let last_key = LAST_KEY.load(Ordering::Relaxed);
     let last_time = LAST_KEY_TIME.load(Ordering::Relaxed);
-    
+
     // Update last key info
     let ch_byte = (ch as u32).min(255) as u8;
     LAST_KEY.store(ch_byte, Ordering::Relaxed);
     LAST_KEY_TIME.store(now, Ordering::Relaxed);
-    
+
     // Check if same key pressed within threshold
     if last_key == ch_byte && now - last_time < FAST_TYPING_THRESHOLD_MS {
         // Fast repeated key detected - this could be intentional English
         // But we only escape if the key is a tone/modifier key (s, f, r, x, j, z, w)
         // Note: 'd' and 'e' removed to allow dd -> đ, ee -> ê
-        matches!(ch.to_ascii_lowercase(), 's' | 'f' | 'r' | 'x' | 'j' | 'z' | 'w')
+        matches!(
+            ch.to_ascii_lowercase(),
+            's' | 'f' | 'r' | 'x' | 'j' | 'z' | 'w'
+        )
     } else {
         false
     }
@@ -1301,7 +1330,13 @@ mod toggle_last_word_tests {
     use super::*;
 
     fn mods(ctrl: bool, shift: bool, alt: bool, win: bool) -> ModifierState {
-        ModifierState { ctrl, shift, alt, win, caps: false }
+        ModifierState {
+            ctrl,
+            shift,
+            alt,
+            win,
+            caps: false,
+        }
     }
 
     // ── is_toggle_chord_exempt (chord-exemption CRITICAL) ───────────────────
@@ -1311,7 +1346,10 @@ mod toggle_last_word_tests {
         // vk == VK_CONTROL itself, mods.ctrl already true (its own keydown) —
         // must be exempt regardless of chord, or every Ctrl-based shortcut's
         // OWN modifier keydown would need special-casing individually.
-        assert!(is_toggle_chord_exempt(mods(true, false, false, false), 0x11));
+        assert!(is_toggle_chord_exempt(
+            mods(true, false, false, false),
+            0x11
+        ));
     }
 
     #[test]
@@ -1335,14 +1373,20 @@ mod toggle_last_word_tests {
     #[test]
     fn ctrl_z_alone_is_not_exempt() {
         // Ctrl+Z (Undo) — a real, unrelated shortcut; must still reset.
-        assert!(!is_toggle_chord_exempt(mods(true, false, false, false), 0x5A));
+        assert!(!is_toggle_chord_exempt(
+            mods(true, false, false, false),
+            0x5A
+        ));
     }
 
     #[test]
     fn ctrl_shift_other_letter_is_not_exempt() {
         // Ctrl+Shift+X — not the registered chord; other method-switch
         // hotkeys must be unaffected by this exemption.
-        assert!(!is_toggle_chord_exempt(mods(true, true, false, false), 0x58));
+        assert!(!is_toggle_chord_exempt(
+            mods(true, true, false, false),
+            0x58
+        ));
     }
 
     // ── focus_guard_ok (focus-guard CRITICAL) ───────────────────────────────

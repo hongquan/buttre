@@ -7,10 +7,10 @@
 pub mod ibus;
 
 use crate::PlatformBackend;
-use std::sync::{Arc, Mutex, RwLock};
-use buttre_core::{Action, Keyboard};
-use buttre_core::state::{StateObserver, Settings};
 use anyhow::Result;
+use buttre_core::state::{Settings, StateObserver};
+use buttre_core::{Action, Keyboard};
+use std::sync::{Arc, Mutex, RwLock};
 
 /// Linux backend — spawns the IBus engine in a background thread.
 ///

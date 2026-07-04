@@ -1,13 +1,13 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-only
 // Vietnamese Engine Integration for TSF
 //
 // **Tests**: Integration tests for this module are located in `crates/buttre-platform/tests/platform_windows_tsf_tests.rs`.
 
-use buttre_core::InputBuffer;
+use super::candidate_ui::CandidateItem;
 use buttre_core::Action;
+use buttre_core::InputBuffer;
 use buttre_core::Keyboard;
 use buttre_core::KeyboardBuilder;
-use super::candidate_ui::CandidateItem;
 use std::path::PathBuf;
 
 /// Vietnamese input mode
@@ -39,16 +39,12 @@ impl VietnameseEngine {
             buffer: InputBuffer::new(),
         }
     }
-    
+
     /// Load keyboard instance for given mode
     fn load_keyboard(mode: &VietnameseMode) -> Option<Keyboard> {
         match mode {
-            VietnameseMode::Telex => {
-                KeyboardBuilder::telex_with_composition(true).ok()
-            }
-            VietnameseMode::VNI => {
-                KeyboardBuilder::vni_with_composition(true).ok()
-            }
+            VietnameseMode::Telex => KeyboardBuilder::telex_with_composition(true).ok(),
+            VietnameseMode::VNI => KeyboardBuilder::vni_with_composition(true).ok(),
             VietnameseMode::Nom => {
                 // Load Nôm dictionary and create keyboard with TSF composition mode
                 let nom_path = buttre_core::vietnamese::get_nom_db_path();
@@ -59,7 +55,7 @@ impl VietnameseEngine {
                 tracing::info!("TSF: Loading custom keyboard: {}", method_id);
                 let custom_dir = buttre_core::vietnamese::get_custom_dir();
                 let config_path = custom_dir.join(format!("{}.toml", method_id));
-                
+
                 if config_path.exists() {
                     match buttre_core::Config::load(config_path.to_str().unwrap()) {
                         Ok(config) => {
@@ -163,4 +159,3 @@ impl VietnameseEngine {
         Vec::new()
     }
 }
-

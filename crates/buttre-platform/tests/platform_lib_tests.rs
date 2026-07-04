@@ -7,7 +7,7 @@ fn test_platform_detection() {
         .iter()
         .filter(|&&x| x)
         .count();
-    
+
     assert_eq!(count, 1, "Exactly one platform should be detected");
 }
 

@@ -7,18 +7,18 @@ use buttre_platform::shared::KeyboardManager;
 fn main() -> anyhow::Result<()> {
     println!("buttre Keyboard Integration Example");
     println!("===================================\n");
-    
+
     // Create keyboard manager
     let manager = KeyboardManager::new()?;
-    
+
     // Set method to Telex
     println!("Setting method to Telex...");
     manager.set_method("telex")?;
     println!("✓ Telex loaded\n");
-    
+
     // Get keyboard instance
     let kb_arc = manager.get_keyboard();
-    
+
     // Helper to process key
     let process = |ch: char| -> anyhow::Result<()> {
         let mut binding = kb_arc.write().expect("RwLock poisoned");
@@ -35,18 +35,18 @@ fn main() -> anyhow::Result<()> {
     // Test basic typing
     println!("Test 1: Basic typing");
     process('a')?;
-    println!("");
-    
+    println!();
+
     // Test transformation
     println!("Test 2: Transformation (aa → â)");
     process('a')?;
-    println!("");
-    
+    println!();
+
     // Test tone
     println!("Test 3: Tone (s → acute)");
     process('s')?;
-    println!("");
-    
+    println!();
+
     // Reset
     println!("Test 4: Reset");
     {
@@ -56,8 +56,8 @@ fn main() -> anyhow::Result<()> {
         }
     }
     println!("  ✓ Reset complete\n");
-    
+
     println!("All tests passed! ✓");
-    
+
     Ok(())
 }

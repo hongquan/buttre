@@ -28,6 +28,10 @@ impl ClassFactory {
 }
 
 impl IClassFactory_Impl for ClassFactory_Impl {
+    // Signature is fixed by the windows-rs-generated `IClassFactory_Impl`
+    // trait (COM vtable contract) — cannot be `unsafe fn`. The actual raw
+    // pointer dereference is scoped to an inner `unsafe` block below.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn CreateInstance(
         &self,
         _punkouter: Ref<'_, IUnknown>,
@@ -35,10 +39,8 @@ impl IClassFactory_Impl for ClassFactory_Impl {
         ppvobject: *mut *mut core::ffi::c_void,
     ) -> Result<()> {
         // Create TextService instance using windows-rs 0.62 pattern
-        let text_service: IUnknown = TextService::new()
-            .into_object()
-            .into_interface();
-        
+        let text_service: IUnknown = TextService::new().into_object().into_interface();
+
         // SAFETY:
         // 1. text_service is a valid IUnknown COM interface created above
         // 2. riid points to valid GUID provided by COM runtime
@@ -49,7 +51,7 @@ impl IClassFactory_Impl for ClassFactory_Impl {
         unsafe {
             text_service.query(riid, ppvobject).ok()?;
         }
-        
+
         Ok(())
     }
 

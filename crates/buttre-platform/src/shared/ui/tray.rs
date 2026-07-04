@@ -1,15 +1,15 @@
 //! Tray icon management for buttre application
 
-use buttre_core::state::Settings;
 use crate::shared::ui::{
-    load_icon_from_bytes, NOM_ICON_BYTES, CUSTOM_ICON_BYTES, ENGLISH_ICON_BYTES,
-    TELEX_ICON_BYTES, VIETNAMESE_ICON_BYTES, VNI_ICON_BYTES,
+    load_icon_from_bytes, CUSTOM_ICON_BYTES, ENGLISH_ICON_BYTES, NOM_ICON_BYTES, TELEX_ICON_BYTES,
+    VIETNAMESE_ICON_BYTES, VNI_ICON_BYTES,
 };
 use anyhow::Result;
+use buttre_core::state::Settings;
+use buttre_core::vietnamese::config_loader::MethodMetadata;
+use buttre_core::vietnamese::get_custom_dir;
 use std::fs;
 use tray_icon::{Icon as TrayIcon, TrayIconBuilder};
-use buttre_core::vietnamese::get_custom_dir;
-use buttre_core::vietnamese::config_loader::MethodMetadata;
 
 /// Create tray icon with the given menu and initial settings
 /// Returns the tray icon and pre-loaded icon resources
@@ -93,6 +93,10 @@ pub fn get_tooltip(method: &str, custom_items: &[(MethodMetadata, muda::IconMenu
 }
 
 /// Get the appropriate icon for a given input method
+///
+/// One parameter per method icon — see `helpers::update_tray_icon`'s doc for
+/// why this isn't grouped into a struct in this cleanup pass.
+#[allow(clippy::too_many_arguments)]
 pub fn get_icon_for_method(
     method: &str,
     custom_items: &[(MethodMetadata, muda::IconMenuItem)],

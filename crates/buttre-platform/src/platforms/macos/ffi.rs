@@ -5,12 +5,15 @@
 //! Uses integer handles instead of raw pointers to achieve ZERO unsafe
 //! for memory management operations.
 
+use buttre_core::Action;
+use buttre_core::{Keyboard, KeyboardBuilder};
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::os::raw::c_char;
-use std::sync::{Mutex, atomic::{AtomicU64, Ordering}};
-use buttre_core::Action;
-use buttre_core::{Keyboard, KeyboardBuilder};
+use std::sync::{
+    atomic::{AtomicU64, Ordering},
+    Mutex,
+};
 
 // ============================================================================
 // GLOBAL STATE (Thread-Safe)
@@ -24,13 +27,12 @@ static LAST_RESULT: Mutex<Option<CString>> = Mutex::new(None);
 
 struct EngineState {
     keyboard: Keyboard,
-    enabled:  bool,
+    enabled: bool,
 }
 
 impl EngineState {
     fn new() -> Self {
-        let keyboard = KeyboardBuilder::telex()
-            .expect("Failed to create Telex keyboard");
+        let keyboard = KeyboardBuilder::telex().expect("Failed to create Telex keyboard");
         Self {
             keyboard,
             enabled: true,
@@ -69,7 +71,9 @@ pub extern "C" fn buttre_engine_new() -> u64 {
 /// Passing 0 or an invalid ID is a safe no-op.
 #[no_mangle]
 pub extern "C" fn buttre_engine_free(engine_id: u64) {
-    if engine_id == 0 { return; }
+    if engine_id == 0 {
+        return;
+    }
     let mut engines = ENGINES.lock().unwrap();
     if let Some(ref mut map) = *engines {
         map.remove(&engine_id);
@@ -95,7 +99,9 @@ pub extern "C" fn buttre_engine_process_key(
     shift: bool,
     capslock: bool,
 ) -> *const c_char {
-    if engine_id == 0 { return std::ptr::null(); }
+    if engine_id == 0 {
+        return std::ptr::null();
+    }
 
     let mut engines = ENGINES.lock().unwrap();
     let engine = match engines.as_mut().and_then(|m| m.get_mut(&engine_id)) {
@@ -103,7 +109,9 @@ pub extern "C" fn buttre_engine_process_key(
         None => return std::ptr::null(),
     };
 
-    if !engine.enabled { return std::ptr::null(); }
+    if !engine.enabled {
+        return std::ptr::null();
+    }
 
     let ch = match keycode_to_char(keycode, shift, capslock) {
         Some(c) => c,
@@ -129,7 +137,9 @@ pub extern "C" fn buttre_engine_process_key(
 /// Returns a pointer to a UTF-8 string (new preedit), or null.
 #[no_mangle]
 pub extern "C" fn buttre_engine_process_backspace(engine_id: u64) -> *const c_char {
-    if engine_id == 0 { return std::ptr::null(); }
+    if engine_id == 0 {
+        return std::ptr::null();
+    }
     let mut engines = ENGINES.lock().unwrap();
     let engine = match engines.as_mut().and_then(|m| m.get_mut(&engine_id)) {
         Some(e) => e,
@@ -151,7 +161,9 @@ pub extern "C" fn buttre_engine_process_backspace(engine_id: u64) -> *const c_ch
 /// Reset engine state (clears the composition buffer).
 #[no_mangle]
 pub extern "C" fn buttre_engine_reset(engine_id: u64) {
-    if engine_id == 0 { return; }
+    if engine_id == 0 {
+        return;
+    }
     let mut engines = ENGINES.lock().unwrap();
     if let Some(engine) = engines.as_mut().and_then(|m| m.get_mut(&engine_id)) {
         engine.keyboard.reset();
@@ -165,7 +177,9 @@ pub extern "C" fn buttre_engine_reset(engine_id: u64) {
 /// Returns `true` on success.
 #[no_mangle]
 pub extern "C" fn buttre_engine_set_method(engine_id: u64, method: u8) -> bool {
-    if engine_id == 0 { return false; }
+    if engine_id == 0 {
+        return false;
+    }
     let mut engines = ENGINES.lock().unwrap();
     let engine = match engines.as_mut().and_then(|m| m.get_mut(&engine_id)) {
         Some(e) => e,
@@ -199,7 +213,9 @@ pub extern "C" fn buttre_engine_set_method(engine_id: u64, method: u8) -> bool {
 /// Call `buttre_engine_free` to release memory — disabling alone does not free.
 #[no_mangle]
 pub extern "C" fn buttre_engine_set_enabled(engine_id: u64, enabled: bool) {
-    if engine_id == 0 { return; }
+    if engine_id == 0 {
+        return;
+    }
     let mut engines = ENGINES.lock().unwrap();
     if let Some(engine) = engines.as_mut().and_then(|m| m.get_mut(&engine_id)) {
         if engine.enabled && !enabled {
@@ -238,39 +254,95 @@ fn store_and_return_cstring(text: String) -> *const c_char {
 fn keycode_to_char(keycode: u16, shift: bool, capslock: bool) -> Option<char> {
     // Letter keycodes — apply CapsLock XOR Shift for case
     let letter = match keycode {
-        0 => 'a', 1 => 's', 2 => 'd', 3 => 'f', 4 => 'h', 5 => 'g', 6 => 'z',
-        7 => 'x', 8 => 'c', 9 => 'v', 11 => 'b', 12 => 'q', 13 => 'w', 14 => 'e',
-        15 => 'r', 16 => 'y', 17 => 't', 31 => 'o', 32 => 'u', 34 => 'i', 35 => 'p',
-        37 => 'l', 38 => 'j', 40 => 'k', 45 => 'n', 46 => 'm',
+        0 => 'a',
+        1 => 's',
+        2 => 'd',
+        3 => 'f',
+        4 => 'h',
+        5 => 'g',
+        6 => 'z',
+        7 => 'x',
+        8 => 'c',
+        9 => 'v',
+        11 => 'b',
+        12 => 'q',
+        13 => 'w',
+        14 => 'e',
+        15 => 'r',
+        16 => 'y',
+        17 => 't',
+        31 => 'o',
+        32 => 'u',
+        34 => 'i',
+        35 => 'p',
+        37 => 'l',
+        38 => 'j',
+        40 => 'k',
+        45 => 'n',
+        46 => 'm',
         _ => return keycode_to_char_non_letter(keycode, shift),
     };
     let uppercase = capslock != shift;
-    Some(if uppercase { letter.to_ascii_uppercase() } else { letter })
+    Some(if uppercase {
+        letter.to_ascii_uppercase()
+    } else {
+        letter
+    })
 }
 
 fn keycode_to_char_non_letter(keycode: u16, shift: bool) -> Option<char> {
     Some(if shift {
         match keycode {
             // Shifted digits
-            18 => '!', 19 => '@', 20 => '#', 21 => '$', 23 => '%',
-            22 => '^', 26 => '&', 28 => '*', 25 => '(', 29 => ')',
+            18 => '!',
+            19 => '@',
+            20 => '#',
+            21 => '$',
+            23 => '%',
+            22 => '^',
+            26 => '&',
+            28 => '*',
+            25 => '(',
+            29 => ')',
             // Shifted punctuation
-            27 => '_', 24 => '+',
-            33 => '{', 30 => '}', 42 => '|',
-            41 => ':', 39 => '"',
-            43 => '<', 47 => '>', 44 => '?', 50 => '~',
+            27 => '_',
+            24 => '+',
+            33 => '{',
+            30 => '}',
+            42 => '|',
+            41 => ':',
+            39 => '"',
+            43 => '<',
+            47 => '>',
+            44 => '?',
+            50 => '~',
             _ => return None,
         }
     } else {
         match keycode {
             // Unshifted digits
-            18 => '1', 19 => '2', 20 => '3', 21 => '4', 23 => '5',
-            22 => '6', 26 => '7', 28 => '8', 25 => '9', 29 => '0',
+            18 => '1',
+            19 => '2',
+            20 => '3',
+            21 => '4',
+            23 => '5',
+            22 => '6',
+            26 => '7',
+            28 => '8',
+            25 => '9',
+            29 => '0',
             // Unshifted punctuation
-            27 => '-', 24 => '=',
-            33 => '[', 30 => ']', 42 => '\\',
-            41 => ';', 39 => '\'',
-            43 => ',', 47 => '.', 44 => '/', 50 => '`',
+            27 => '-',
+            24 => '=',
+            33 => '[',
+            30 => ']',
+            42 => '\\',
+            41 => ';',
+            39 => '\'',
+            43 => ',',
+            47 => '.',
+            44 => '/',
+            50 => '`',
             _ => return None,
         }
     })

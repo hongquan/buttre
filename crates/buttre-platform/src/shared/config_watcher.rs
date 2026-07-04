@@ -33,7 +33,7 @@ impl ConfigWatcher {
     /// Create a new config watcher for the keyboards directory
     pub fn new(keyboards_dir: PathBuf) -> Result<Self> {
         let (tx, rx) = channel();
-        
+
         // Create watcher with event handler
         let mut watcher = RecommendedWatcher::new(
             move |res: notify::Result<Event>| {
@@ -43,10 +43,9 @@ impl ConfigWatcher {
                     }
                 }
             },
-            Config::default()
-                .with_poll_interval(Duration::from_secs(2)),
+            Config::default().with_poll_interval(Duration::from_secs(2)),
         )?;
-        
+
         // Watch the keyboards directory
         if keyboards_dir.exists() {
             watcher.watch(&keyboards_dir, RecursiveMode::NonRecursive)?;
@@ -54,22 +53,22 @@ impl ConfigWatcher {
         } else {
             warn!("Keyboards directory does not exist: {:?}", keyboards_dir);
         }
-        
+
         Ok(Self {
             _watcher: watcher,
             receiver: rx,
         })
     }
-    
+
     /// Process file system event and convert to ConfigChangeEvent
     fn process_event(event: Event) -> Option<ConfigChangeEvent> {
         // Only process .toml files
         let path = event.paths.first()?;
-        
+
         if path.extension()?.to_str()? != "toml" {
             return None;
         }
-        
+
         match event.kind {
             EventKind::Create(_) => {
                 info!("Config added: {:?}", path);
@@ -86,10 +85,9 @@ impl ConfigWatcher {
             _ => None,
         }
     }
-    
+
     /// Try to receive a config change event (non-blocking)
     pub fn try_recv(&self) -> Option<ConfigChangeEvent> {
         self.receiver.try_recv().ok()
     }
 }
-

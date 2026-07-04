@@ -8,13 +8,13 @@ use std::process::Command;
 pub fn is_vietnamese_language_installed() -> bool {
     // Use PowerShell to check if Vietnamese language is installed
     let output = Command::new("powershell")
-        .args(&[
+        .args([
             "-NoProfile",
             "-Command",
-            "(Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'vi*' }).Count -gt 0"
+            "(Get-WinUserLanguageList | Where-Object { $_.LanguageTag -like 'vi*' }).Count -gt 0",
         ])
         .output();
-    
+
     match output {
         Ok(output) => {
             let result = String::from_utf8_lossy(&output.stdout);

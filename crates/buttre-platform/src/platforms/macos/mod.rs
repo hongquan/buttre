@@ -7,10 +7,10 @@
 pub mod ffi;
 
 use crate::PlatformBackend;
-use std::sync::{Arc, RwLock};
-use buttre_core::{Action, Keyboard};
-use buttre_core::state::{StateObserver, Settings};
 use anyhow::Result;
+use buttre_core::state::{Settings, StateObserver};
+use buttre_core::{Action, Keyboard};
+use std::sync::{Arc, RwLock};
 
 /// macOS backend implementation
 pub struct MacOSBackend {
@@ -26,17 +26,16 @@ impl PlatformBackend for MacOSBackend {
         tracing::info!("Initializing macOS (IMKit) backend");
         Ok(())
     }
-    
+
     fn process_key(&mut self, _key: char) -> Action {
         Action::DoNothing
     }
-    
+
     fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }
-    
-    fn cleanup(&mut self) {
-    }
+
+    fn cleanup(&mut self) {}
 }
 
 impl StateObserver for MacOSBackend {
@@ -49,11 +48,7 @@ impl StateObserver for MacOSBackend {
 
 // Re-export FFI functions for C
 pub use ffi::{
-    buttre_engine_new,
-    buttre_engine_free,
-    buttre_engine_process_key,
-    buttre_engine_process_backspace,
-    buttre_engine_reset,
+    buttre_engine_free, buttre_engine_new, buttre_engine_process_backspace,
+    buttre_engine_process_key, buttre_engine_reset, buttre_engine_set_enabled,
     buttre_engine_set_method,
-    buttre_engine_set_enabled,
 };

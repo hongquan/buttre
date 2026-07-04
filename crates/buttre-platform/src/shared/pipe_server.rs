@@ -21,20 +21,22 @@
 //! buffers.
 
 use anyhow::Result;
-use std::sync::{Arc, RwLock};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use buttre_core::Keyboard;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, RwLock};
 
 #[cfg(windows)]
+use crate::platforms::windows::tsf::ipc::{
+    Action, IpcRequest, IpcResponse, BUFFER_SIZE, PIPE_NAME,
+};
+#[cfg(windows)]
 use anyhow::Context;
+#[cfg(windows)]
+use buttre_core::Action as EngineAction;
 #[cfg(windows)]
 use std::io::{Read, Write};
 #[cfg(windows)]
 use tracing::{debug, info, warn};
-#[cfg(windows)]
-use buttre_core::Action as EngineAction;
-#[cfg(windows)]
-use crate::platforms::windows::tsf::ipc::{IpcRequest, IpcResponse, Action, PIPE_NAME, BUFFER_SIZE};
 
 /// Owner-only DACL with low-integrity-level mandatory write block.
 /// See module docs for rationale.
@@ -68,14 +70,13 @@ pub fn run_pipe_server(keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
     #[cfg(windows)]
     {
         info!("Starting Named Pipe server: {}", PIPE_NAME);
+        use std::os::windows::ffi::OsStrExt;
         use std::os::windows::io::{FromRawHandle, RawHandle};
-        use windows::Win32::Foundation::{INVALID_HANDLE_VALUE, GetLastError, CloseHandle};
+        use windows::Win32::Foundation::{CloseHandle, GetLastError, INVALID_HANDLE_VALUE};
         use windows::Win32::Storage::FileSystem::PIPE_ACCESS_DUPLEX;
         use windows::Win32::System::Pipes::{
-            CreateNamedPipeW, ConnectNamedPipe, PIPE_TYPE_MESSAGE, PIPE_READMODE_MESSAGE,
-            PIPE_WAIT,
+            ConnectNamedPipe, CreateNamedPipeW, PIPE_READMODE_MESSAGE, PIPE_TYPE_MESSAGE, PIPE_WAIT,
         };
-        use std::os::windows::ffi::OsStrExt;
 
         let pipe_name_wide: Vec<u16> = std::ffi::OsStr::new(PIPE_NAME)
             .encode_wide()
@@ -136,7 +137,8 @@ pub fn run_pipe_server(keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
             let connected = unsafe { ConnectNamedPipe(h_pipe, None).is_ok() };
 
             // SAFETY: GetLastError is safe to call
-            if connected || unsafe { GetLastError().0 } == 535 { // ERROR_PIPE_CONNECTED
+            if connected || unsafe { GetLastError().0 } == 535 {
+                // ERROR_PIPE_CONNECTED
                 debug!("Client connected");
 
                 // Re-check the thread cap; another connection may have come in
@@ -145,7 +147,9 @@ pub fn run_pipe_server(keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
                     THREAD_COUNT.fetch_sub(1, Ordering::SeqCst);
                     warn!("Refusing pipe connection — thread cap reached");
                     // SAFETY: h_pipe is valid; we own it and are not using it after this point
-                    unsafe { let _ = CloseHandle(h_pipe); };
+                    unsafe {
+                        let _ = CloseHandle(h_pipe);
+                    };
                     continue;
                 }
 
@@ -169,7 +173,9 @@ pub fn run_pipe_server(keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
                 // 1. h_pipe is a valid HANDLE that we own
                 // 2. CloseHandle is properly declared in windows crate
                 // 3. We don't use h_pipe after this point
-                unsafe { let _ = CloseHandle(h_pipe); };
+                unsafe {
+                    let _ = CloseHandle(h_pipe);
+                };
             }
         }
     }
@@ -188,10 +194,10 @@ pub fn run_pipe_server(keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
 /// but no integrity-level filter and inherits whatever default Windows applies).
 #[cfg(windows)]
 fn build_pipe_security_attrs() -> Option<windows::Win32::Security::SECURITY_ATTRIBUTES> {
-    use windows::Win32::Security::{SECURITY_ATTRIBUTES, PSECURITY_DESCRIPTOR};
-    use windows::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
-    use windows::core::{BOOL, PCWSTR};
     use std::os::windows::ffi::OsStrExt;
+    use windows::core::{BOOL, PCWSTR};
+    use windows::Win32::Security::Authorization::ConvertStringSecurityDescriptorToSecurityDescriptorW;
+    use windows::Win32::Security::{PSECURITY_DESCRIPTOR, SECURITY_ATTRIBUTES};
 
     let sddl_wide: Vec<u16> = std::ffi::OsStr::new(PIPE_SDDL)
         .encode_wide()
@@ -256,7 +262,10 @@ fn handle_client(pipe: &mut std::fs::File, keyboard: Arc<RwLock<Option<Keyboard>
             }
             Err(e) => {
                 bad_frames += 1;
-                warn!("Failed to deserialize request ({}/{}): {}", bad_frames, MAX_BAD_FRAMES, e);
+                warn!(
+                    "Failed to deserialize request ({}/{}): {}",
+                    bad_frames, MAX_BAD_FRAMES, e
+                );
                 if bad_frames >= MAX_BAD_FRAMES {
                     warn!("Disconnecting client after {} bad frames", bad_frames);
                     break;
@@ -267,7 +276,8 @@ fn handle_client(pipe: &mut std::fs::File, keyboard: Arc<RwLock<Option<Keyboard>
 
         let response = process_request(request, keyboard.clone());
 
-        let response_bytes = bincode::serialize(&response).context("Failed to serialize response")?;
+        let response_bytes =
+            bincode::serialize(&response).context("Failed to serialize response")?;
         pipe.write_all(&response_bytes).context("Write failed")?;
         pipe.flush().context("Flush failed")?;
     }
@@ -297,27 +307,28 @@ fn process_request(request: IpcRequest, keyboard: Arc<RwLock<Option<Keyboard>>>)
                         // Take first action (main typing action)
                         if let Some(action) = actions.into_iter().next() {
                             match action {
-                                EngineAction::Replace { backspace_count, text } => {
-                                    IpcResponse::Action(Action::Replace {
-                                        delete: backspace_count,
-                                        insert: text,
-                                    })
-                                }
-                                EngineAction::DoNothing => {
-                                    IpcResponse::Action(Action::DoNothing)
-                                }
+                                EngineAction::Replace {
+                                    backspace_count,
+                                    text,
+                                } => IpcResponse::Action(Action::Replace {
+                                    delete: backspace_count,
+                                    insert: text,
+                                }),
+                                EngineAction::DoNothing => IpcResponse::Action(Action::DoNothing),
                                 EngineAction::Commit(text) => {
                                     IpcResponse::Action(Action::Replace {
                                         delete: 0,
                                         insert: text,
                                     })
                                 }
-                                EngineAction::UpdateComposition { .. } | EngineAction::ConfirmComposition(_) => {
+                                EngineAction::UpdateComposition { .. }
+                                | EngineAction::ConfirmComposition(_) => {
                                     // TODO: Update IPC protocol to support Composition actions
                                     warn!("Ignoring Composition action in IPC server (not yet supported)");
                                     IpcResponse::Action(Action::DoNothing)
                                 }
-                                EngineAction::ShowCandidates { .. } | EngineAction::HideCandidates => {
+                                EngineAction::ShowCandidates { .. }
+                                | EngineAction::HideCandidates => {
                                     // Ignore candidate actions in pipe server
                                     IpcResponse::Action(Action::DoNothing)
                                 }
@@ -334,22 +345,20 @@ fn process_request(request: IpcRequest, keyboard: Arc<RwLock<Option<Keyboard>>>)
             }
             IpcRequest::ProcessBackspace => {
                 match kb.backspace() {
-                    Ok(EngineAction::Replace { backspace_count, text }) => {
-                        IpcResponse::Action(Action::Replace {
-                            delete: backspace_count,
-                            insert: text,
-                        })
-                    }
-                    Ok(EngineAction::DoNothing) => {
-                        IpcResponse::Action(Action::DoNothing)
-                    }
-                    Ok(EngineAction::Commit(text)) => {
-                        IpcResponse::Action(Action::Replace {
-                            delete: 0,
-                            insert: text,
-                        })
-                    }
-                    Ok(EngineAction::UpdateComposition { .. }) | Ok(EngineAction::ConfirmComposition(_)) => {
+                    Ok(EngineAction::Replace {
+                        backspace_count,
+                        text,
+                    }) => IpcResponse::Action(Action::Replace {
+                        delete: backspace_count,
+                        insert: text,
+                    }),
+                    Ok(EngineAction::DoNothing) => IpcResponse::Action(Action::DoNothing),
+                    Ok(EngineAction::Commit(text)) => IpcResponse::Action(Action::Replace {
+                        delete: 0,
+                        insert: text,
+                    }),
+                    Ok(EngineAction::UpdateComposition { .. })
+                    | Ok(EngineAction::ConfirmComposition(_)) => {
                         // TODO: Update IPC protocol to support Composition actions
                         warn!("Ignoring Composition action in IPC server (not yet supported)");
                         IpcResponse::Action(Action::DoNothing)
@@ -368,9 +377,7 @@ fn process_request(request: IpcRequest, keyboard: Arc<RwLock<Option<Keyboard>>>)
                 kb.reset();
                 IpcResponse::Action(Action::DoNothing)
             }
-            IpcRequest::Ping => {
-                IpcResponse::Pong
-            }
+            IpcRequest::Ping => IpcResponse::Pong,
         }
     } else {
         // No keyboard loaded (English mode)

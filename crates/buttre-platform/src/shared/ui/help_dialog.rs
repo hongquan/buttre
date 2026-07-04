@@ -8,8 +8,7 @@ pub fn show_help_dialog() {
     use windows_sys::Win32::UI::WindowsAndMessaging::{MessageBoxW, MB_ICONINFORMATION, MB_OK};
 
     let title = "buttre - Bộ Gõ Tiếng Việt";
-    let message =
-        "Phiên bản: 0.7.5-beta\n\
+    let message = "Phiên bản: 0.7.5-beta\n\
          Giấy phép: GPL 3.0\n\
          Chuẩn mã: NFC (Unicode dựng sẵn)\n\
          \n\

@@ -1,29 +1,29 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-only
 // TextService implementation for Windows TSF
 // Using windows-rs 0.62 API
 
 use windows::core::*;
 use windows::Win32::UI::TextServices::*;
 
+use super::composition::{Composition, PendingComposition};
+use super::display_attribute::{
+    DisplayAttributeEnum, DisplayAttributeInfo, GUID_DISPLAY_ATTRIBUTE_CONVERTED,
+    GUID_DISPLAY_ATTRIBUTE_INPUT,
+};
+use super::edit_session::{EndComposition, SetCompositionString};
+use super::vietnamese_engine::VietnameseEngine;
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
-use super::composition::{Composition, PendingComposition};
-use super::edit_session::{SetCompositionString, EndComposition};
-use super::display_attribute::{
-    DisplayAttributeEnum, DisplayAttributeInfo,
-    GUID_DISPLAY_ATTRIBUTE_INPUT, GUID_DISPLAY_ATTRIBUTE_CONVERTED
-};
-use super::vietnamese_engine::VietnameseEngine;
 use tracing::debug;
 
-use windows::Win32::System::Variant::VARIANT;
-use windows::Win32::Foundation::{E_INVALIDARG, WPARAM, LPARAM, E_FAIL};
-use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
-use windows::Win32::UI::TextServices::{ITfCategoryMgr, CLSID_TF_CategoryMgr};
 use crate::platforms::windows::tsf::com::{dll_add_ref, dll_release};
+use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, LPARAM, WPARAM};
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
+use windows::Win32::System::Variant::VARIANT;
+use windows::Win32::UI::TextServices::{CLSID_TF_CategoryMgr, ITfCategoryMgr};
 
 /// TextService implementation
-/// 
+///
 /// Full implementation is being built incrementally.
 #[implement(
     ITfTextInputProcessor,
@@ -60,6 +60,11 @@ impl ITfDisplayAttributeProvider_Impl for TextService_Impl {
         Ok(DisplayAttributeEnum::new().into())
     }
 
+    // Signature is fixed by the windows-rs-generated
+    // `ITfDisplayAttributeProvider_Impl` trait (COM vtable contract) —
+    // cannot be `unsafe fn`. The raw pointer read is scoped to an inner
+    // `unsafe` block below.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn GetDisplayAttributeInfo(&self, guid: *const GUID) -> Result<ITfDisplayAttributeInfo> {
         debug!("GetDisplayAttributeInfo");
         // SAFETY:
@@ -69,7 +74,7 @@ impl ITfDisplayAttributeProvider_Impl for TextService_Impl {
         // 4. Pointer is only read, not modified
         unsafe {
             if guid.is_null() {
-                 return Err(E_INVALIDARG.into());
+                return Err(E_INVALIDARG.into());
             }
 
             if *guid == GUID_DISPLAY_ATTRIBUTE_INPUT {
@@ -122,7 +127,13 @@ impl TextService {
         }
     }
 
-    pub fn write_text(&self, context: &ITfContext, text: &str, cursor: usize, sink: ITfCompositionSink) -> Result<()> {
+    pub fn write_text(
+        &self,
+        context: &ITfContext,
+        text: &str,
+        cursor: usize,
+        sink: ITfCompositionSink,
+    ) -> Result<()> {
         debug!("TextService::write_text: {}", text);
 
         // Reuse in-flight session if TSF hasn't executed it yet.
@@ -149,13 +160,8 @@ impl TextService {
         self.last_text_len.set(text.chars().count());
 
         let da = VARIANT::from(self.da_atom_input.get() as i32);
-        let session = SetCompositionString::new(
-            context.clone(),
-            self.composition.clone(),
-            sink,
-            da,
-            pending,
-        );
+        let session =
+            SetCompositionString::new(context.clone(), self.composition.clone(), sink, da, pending);
         let session_interface: ITfEditSession = session.into();
         unsafe {
             context.RequestEditSession(
@@ -168,25 +174,26 @@ impl TextService {
     }
 
     /// Helper to end composition via EndComposition edit session
-    #[allow(unused_must_use)]    pub fn end_composition(&self, context: &ITfContext) -> Result<()> {
+    #[allow(unused_must_use)]
+    pub fn end_composition(&self, context: &ITfContext) -> Result<()> {
         debug!("TextService::end_composition");
-        
+
         if let Some(composition) = self.composition.get() {
             let session = EndComposition::new(context.clone(), composition);
             let session_interface: ITfEditSession = session.into();
-            
+
             unsafe {
                 context.RequestEditSession(
                     self.client_id.get(),
                     &session_interface,
-                    TF_ES_ASYNCDONTCARE | TF_ES_READWRITE
+                    TF_ES_ASYNCDONTCARE | TF_ES_READWRITE,
                 )?;
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Get cursor position from TSF context
     /// Returns (x, y) in screen coordinates, or None if unavailable
     fn get_cursor_position(&self, context: &ITfContext) -> Option<(i32, i32)> {
@@ -203,17 +210,17 @@ impl TextService {
             if let Some(composition_obj) = self.composition.get() {
                 // Get the range from composition
                 let range = composition_obj.GetRange().ok()?;
-                
+
                 // Get context view
                 let view: ITfContextView = context.cast().ok()?;
-                
+
                 // We need an edit cookie - use TF_DEFAULT_EDIT_COOKIE as fallback
                 // In a real implementation, this should be called from within an edit session
                 let ec = 0; // Placeholder - will be replaced with proper edit cookie
-                
+
                 let mut rect = windows::Win32::Foundation::RECT::default();
                 let mut clipped = BOOL(0);
-                
+
                 // Try to get text extent
                 if view.GetTextExt(ec, &range, &mut rect, &mut clipped).is_ok() {
                     let x = rect.left;
@@ -222,17 +229,25 @@ impl TextService {
                     return Some((x, y));
                 }
             }
-            
+
             debug!("Could not get cursor position, using default");
             None
         }
     }
-    
+
     /// Show candidate UI with Nôm character candidates
-    pub fn show_candidates(&self, context: &ITfContext, candidates: Vec<super::candidate_ui::CandidateItem>, sink: ITfCompositionSink) -> Result<()> {
+    pub fn show_candidates(
+        &self,
+        context: &ITfContext,
+        candidates: Vec<super::candidate_ui::CandidateItem>,
+        sink: ITfCompositionSink,
+    ) -> Result<()> {
         use super::candidate_ui::NomCandidateUI;
 
-        debug!("TextService::show_candidates: {} candidates", candidates.len());
+        debug!(
+            "TextService::show_candidates: {} candidates",
+            candidates.len()
+        );
 
         if candidates.is_empty() {
             return Ok(());
@@ -268,7 +283,7 @@ impl TextService {
                 da,
                 pending,
             );
-            
+
             let session_interface: ITfEditSession = session.into();
             // SAFETY:
             // 1. context_clone is a valid ITfContext interface
@@ -280,26 +295,26 @@ impl TextService {
                 let _ = context_clone.RequestEditSession(
                     client_id,
                     &session_interface,
-                    TF_ES_ASYNCDONTCARE | TF_ES_READWRITE
+                    TF_ES_ASYNCDONTCARE | TF_ES_READWRITE,
                 );
             }
         });
-        
+
         // Get cursor position or use default
         let (x, y) = self.get_cursor_position(context).unwrap_or_else(|| {
             debug!("Using default cursor position");
             (100, 100)
         });
-        
+
         // Show window at cursor position
         if let Err(e) = ui.create_window(x, y) {
             debug!("Failed to create candidate window: {:?}", e);
             return Err(e);
         }
-        
+
         // Store UI reference
         *self.candidate_ui.borrow_mut() = Some(ui);
-        
+
         Ok(())
     }
 }
@@ -307,7 +322,7 @@ impl TextService {
 impl ITfTextInputProcessor_Impl for TextService_Impl {
     fn Activate(&self, ptim: Ref<'_, ITfThreadMgr>, tid: u32) -> Result<()> {
         debug!("TextService::Activate");
-        
+
         let tm: ITfThreadMgr = ptim.ok()?.clone();
         *self.this.thread_mgr.borrow_mut() = Some(tm);
         self.this.client_id.set(tid);
@@ -320,8 +335,9 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         // 4. RegisterGUID is a COM method - safe to call on valid interface
         // 5. GUID_DISPLAY_ATTRIBUTE_* are valid GUID constants we defined
         unsafe {
-            let cat_mgr: ITfCategoryMgr = CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)?;
-            
+            let cat_mgr: ITfCategoryMgr =
+                CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)?;
+
             let atom_input = cat_mgr.RegisterGUID(&GUID_DISPLAY_ATTRIBUTE_INPUT)?;
             self.this.da_atom_input.set(atom_input);
 
@@ -340,10 +356,10 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
         unsafe {
             // Get thread manager from Ref
             let thread_mgr = ptim.ok()?;
-            
+
             // Get ITfKeystrokeMgr from ITfThreadMgr
             let keystroke_mgr: ITfKeystrokeMgr = thread_mgr.cast()?;
-            
+
             // Register ourselves as ITfKeyEventSink using as_interface_ref()
             if let Err(e) = keystroke_mgr.AdviseKeyEventSink(tid, self.as_interface_ref(), true) {
                 debug!("Failed to register KeyEventSink: {:?}", e);
@@ -359,20 +375,41 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
             let source: ITfSource = thread_mgr.cast()?;
             {
                 let mut cookies = self.this.thread_cookies.borrow_mut();
-                let s: ITfThreadMgrEventSink = { let r: InterfaceRef<'_, ITfThreadMgrEventSink> = self.as_interface_ref(); r.to_owned() };
-                if let Ok(c) = source.AdviseSink(&ITfThreadMgrEventSink::IID, &s) { cookies.push(c); }
-                let s: ITfThreadFocusSink = { let r: InterfaceRef<'_, ITfThreadFocusSink> = self.as_interface_ref(); r.to_owned() };
-                if let Ok(c) = source.AdviseSink(&ITfThreadFocusSink::IID, &s) { cookies.push(c); }
-                let s: ITfActiveLanguageProfileNotifySink = { let r: InterfaceRef<'_, ITfActiveLanguageProfileNotifySink> = self.as_interface_ref(); r.to_owned() };
-                if let Ok(c) = source.AdviseSink(&ITfActiveLanguageProfileNotifySink::IID, &s) { cookies.push(c); }
+                let s: ITfThreadMgrEventSink = {
+                    let r: InterfaceRef<'_, ITfThreadMgrEventSink> = self.as_interface_ref();
+                    r.to_owned()
+                };
+                if let Ok(c) = source.AdviseSink(&ITfThreadMgrEventSink::IID, &s) {
+                    cookies.push(c);
+                }
+                let s: ITfThreadFocusSink = {
+                    let r: InterfaceRef<'_, ITfThreadFocusSink> = self.as_interface_ref();
+                    r.to_owned()
+                };
+                if let Ok(c) = source.AdviseSink(&ITfThreadFocusSink::IID, &s) {
+                    cookies.push(c);
+                }
+                let s: ITfActiveLanguageProfileNotifySink = {
+                    let r: InterfaceRef<'_, ITfActiveLanguageProfileNotifySink> =
+                        self.as_interface_ref();
+                    r.to_owned()
+                };
+                if let Ok(c) = source.AdviseSink(&ITfActiveLanguageProfileNotifySink::IID, &s) {
+                    cookies.push(c);
+                }
             }
 
             let compartment_mgr: ITfCompartmentMgr = thread_mgr.cast()?;
-            if let Ok(openclose) = compartment_mgr.GetCompartment(&GUID_COMPARTMENT_KEYBOARD_OPENCLOSE) {
+            if let Ok(openclose) =
+                compartment_mgr.GetCompartment(&GUID_COMPARTMENT_KEYBOARD_OPENCLOSE)
+            {
                 let enable = VARIANT::from(1i32);
                 let _ = openclose.SetValue(tid, &enable);
                 if let Ok(openclose_src) = openclose.cast::<ITfSource>() {
-                    let s: ITfCompartmentEventSink = { let r: InterfaceRef<'_, ITfCompartmentEventSink> = self.as_interface_ref(); r.to_owned() };
+                    let s: ITfCompartmentEventSink = {
+                        let r: InterfaceRef<'_, ITfCompartmentEventSink> = self.as_interface_ref();
+                        r.to_owned()
+                    };
                     if let Ok(c) = openclose_src.AdviseSink(&ITfCompartmentEventSink::IID, &s) {
                         self.this.keyboard_openclose_cookie.set(c);
                     }
@@ -416,7 +453,9 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
                     }
                 }
                 if let Ok(compartment_mgr) = tm.cast::<ITfCompartmentMgr>() {
-                    if let Ok(openclose) = compartment_mgr.GetCompartment(&GUID_COMPARTMENT_KEYBOARD_OPENCLOSE) {
+                    if let Ok(openclose) =
+                        compartment_mgr.GetCompartment(&GUID_COMPARTMENT_KEYBOARD_OPENCLOSE)
+                    {
                         if let Ok(openclose_src) = openclose.cast::<ITfSource>() {
                             let cookie = self.this.keyboard_openclose_cookie.get();
                             if cookie != TF_INVALID_COOKIE {
@@ -440,7 +479,11 @@ impl ITfTextInputProcessor_Impl for TextService_Impl {
 }
 
 impl ITfCompositionSink_Impl for TextService_Impl {
-    fn OnCompositionTerminated(&self, _ec: u32, _composition: Ref<'_, ITfComposition>) -> Result<()> {
+    fn OnCompositionTerminated(
+        &self,
+        _ec: u32,
+        _composition: Ref<'_, ITfComposition>,
+    ) -> Result<()> {
         debug!("OnCompositionTerminated: resetting engine");
         self.this.composition.clear();
         self.this.last_text_len.set(0);
@@ -456,10 +499,18 @@ impl ITfTextInputProcessorEx_Impl for TextService_Impl {
 }
 
 impl ITfThreadMgrEventSink_Impl for TextService_Impl {
-    fn OnInitDocumentMgr(&self, _pdim: Ref<'_, ITfDocumentMgr>) -> Result<()> { Ok(()) }
-    fn OnUninitDocumentMgr(&self, _pdim: Ref<'_, ITfDocumentMgr>) -> Result<()> { Ok(()) }
+    fn OnInitDocumentMgr(&self, _pdim: Ref<'_, ITfDocumentMgr>) -> Result<()> {
+        Ok(())
+    }
+    fn OnUninitDocumentMgr(&self, _pdim: Ref<'_, ITfDocumentMgr>) -> Result<()> {
+        Ok(())
+    }
 
-    fn OnSetFocus(&self, pdimfocus: Ref<'_, ITfDocumentMgr>, pdimprevfocus: Ref<'_, ITfDocumentMgr>) -> Result<()> {
+    fn OnSetFocus(
+        &self,
+        pdimfocus: Ref<'_, ITfDocumentMgr>,
+        pdimprevfocus: Ref<'_, ITfDocumentMgr>,
+    ) -> Result<()> {
         if self.this.key_busy.get() {
             return Ok(());
         }
@@ -467,7 +518,7 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
             debug!("OnSetFocus: focus lost, ending composition");
             // SAFETY: pdimprevfocus is valid when pdimfocus is null per TSF contract
             unsafe {
-                if let Some(prev) = pdimprevfocus.ok().ok() {
+                if let Ok(prev) = pdimprevfocus.ok() {
                     if let Ok(context) = prev.GetBase() {
                         let _ = self.this.end_composition(&context);
                     }
@@ -478,13 +529,21 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
         Ok(())
     }
 
-    fn OnPushContext(&self, _pic: Ref<'_, ITfContext>) -> Result<()> { Ok(()) }
-    fn OnPopContext(&self, _pic: Ref<'_, ITfContext>) -> Result<()> { Ok(()) }
+    fn OnPushContext(&self, _pic: Ref<'_, ITfContext>) -> Result<()> {
+        Ok(())
+    }
+    fn OnPopContext(&self, _pic: Ref<'_, ITfContext>) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl ITfThreadFocusSink_Impl for TextService_Impl {
-    fn OnSetThreadFocus(&self) -> Result<()> { Ok(()) }
-    fn OnKillThreadFocus(&self) -> Result<()> { Ok(()) }
+    fn OnSetThreadFocus(&self) -> Result<()> {
+        Ok(())
+    }
+    fn OnKillThreadFocus(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl ITfActiveLanguageProfileNotifySink_Impl for TextService_Impl {
@@ -499,6 +558,11 @@ impl ITfActiveLanguageProfileNotifySink_Impl for TextService_Impl {
 }
 
 impl ITfCompartmentEventSink_Impl for TextService_Impl {
+    // Signature is fixed by the windows-rs-generated
+    // `ITfCompartmentEventSink_Impl` trait (COM vtable contract) — cannot
+    // be `unsafe fn`. The raw pointer read is scoped to an inner `unsafe`
+    // block below.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
     fn OnChange(&self, rguid: *const GUID) -> Result<()> {
         // SAFETY: rguid is a valid pointer provided by TSF framework
         unsafe {
@@ -509,14 +573,18 @@ impl ITfCompartmentEventSink_Impl for TextService_Impl {
         // Clone ITfThreadMgr out of the RefCell before COM calls so the borrow
         // is released. GetCompartment/GetValue may call back into this sink.
         let tm = self.this.thread_mgr.borrow().as_ref().cloned();
-        let Some(tm) = tm else { return Ok(()); };
+        let Some(tm) = tm else {
+            return Ok(());
+        };
         // SAFETY: tm is the ITfThreadMgr stored during Activate
         unsafe {
             let compartment_mgr: ITfCompartmentMgr = tm.cast()?;
             let openclose = compartment_mgr.GetCompartment(&GUID_COMPARTMENT_KEYBOARD_OPENCLOSE)?;
             let value = openclose.GetValue()?;
             use windows::Win32::System::Variant::VT_I4;
-            if value.Anonymous.Anonymous.vt == VT_I4 && value.Anonymous.Anonymous.Anonymous.lVal == 0 {
+            if value.Anonymous.Anonymous.vt == VT_I4
+                && value.Anonymous.Anonymous.Anonymous.lVal == 0
+            {
                 debug!("ITfCompartmentEventSink: IME disabled, resetting engine");
                 self.this.composition.clear();
                 self.this.vietnamese_engine.borrow_mut().reset();
@@ -548,7 +616,7 @@ fn should_ignore(vkey: u16) -> bool {
         if GetKeyboardState(&mut key_state).is_ok() {
             let ctrl = key_state[VK_CONTROL.0 as usize] & (1 << 7) != 0;
             let alt = key_state[VK_MENU.0 as usize] & (1 << 7) != 0;
-            
+
             // Ignore if Ctrl or Alt is pressed, UNLESS it's a specific hotkey we handle
             if (ctrl || alt) && !is_hotkey(vkey) {
                 return true;
@@ -576,7 +644,6 @@ fn is_buffer_reset_key(vkey: u16) -> bool {
 }
 
 impl ITfKeyEventSink_Impl for TextService_Impl {
-
     fn OnSetFocus(&self, _foreground: BOOL) -> Result<()> {
         debug!("ITfKeyEventSink::OnSetFocus");
         Ok(())
@@ -594,24 +661,26 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         if should_ignore(vkey) {
             return Ok(BOOL(0));
         }
-        
+
         // Inline key handling logic: handle printable keys (a-z, 0-9, space, punctuation)
-        let should_handle = matches!(vkey, 
+        let should_handle = matches!(vkey,
             0x41..=0x5A |  // A-Z
             0x30..=0x39 |  // 0-9
             0x20 |         // Space
             0xBA..=0xC0 |  // OEM punctuation
             0xDB..=0xDF    // More OEM keys
         );
-        
+
         // Also intercept buffer reset keys so we can reset the engine
         let should_intercept = should_handle || is_buffer_reset_key(vkey);
-        
-        debug!("OnTestKeyDown: vkey={:?}, handle={}, intercept={}", vkey, should_handle, should_intercept);
-        
+
+        debug!(
+            "OnTestKeyDown: vkey={:?}, handle={}, intercept={}",
+            vkey, should_handle, should_intercept
+        );
+
         // Return TRUE if we want to handle this key
         Ok(BOOL(should_intercept as i32))
-
     }
 
     fn OnTestKeyUp(
@@ -624,12 +693,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         Ok(BOOL(0))
     }
 
-    fn OnKeyDown(
-        &self,
-        pic: Ref<'_, ITfContext>,
-        wParam: WPARAM,
-        _lParam: LPARAM,
-    ) -> Result<BOOL> {
+    fn OnKeyDown(&self, pic: Ref<'_, ITfContext>, wParam: WPARAM, _lParam: LPARAM) -> Result<BOOL> {
         use buttre_core::types::Action;
 
         let vkey = wParam.0 as u16;
@@ -638,7 +702,10 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
 
         // Early exits before key_busy is set — these keys pass through immediately
         if is_buffer_reset_key(vkey) {
-            debug!("Buffer reset key detected (vkey={}), resetting engine", vkey);
+            debug!(
+                "Buffer reset key detected (vkey={}), resetting engine",
+                vkey
+            );
             if self.this.composition.is_started() {
                 if let Some(context) = (*pic).clone() {
                     // Word-boundary final repair (event-sourcing-completion
@@ -652,7 +719,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                             let r: InterfaceRef<'_, ITfCompositionSink> = self.as_interface_ref();
                             r.to_owned()
                         };
-                        if let Err(e) = self.this.write_text(&context, &repaired, repaired.chars().count(), sink) {
+                        if let Err(e) = self.this.write_text(
+                            &context,
+                            &repaired,
+                            repaired.chars().count(),
+                            sink,
+                        ) {
                             debug!("Failed to write boundary-repair text: {:?}", e);
                         }
                     }
@@ -663,7 +735,7 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
             return Ok(BOOL(0));
         }
         if should_ignore(vkey) {
-           return Ok(BOOL(0));
+            return Ok(BOOL(0));
         }
 
         // Extract context before setting key_busy: if this fails we return early, and since
@@ -680,7 +752,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
 
         // Check modifiers for processing
         let (shift_pressed, ctrl_pressed) = unsafe {
-            use windows::Win32::UI::Input::KeyboardAndMouse::{GetKeyboardState, VK_SHIFT, VK_CONTROL};
+            use windows::Win32::UI::Input::KeyboardAndMouse::{
+                GetKeyboardState, VK_CONTROL, VK_SHIFT,
+            };
             let mut key_state = [0u8; 256];
             if GetKeyboardState(&mut key_state).is_ok() {
                 let shift = key_state[VK_SHIFT.0 as usize] & (1 << 7) != 0;
@@ -690,42 +764,49 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                 (false, false)
             }
         };
-        
+
         // Handle Ctrl+Space to show Nôm candidates
         if ctrl_pressed && vkey == 0x20 {
             debug!("Ctrl+Space pressed - showing Nôm candidates");
-            
+
             // Get current buffer text
             let buffer_text = self.this.vietnamese_engine.borrow().buffer_content();
-            
+
             if !buffer_text.is_empty() {
                 // Generate candidates
-                let candidates = self.this.vietnamese_engine.borrow().generate_candidates(&buffer_text);
-                
+                let candidates = self
+                    .this
+                    .vietnamese_engine
+                    .borrow()
+                    .generate_candidates(&buffer_text);
+
                 if !candidates.is_empty() {
-                    if let Err(e) = self.this.show_candidates(&context, candidates, sink.clone()) {
+                    if let Err(e) = self
+                        .this
+                        .show_candidates(&context, candidates, sink.clone())
+                    {
                         debug!("Failed to show candidates: {:?}", e);
                     }
                     return Ok(BOOL(1)); // Handled
                 }
             }
-            
+
             return Ok(BOOL(0)); // Pass through if no candidates
         }
-        
+
         // Convert vkey to char using ToUnicode
         let ch = unsafe {
             use windows::Win32::UI::Input::KeyboardAndMouse::{
-                ToUnicode, MapVirtualKeyW, MAPVK_VK_TO_VSC, GetKeyboardState
+                GetKeyboardState, MapVirtualKeyW, ToUnicode, MAPVK_VK_TO_VSC,
             };
-            
+
             // Get current keyboard state
             let mut key_state = [0u8; 256];
             if GetKeyboardState(&mut key_state).is_ok() {
                 let mut buff = [0u16; 8];
                 let sc = MapVirtualKeyW(vkey.into(), MAPVK_VK_TO_VSC);
                 let ret = ToUnicode(vkey.into(), sc, Some(&key_state), &mut buff, 0);
-                
+
                 if ret > 0 {
                     // Convert UTF-16 buffer to char
                     // We only care about the first complete char for now
@@ -737,32 +818,40 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                     match vkey {
                         0x08 => Some('\x08'), // Backspace
                         0x0D => Some('\r'),   // Enter
-                        0x20 => Some(' '),    // Space (usually handled by ToUnicode but just in case)
-                        _ => None
+                        0x20 => Some(' '), // Space (usually handled by ToUnicode but just in case)
+                        _ => None,
                     }
                 }
             } else {
                 None
             }
         };
-        
+
         if let Some(ch) = ch {
             // Handle backspace specially
             if ch == '\x08' {
                 let action = self.this.vietnamese_engine.borrow_mut().process_backspace();
-                
+
                 match action {
-                    Action::Replace { backspace_count, text } => {
+                    Action::Replace {
+                        backspace_count,
+                        text,
+                    } => {
                         debug!("Backspace: backspace={}, text={}", backspace_count, text);
 
-                        if let Err(e) = self.this.write_text(&context, &text, text.chars().count(), sink.clone()) {
+                        if let Err(e) = self.this.write_text(
+                            &context,
+                            &text,
+                            text.chars().count(),
+                            sink.clone(),
+                        ) {
                             debug!("Failed to write text: {:?}", e);
                             return Ok(BOOL(0));
                         }
-                        
+
                         Ok(BOOL(1))
                     }
-                    _ => Ok(BOOL(0))
+                    _ => Ok(BOOL(0)),
                 }
             }
             // Handle space/enter - finalize composition
@@ -778,7 +867,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                     // Probe BEFORE end_composition/reset and fold the
                     // correction into the composition text if it differs.
                     if let Some(repaired) = self.this.vietnamese_engine.borrow().boundary_repair() {
-                        if let Err(e) = self.this.write_text(&context, &repaired, repaired.chars().count(), sink.clone()) {
+                        if let Err(e) = self.this.write_text(
+                            &context,
+                            &repaired,
+                            repaired.chars().count(),
+                            sink.clone(),
+                        ) {
                             debug!("Failed to write boundary-repair text: {:?}", e);
                         }
                     }
@@ -794,12 +888,23 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                 debug!("Processing normal key: '{}'", ch);
                 let action = self.this.vietnamese_engine.borrow_mut().process_key(ch);
                 debug!("Engine returned action: {:?}", action);
-                
+
                 match action {
-                    Action::Replace { backspace_count, text } => {
-                        debug!("Vietnamese engine: backspace={}, text={}", backspace_count, text);
-                        
-                        if let Err(e) = self.this.write_text(&context, &text, text.chars().count(), sink.clone()) {
+                    Action::Replace {
+                        backspace_count,
+                        text,
+                    } => {
+                        debug!(
+                            "Vietnamese engine: backspace={}, text={}",
+                            backspace_count, text
+                        );
+
+                        if let Err(e) = self.this.write_text(
+                            &context,
+                            &text,
+                            text.chars().count(),
+                            sink.clone(),
+                        ) {
                             debug!("Failed to write text: {:?}", e);
                             return Ok(BOOL(0));
                         }
@@ -807,8 +912,9 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                         Ok(BOOL(1)) // Handled
                     }
                     Action::UpdateComposition { text, cursor } => {
-                       debug!("UpdateComposition: text={}, cursor={}", text, cursor);
-                        if let Err(e) = self.this.write_text(&context, &text, cursor, sink.clone()) {
+                        debug!("UpdateComposition: text={}, cursor={}", text, cursor);
+                        if let Err(e) = self.this.write_text(&context, &text, cursor, sink.clone())
+                        {
                             debug!("Failed to update composition: {:?}", e);
                             return Ok(BOOL(0));
                         }
@@ -816,30 +922,40 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                     }
                     Action::ConfirmComposition(text) => {
                         debug!("ConfirmComposition: text={}", text);
-                        if let Err(e) = self.this.write_text(&context, &text, text.chars().count(), sink.clone()) {
+                        if let Err(e) = self.this.write_text(
+                            &context,
+                            &text,
+                            text.chars().count(),
+                            sink.clone(),
+                        ) {
                             debug!("Failed to write final text: {:?}", e);
                         }
                         if let Err(e) = self.this.end_composition(&context) {
-                             debug!("Failed to end composition: {:?}", e);
+                            debug!("Failed to end composition: {:?}", e);
                         }
-                        
+
                         // Reset engine
                         self.this.vietnamese_engine.borrow_mut().reset();
-                        
+
                         Ok(BOOL(1))
                     }
                     Action::Commit(text) => {
-                         debug!("Commit: text={}", text);
-                         if let Err(e) = self.this.write_text(&context, &text, text.chars().count(), sink.clone()) {
+                        debug!("Commit: text={}", text);
+                        if let Err(e) = self.this.write_text(
+                            &context,
+                            &text,
+                            text.chars().count(),
+                            sink.clone(),
+                        ) {
                             debug!("Failed to write text: {:?}", e);
-                         }
-                         if self.this.composition.is_started() {
-                             if let Err(e) = self.this.end_composition(&context) {
+                        }
+                        if self.this.composition.is_started() {
+                            if let Err(e) = self.this.end_composition(&context) {
                                 debug!("Failed to end composition: {:?}", e);
-                             }
-                         }
-                         self.this.vietnamese_engine.borrow_mut().reset();
-                         Ok(BOOL(1))
+                            }
+                        }
+                        self.this.vietnamese_engine.borrow_mut().reset();
+                        Ok(BOOL(1))
                     }
                     Action::DoNothing => {
                         // If engine says DoNothing, but we are inside a composition,
@@ -847,18 +963,18 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
                         // Or just pass the key and let TSF/App handle it.
                         // However, if we are in composition, passing the key might insert it *inside* the composition
                         // or corrupt state if the app doesn't know about composition.
-                        
+
                         if self.this.composition.is_started() {
                             // If we have an active composition and get a character that doesn't affect it (e.g. strange symbol),
                             // we probably want to commit the composition first.
                             // But usually buttre-core returns Commit or Confirm in that case.
                             // If it returns DoNothing, it ignores it.
-                            
+
                             debug!("Engine returned DoNothing inside composition - passing through key '{}'", ch);
                         } else {
                             debug!("Engine returned DoNothing - passing through key '{}'", ch);
                         }
-                        
+
                         Ok(BOOL(0))
                     }
                     // TODO: Implement candidate UI for TSF mode
@@ -878,21 +994,12 @@ impl ITfKeyEventSink_Impl for TextService_Impl {
         }
     }
 
-    fn OnKeyUp(
-        &self,
-        _pic: Ref<'_, ITfContext>,
-        _wParam: WPARAM,
-        _lParam: LPARAM,
-    ) -> Result<BOOL> {
+    fn OnKeyUp(&self, _pic: Ref<'_, ITfContext>, _wParam: WPARAM, _lParam: LPARAM) -> Result<BOOL> {
         self.this.key_busy.set(false);
         Ok(BOOL(0))
     }
 
-    fn OnPreservedKey(
-        &self,
-        _pic: Ref<'_, ITfContext>,
-        _rguid: *const GUID,
-    ) -> Result<BOOL> {
+    fn OnPreservedKey(&self, _pic: Ref<'_, ITfContext>, _rguid: *const GUID) -> Result<BOOL> {
         Ok(BOOL(0))
     }
 }

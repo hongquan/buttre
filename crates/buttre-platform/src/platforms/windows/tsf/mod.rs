@@ -39,20 +39,20 @@
 
 #![cfg(windows)]
 #![allow(non_snake_case)]
-#![allow(unused)]  // Suppress warnings for development code
+#![allow(unused)] // Suppress warnings for development code
 
-use windows::core::{GUID, IUnknown, Interface, HRESULT, BOOL, ComObjectInner};
-use windows::Win32::Foundation::{S_OK, S_FALSE, E_FAIL};
 use anyhow::Result;
+use windows::core::{ComObjectInner, IUnknown, Interface, BOOL, GUID, HRESULT};
+use windows::Win32::Foundation::{E_FAIL, S_FALSE, S_OK};
 // use windows::Win32::System::Com::*;
 
 pub mod com;
-pub mod factory;  // Public for COM exports
+pub mod factory; // Public for COM exports
 pub mod ipc;
 // Note: key_event_sink is integrated into text_service module
 mod lang_check;
 pub mod logging;
-pub mod registration;  // Public for COM exports
+pub mod registration; // Public for COM exports
 mod text_ops;
 pub mod text_service;
 
@@ -60,8 +60,8 @@ use factory::ClassFactory;
 use logging::log_debug;
 pub use registration::{get_dll_path, register_server, unregister_server};
 
-use std::sync::{Arc, Mutex, RwLock};
 use buttre_core::Keyboard;
+use std::sync::{Arc, Mutex, RwLock};
 
 /// Windows TSF Backend
 pub struct TsfBackend {
@@ -74,17 +74,17 @@ impl TsfBackend {
         if !registration::is_tsf_registered() {
             anyhow::bail!("TSF service not registered");
         }
-        
+
         // Check 2: Ensure we can get DLL path (sanity check)
         get_dll_path()?;
-        
+
         // Check 3: Verify Vietnamese language is installed in Windows
         // TSF only works if the user has added Vietnamese to their language list
         // If not installed, we should fallback to Hook backend
         if !lang_check::is_vietnamese_language_installed() {
             anyhow::bail!("Vietnamese language not installed in Windows. TSF requires Vietnamese language to be added in Settings > Language & Region.");
         }
-        
+
         Ok(Self { _keyboard: None })
     }
 
@@ -119,16 +119,22 @@ pub const CLSID_BUTTRE_TEXT_SERVICE: GUID = GUID::from_u128(0xE6B8A6C0_1234_5678
 /// DllGetClassObject - Returns class factory for creating TSF instances
 /// Called by Windows COM runtime when an application needs to create our TSF service
 /// DO NOT REMOVE - Required for COM registration
+///
+/// # Safety
+///
+/// Called only by the Windows COM runtime via `GetProcAddress`/`LoadLibrary`
+/// (never from Rust code — see `buttre_platform.def`). `riid` and `ppv` must
+/// be valid pointers for the duration of the call, which the COM runtime
+/// guarantees; both are checked and dereferenced only inside the `unsafe`
+/// block below.
 #[no_mangle]
-pub extern "system" fn DllGetClassObject(
+pub unsafe extern "system" fn DllGetClassObject(
     _rclsid: *const GUID,
     riid: *const GUID,
     ppv: *mut *mut core::ffi::c_void,
 ) -> HRESULT {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let factory: IUnknown = ClassFactory::new()
-            .into_object()
-            .into_interface();
+        let factory: IUnknown = ClassFactory::new().into_object().into_interface();
         // SAFETY:
         // 1. factory is a valid IUnknown COM interface created above
         // 2. riid points to valid GUID provided by COM runtime
@@ -146,9 +152,7 @@ pub extern "system" fn DllGetClassObject(
 #[no_mangle]
 pub extern "system" fn DllCanUnloadNow() -> HRESULT {
     // Trivial atomic load — panic is implausible, but keep the FFI rule consistent.
-    let result = std::panic::catch_unwind(|| {
-        if com::dll_can_unload() { S_OK } else { S_FALSE }
-    });
+    let result = std::panic::catch_unwind(|| if com::dll_can_unload() { S_OK } else { S_FALSE });
     result.unwrap_or(S_FALSE) // On panic: claim "in use" to avoid use-after-free
 }
 
@@ -205,4 +209,3 @@ pub extern "system" fn DllUnregisterServer() -> HRESULT {
     }));
     result.unwrap_or(E_FAIL)
 }
-

@@ -4,6 +4,10 @@ version = "0.7.6-beta"
 edition = "2021"
 description = "Buttre Platform (UI + Backends)"
 license = "GPL-3.0-only"
+# Internal workspace crate — never published to crates.io. Also lets
+# cargo-deny's [licenses.private] exempt this GPL-3.0-only crate from the
+# third-party license allow-list check (see root deny.toml).
+publish = false
 
 # Platform crate inherits workspace lints
 # Note: unsafe_code is allowed via #![allow(unsafe_code)] in lib.rs for FFI

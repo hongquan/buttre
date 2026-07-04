@@ -16,23 +16,25 @@
 //! ## Backend calls buttre-keyboard DIRECTLY (NOT via buttre-core::Engine)
 
 use anyhow::Result;
+use buttre_core::hotkey::{ButtreHotkeyManager, HotkeyAction};
+use buttre_core::keyboard::BackspaceMode;
 use buttre_core::state::learning::{LearningFile, LearningStore};
 use buttre_core::state::{Settings, StateObserver};
-use buttre_platform::shared::{KeyboardManager, MethodRegistry, pipe_server};
-use buttre_platform::shared::ui::{build_menu, create_tray_icon, show_help_dialog, MenuItems, helpers};
-use buttre_platform::shared::observers::{UIObserver, MainUICallback, UIEvent, KeyboardObserver};
-use log::{info, error, warn};
-use std::sync::{Arc, Mutex, RwLock};
 use buttre_core::AppState;
 use buttre_core::Keyboard;
-use buttre_core::keyboard::BackspaceMode;
-use buttre_core::hotkey::{ButtreHotkeyManager, HotkeyAction};
-use buttre_platform::{Backend, PlatformBackend, platform_name};
+use buttre_platform::shared::observers::{KeyboardObserver, MainUICallback, UIEvent, UIObserver};
+use buttre_platform::shared::ui::{
+    build_menu, create_tray_icon, helpers, show_help_dialog, MenuItems,
+};
+use buttre_platform::shared::{pipe_server, KeyboardManager, MethodRegistry};
+use buttre_platform::{platform_name, Backend, PlatformBackend};
+use log::{error, info, warn};
+use std::sync::mpsc;
+use std::sync::{Arc, Mutex, RwLock};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::{ControlFlow, EventLoop},
 };
-use std::sync::mpsc;
 
 /// Apply the backspace-deletion mode to whatever `Keyboard` is currently
 /// loaded (event-sourcing-completion Phase 4). A no-op in English mode
@@ -116,7 +118,10 @@ fn main() -> Result<()> {
     // Initialize Method Registry
     info!("Initializing method registry...");
     let method_registry = MethodRegistry::new();
-    info!("Registered {} input methods", method_registry.get_all().len());
+    info!(
+        "Registered {} input methods",
+        method_registry.get_all().len()
+    );
     for method in method_registry.get_all() {
         info!("  - {} ({})", method.name, method.id);
     }
@@ -127,17 +132,41 @@ fn main() -> Result<()> {
 
     // Load available input methods (built-in + custom)
     use buttre_core::vietnamese::config_loader::{ConfigLoader, MethodMetadata};
-    
+
     // ConfigLoader manual fallback to built-ins if failure
     let all_methods = ConfigLoader::list_methods_with_metadata().unwrap_or_else(|e| {
         error!("Failed to list methods: {:?}", e);
         vec![
-            MethodMetadata { id: "telex".to_string(), name: "Telex".to_string(), description: "Built-in Telex".to_string(), version: "1.0.0".to_string(), author: "buttre".to_string(), icon: None, is_builtin: true },
-            MethodMetadata { id: "vni".to_string(), name: "VNI".to_string(), description: "Built-in VNI".to_string(), version: "1.0.0".to_string(), author: "buttre".to_string(), icon: None, is_builtin: true },
-            MethodMetadata { id: "nom".to_string(), name: "Chữ Nôm".to_string(), description: "Built-in Nôm".to_string(), version: "1.0.0".to_string(), author: "buttre".to_string(), icon: None, is_builtin: true },
+            MethodMetadata {
+                id: "telex".to_string(),
+                name: "Telex".to_string(),
+                description: "Built-in Telex".to_string(),
+                version: "1.0.0".to_string(),
+                author: "buttre".to_string(),
+                icon: None,
+                is_builtin: true,
+            },
+            MethodMetadata {
+                id: "vni".to_string(),
+                name: "VNI".to_string(),
+                description: "Built-in VNI".to_string(),
+                version: "1.0.0".to_string(),
+                author: "buttre".to_string(),
+                icon: None,
+                is_builtin: true,
+            },
+            MethodMetadata {
+                id: "nom".to_string(),
+                name: "Chữ Nôm".to_string(),
+                description: "Built-in Nôm".to_string(),
+                version: "1.0.0".to_string(),
+                author: "buttre".to_string(),
+                icon: None,
+                is_builtin: true,
+            },
         ]
     });
-    
+
     // Validate input method (fallback to English if method not found)
     let is_valid_method = match settings.input_method.as_str() {
         "english" => true,
@@ -166,7 +195,7 @@ fn main() -> Result<()> {
     // --- Menu Setup ---
     // Build menu from registry
     let (menu, menu_items) = build_menu(&settings, &method_registry);
-    
+
     // Extract menu items for event handling
     let MenuItems {
         english_item,
@@ -225,7 +254,7 @@ fn main() -> Result<()> {
     // --- Platform Backend Setup ---
     let mut backend = Backend::new()?;
     backend.init(keyboard.clone())?;
-    
+
     // ============================================================================
     // ARCHITECTURE NOTE: backend.set_enabled() is NOT needed anymore!
     // ============================================================================
@@ -245,7 +274,7 @@ fn main() -> Result<()> {
     // The line below is commented out for documentation:
     // backend.set_enabled(settings.input_method != "english");  // ← NOT NEEDED!
     // ============================================================================
-    
+
     let backend = Arc::new(backend);
     info!("Platform backend initialized: {}", platform_name());
 
@@ -258,23 +287,22 @@ fn main() -> Result<()> {
     });
 
     // --- Hotkey Setup ---
-    let mut hotkey_manager = ButtreHotkeyManager::new()
-        .expect("Failed to create hotkey manager");
-    
+    let mut hotkey_manager = ButtreHotkeyManager::new().expect("Failed to create hotkey manager");
+
     // Register custom hotkeys (Ctrl+Shift+4..0) based on menu items count
     if let Err(e) = hotkey_manager.register_custom_methods(custom_items.len()) {
         tracing::error!("Failed to register custom hotkeys: {:?}", e);
     }
-    
+
     info!("Hotkey manager initialized");
 
     // --- AppState Setup with Observers ---
     let app_state = Arc::new(Mutex::new(AppState::with_settings(settings.clone())));
-    
+
     // Register observers
     let ui_rx = {
         let mut state = app_state.lock().unwrap();
-        
+
         // Keyboard observer - updates keyboard when method changes
         let kb_manager = keyboard_manager;
         state.add_observer(Arc::new(KeyboardObserver::new(kb_manager)));
@@ -289,14 +317,14 @@ fn main() -> Result<()> {
 
         // Backend observer - updates Platform backend mode
         state.add_observer(backend.clone());
-        
+
         // Create UI event channel
         let (ui_tx, ui_rx) = mpsc::channel();
-        
+
         // UI observer - updates tray icon and menu via proxy
         let ui_callback = Arc::new(MainUICallback::new(ui_tx));
         state.add_observer(Arc::new(UIObserver::new(ui_callback)));
-        
+
         info!("Registered 3 observers");
         ui_rx // Pass receiver to outer scope
     };
@@ -385,7 +413,9 @@ fn main() -> Result<()> {
                         HotkeyAction::Custom(index) => {
                             if let Some((method_data, _)) = custom_items.get(index) {
                                 // Direct .id access
-                                if let Err(e) = app_state.lock().unwrap().set_method(&method_data.id) {
+                                if let Err(e) =
+                                    app_state.lock().unwrap().set_method(&method_data.id)
+                                {
                                     error!("Failed to set method: {:?}", e);
                                 }
                             }
@@ -396,25 +426,20 @@ fn main() -> Result<()> {
                         }
                     }
                 }
-                
+
                 // Menu events
                 if let Ok(event) = menu_channel.try_recv() {
                     if event.id == thoat_item.id() {
                         elwt.exit();
-                    }
-                    else if event.id == nom_item.id() {
+                    } else if event.id == nom_item.id() {
                         let _ = app_state.lock().unwrap().set_method("nom");
-                    }
-                    else if event.id == english_item.id() {
+                    } else if event.id == english_item.id() {
                         let _ = app_state.lock().unwrap().set_method("english");
-                    }
-                    else if event.id == telex_item.id() {
+                    } else if event.id == telex_item.id() {
                         let _ = app_state.lock().unwrap().set_method("telex");
-                    }
-                    else if event.id == vni_item.id() {
+                    } else if event.id == vni_item.id() {
                         let _ = app_state.lock().unwrap().set_method("vni");
-                    }
-                    else {
+                    } else {
                         let mut handled = false;
                         for (method_data, item) in &custom_items {
                             if event.id == item.id() {
@@ -465,9 +490,13 @@ mod tests {
         tx.send(sample_file(2)).unwrap();
         tx.send(sample_file(3)).unwrap();
 
-        let latest = drain_latest_learning_save(&rx).expect("must return the latest queued snapshot");
+        let latest =
+            drain_latest_learning_save(&rx).expect("must return the latest queued snapshot");
         assert!(latest.user_attested.contains_key("marker3"));
-        assert!(!latest.user_attested.contains_key("marker1"), "intermediate snapshots must not linger");
+        assert!(
+            !latest.user_attested.contains_key("marker1"),
+            "intermediate snapshots must not linger"
+        );
 
         // The channel must be fully drained — a second poll finds nothing.
         assert!(drain_latest_learning_save(&rx).is_none());
@@ -478,7 +507,13 @@ mod tests {
         let (tx, rx) = mpsc::channel::<LearningFile>();
         tx.send(sample_file(1)).unwrap();
         drop(tx);
-        assert!(drain_latest_learning_save(&rx).is_some(), "a queued item must still be returned even after the sender disconnects");
-        assert!(drain_latest_learning_save(&rx).is_none(), "a disconnected, empty channel must be treated as \"nothing new\", not an error");
+        assert!(
+            drain_latest_learning_save(&rx).is_some(),
+            "a queued item must still be returned even after the sender disconnects"
+        );
+        assert!(
+            drain_latest_learning_save(&rx).is_none(),
+            "a disconnected, empty channel must be treated as \"nothing new\", not an error"
+        );
     }
 }

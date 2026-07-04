@@ -8,32 +8,33 @@
 use std::cell::{Cell, RefCell};
 use windows::core::*;
 use windows::Win32::Foundation::*;
+use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::UI::TextServices::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
-use windows::Win32::Graphics::Gdi::*;
 
 /// Candidate UI Element for Nôm characters
 #[implement(ITfUIElement, ITfCandidateListUIElement)]
 pub struct NomCandidateUI {
     /// List of candidates to display
     candidates: Vec<CandidateItem>,
-    
+
     /// Currently selected index - uses Cell for interior mutability
     selected_index: Cell<usize>,
-    
+
     /// Page size (how many candidates to show at once)
     page_size: usize,
-    
+
     /// Current page index - uses Cell for interior mutability
     current_page: Cell<usize>,
-    
+
     /// Window handle (for Win32 window) - uses RefCell for interior mutability
     hwnd: RefCell<Option<HWND>>,
-    
+
     /// Visibility state - uses Cell for interior mutability
     is_shown: Cell<bool>,
-    
+
     /// Callback for when a candidate is selected (character, reading)
+    #[allow(clippy::type_complexity)]
     on_select: RefCell<Option<Box<dyn Fn(char, &str)>>>,
 }
 
@@ -42,13 +43,13 @@ pub struct NomCandidateUI {
 pub struct CandidateItem {
     /// The Nôm character
     pub character: char,
-    
+
     /// Phonetic reading (for display)
     pub reading: String,
-    
+
     /// Meaning/definition (optional)
     pub meaning: Option<String>,
-    
+
     /// Frequency/rank (for sorting)
     pub frequency: u32,
 }
@@ -74,43 +75,45 @@ impl NomCandidateUI {
             on_select: RefCell::new(None),
         }
     }
-    
+
     /// Get current page of candidates
     pub fn current_page_candidates(&self) -> &[CandidateItem] {
         let start = self.current_page.get() * self.page_size;
         let end = (start + self.page_size).min(self.candidates.len());
         &self.candidates[start..end]
     }
-    
+
     /// Get total number of pages
     pub fn page_count(&self) -> usize {
         self.candidates.len().div_ceil(self.page_size)
     }
-    
+
     /// Move to next page
     pub fn next_page(&self) -> bool {
         let current = self.current_page.get();
         if current + 1 < self.page_count() {
             self.current_page.set(current + 1);
-            self.selected_index.set(self.current_page.get() * self.page_size);
+            self.selected_index
+                .set(self.current_page.get() * self.page_size);
             true
         } else {
             false
         }
     }
-    
+
     /// Move to previous page
     pub fn prev_page(&self) -> bool {
         let current = self.current_page.get();
         if current > 0 {
             self.current_page.set(current - 1);
-            self.selected_index.set(self.current_page.get() * self.page_size);
+            self.selected_index
+                .set(self.current_page.get() * self.page_size);
             true
         } else {
             false
         }
     }
-    
+
     /// Select candidate by index (0-8 for current page)
     pub fn select(&self, page_index: usize) -> Option<&CandidateItem> {
         let global_index = self.current_page.get() * self.page_size + page_index;
@@ -121,12 +124,12 @@ impl NomCandidateUI {
             None
         }
     }
-    
+
     /// Get selected candidate
     pub fn selected(&self) -> Option<&CandidateItem> {
         self.candidates.get(self.selected_index.get())
     }
-    
+
     /// Set callback for when a candidate is selected
     pub fn set_on_select<F>(&self, callback: F)
     where
@@ -134,14 +137,14 @@ impl NomCandidateUI {
     {
         *self.on_select.borrow_mut() = Some(Box::new(callback));
     }
-    
+
     /// Trigger selection callback
     fn trigger_selection(&self, candidate: &CandidateItem) {
         if let Some(ref callback) = *self.on_select.borrow() {
             callback(candidate.character, &candidate.reading);
         }
     }
-    
+
     /// Create and show candidate window
     pub fn create_window(&self, x: i32, y: i32) -> Result<()> {
         // SAFETY:
@@ -156,7 +159,7 @@ impl NomCandidateUI {
             // Register window class (one-time)
             use std::sync::Once;
             static REGISTER: Once = Once::new();
-            
+
             REGISTER.call_once(|| {
                 let wc = WNDCLASSW {
                     lpfnWndProc: Some(window_proc),
@@ -167,36 +170,39 @@ impl NomCandidateUI {
                 };
                 let _ = RegisterClassW(&wc);
             });
-            
+
             // Create window
             let hwnd = CreateWindowExW(
                 WS_EX_TOPMOST | WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW,
                 w!("buttreNomCandidate"),
                 w!(""),
                 WS_POPUP | WS_BORDER,
-                x, y, 400, 250,  // Position and size
+                x,
+                y,
+                400,
+                250, // Position and size
                 None,
                 None,
                 None,
                 None,
             )?;
-            
+
             // Store window handle
             *self.hwnd.borrow_mut() = Some(hwnd);
-            
+
             // Store pointer to self in window user data for window procedure access
             let ui_ptr = self as *const NomCandidateUI as isize;
             SetWindowLongPtrW(hwnd, GWLP_USERDATA, ui_ptr);
-            
+
             // Show window
             let _ = ShowWindow(hwnd, SW_SHOW);
             let _ = UpdateWindow(hwnd);
             self.is_shown.set(true);
-            
+
             Ok(())
         }
     }
-    
+
     /// Hide and destroy window
     pub fn destroy_window(&self) -> Result<()> {
         if let Some(hwnd) = *self.hwnd.borrow() {
@@ -239,7 +245,7 @@ impl ITfUIElement_Impl for NomCandidateUI_Impl {
     fn Show(&self, bshow: BOOL) -> Result<()> {
         // Update visibility state using Cell
         self.is_shown.set(bshow.as_bool());
-        
+
         // If we have a window handle, show/hide it
         if let Some(hwnd) = *self.hwnd.borrow() {
             // SAFETY:
@@ -247,11 +253,11 @@ impl ITfUIElement_Impl for NomCandidateUI_Impl {
             // 2. ShowWindow is a standard Win32 API - safe to call
             // 3. SW_SHOW and SW_HIDE are valid window show commands
             unsafe {
-                use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_SHOW, SW_HIDE};
+                use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE, SW_SHOW};
                 let _ = ShowWindow(hwnd, if bshow.as_bool() { SW_SHOW } else { SW_HIDE });
             }
         }
-        
+
         Ok(())
     }
 
@@ -282,34 +288,35 @@ impl ITfCandidateListUIElement_Impl for NomCandidateUI_Impl {
     }
 
     fn GetString(&self, index: u32) -> Result<BSTR> {
-        let candidate = self.candidates.get(index as usize)
-            .ok_or(E_INVALIDARG)?;
-        
+        let candidate = self.candidates.get(index as usize).ok_or(E_INVALIDARG)?;
+
         // Format: "1. 𡦂 (người) - person"
         let display = if let Some(ref meaning) = candidate.meaning {
-            format!("{}. {} ({}) - {}", 
+            format!(
+                "{}. {} ({}) - {}",
                 (index % self.page_size as u32) + 1,
                 candidate.character,
                 candidate.reading,
                 meaning
             )
         } else {
-            format!("{}. {} ({})", 
+            format!(
+                "{}. {} ({})",
                 (index % self.page_size as u32) + 1,
                 candidate.character,
                 candidate.reading
             )
         };
-        
+
         Ok(BSTR::from(display))
     }
 
-    fn GetPageIndex(
-        &self,
-        _pindex: *mut u32,
-        _usize: u32,
-        _pupagecnt: *mut u32,
-    ) -> Result<()> {
+    // Signature is fixed by the windows-rs-generated
+    // `ITfCandidateListUIElement_Impl` trait (COM vtable contract) — cannot
+    // be `unsafe fn`. Raw pointer writes are scoped to an inner `unsafe`
+    // block below.
+    #[allow(clippy::not_unsafe_ptr_arg_deref)]
+    fn GetPageIndex(&self, _pindex: *mut u32, _usize: u32, _pupagecnt: *mut u32) -> Result<()> {
         // SAFETY:
         // 1. _pindex and _pupagecnt pointers are provided by COM caller
         // 2. We check for null before dereferencing
@@ -326,11 +333,7 @@ impl ITfCandidateListUIElement_Impl for NomCandidateUI_Impl {
         Ok(())
     }
 
-    fn SetPageIndex(
-        &self,
-        _pindex: *const u32,
-        _upagecnt: u32,
-    ) -> Result<()> {
+    fn SetPageIndex(&self, _pindex: *const u32, _upagecnt: u32) -> Result<()> {
         // TODO: Implement page navigation
         Ok(())
     }
@@ -366,99 +369,94 @@ unsafe extern "system" fn window_proc(
     }
 }
 
-unsafe fn window_proc_inner(
-    hwnd: HWND,
-    msg: u32,
-    wparam: WPARAM,
-    lparam: LPARAM,
-) -> LRESULT {
+unsafe fn window_proc_inner(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     match msg {
         WM_PAINT => {
             let mut ps = PAINTSTRUCT::default();
             // SAFETY: BeginPaint is safe because hwnd is valid from CreateWindowExW
             let hdc = unsafe { BeginPaint(hwnd, &mut ps) };
-            
+
             // Get UI pointer from window user data
             // SAFETY: GetWindowLongPtrW is safe because hwnd is valid
             let ui_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) };
-            
+
             if ui_ptr != 0 {
                 // SAFETY: ui_ptr was stored in GWLP_USERDATA by create_window, valid during window lifetime
                 let ui = unsafe { &*(ui_ptr as *const NomCandidateUI) };
-                
+
                 // Use system default GUI font
                 // SAFETY: GetStockObject is safe with DEFAULT_GUI_FONT constant
                 let stock_font = unsafe { GetStockObject(DEFAULT_GUI_FONT) };
                 // SAFETY: SelectObject is safe with valid hdc and stock object
                 let old_font = unsafe { SelectObject(hdc, stock_font) };
-                
+
                 // Draw background
-                let rect = RECT { left: 0, top: 0, right: 400, bottom: 250 };
+                let rect = RECT {
+                    left: 0,
+                    top: 0,
+                    right: 400,
+                    bottom: 250,
+                };
                 // SAFETY: FillRect is safe with valid hdc, rect reference, and brush handle
                 unsafe { FillRect(hdc, &rect, HBRUSH((COLOR_WINDOW.0 + 1) as isize as *mut _)) };
-                
+
                 // Draw candidates
                 let candidates = ui.current_page_candidates();
                 let mut y = 10;
-                
+
                 for (i, candidate) in candidates.iter().enumerate() {
                     // Highlight selected
                     let global_index = ui.current_page.get() * ui.page_size + i;
                     if global_index == ui.selected_index.get() {
                         // SAFETY: SetBkColor is safe with valid hdc and color value
-                        unsafe { SetBkColor(hdc, COLORREF(0x00FFE4B5)) };  // Light orange
-                        // SAFETY: SetTextColor is safe with valid hdc and color value
+                        unsafe { SetBkColor(hdc, COLORREF(0x00FFE4B5)) }; // Light orange
+                                                                          // SAFETY: SetTextColor is safe with valid hdc and color value
                         unsafe { SetTextColor(hdc, COLORREF(0x00000000)) }; // Black
                     } else {
                         // SAFETY: SetBkColor is safe with valid hdc and color value
-                        unsafe { SetBkColor(hdc, COLORREF(0x00FFFFFF)) };  // White
-                        // SAFETY: SetTextColor is safe with valid hdc and color value
+                        unsafe { SetBkColor(hdc, COLORREF(0x00FFFFFF)) }; // White
+                                                                          // SAFETY: SetTextColor is safe with valid hdc and color value
                         unsafe { SetTextColor(hdc, COLORREF(0x00000000)) }; // Black
                     }
-                    
+
                     // Format text: "1. 𠊛 (người) - person"
                     let text = if let Some(ref meaning) = candidate.meaning {
-                        format!("{}. {} ({}) - {}", 
-                            i + 1, 
-                            candidate.character, 
+                        format!(
+                            "{}. {} ({}) - {}",
+                            i + 1,
+                            candidate.character,
                             candidate.reading,
                             meaning
                         )
                     } else {
-                        format!("{}. {} ({})", 
-                            i + 1, 
-                            candidate.character, 
-                            candidate.reading
-                        )
+                        format!("{}. {} ({})", i + 1, candidate.character, candidate.reading)
                     };
-                    
+
                     // Draw text
                     let text_utf16: Vec<u16> = text.encode_utf16().collect();
                     // SAFETY: TextOutW is safe with valid hdc, coordinates, and UTF-16 text buffer
                     let _ = unsafe { TextOutW(hdc, 10, y, &text_utf16) };
-                    
+
                     y += 25;
                 }
-                
+
                 // Draw page info at bottom
                 if ui.page_count() > 1 {
-                    let page_info = format!("Trang {} / {}", 
-                        ui.current_page.get() + 1, 
-                        ui.page_count()
-                    );
+                    let page_info =
+                        format!("Trang {} / {}", ui.current_page.get() + 1, ui.page_count());
                     let page_utf16: Vec<u16> = page_info.encode_utf16().collect();
                     // SAFETY: SetTextColor is safe with valid hdc and color value
                     unsafe { SetTextColor(hdc, COLORREF(0x00808080)) }; // Gray
-                    // SAFETY: TextOutW is safe with valid hdc, coordinates, and UTF-16 text buffer
+                                                                        // SAFETY: TextOutW is safe with valid hdc, coordinates, and UTF-16 text buffer
                     let _ = unsafe { TextOutW(hdc, 10, 220, &page_utf16) };
                 }
-                
+
                 // Cleanup
                 // SAFETY: SelectObject is safe with valid hdc and previous font object
                 unsafe { SelectObject(hdc, old_font) };
                 // No DeleteObject needed for stock objects
             }
-            
+
             // SAFETY: EndPaint is safe and must be called after BeginPaint
             let _ = unsafe { EndPaint(hwnd, &ps) };
             LRESULT(0)
@@ -467,49 +465,51 @@ unsafe fn window_proc_inner(
             let vk = wparam.0 as u32;
             // SAFETY: GetWindowLongPtrW is safe because hwnd is valid
             let ui_ptr = unsafe { GetWindowLongPtrW(hwnd, GWLP_USERDATA) };
-            
+
             if ui_ptr != 0 {
                 // SAFETY: ui_ptr was stored in GWLP_USERDATA by create_window, valid during window lifetime
                 let ui = unsafe { &*(ui_ptr as *const NomCandidateUI) };
-                
+
                 match vk {
                     // Number keys 1-9 for selection
-                    0x31..=0x39 => {  // VK_1 to VK_9
+                    0x31..=0x39 => {
+                        // VK_1 to VK_9
                         let index = (vk - 0x31) as usize;
                         if let Some(candidate) = ui.select(index) {
                             // Trigger callback to insert character
                             ui.trigger_selection(candidate);
-                            
+
                             // Close the window
                             // SAFETY: DestroyWindow is safe because hwnd is valid
                             let _ = unsafe { DestroyWindow(hwnd) };
                         }
                     }
-                    0x22 => {  // VK_NEXT (PageDown)
+                    0x22 => {
+                        // VK_NEXT (PageDown)
                         if ui.next_page() {
                             // SAFETY: InvalidateRect is safe with valid hwnd
                             let _ = unsafe { InvalidateRect(Some(hwnd), None, true) };
                         }
                     }
-                    0x21 => {  // VK_PRIOR (PageUp)
+                    0x21 => {
+                        // VK_PRIOR (PageUp)
                         if ui.prev_page() {
                             // SAFETY: InvalidateRect is safe with valid hwnd
                             let _ = unsafe { InvalidateRect(Some(hwnd), None, true) };
                         }
                     }
-                    0x1B => {  // VK_ESCAPE
+                    0x1B => {
+                        // VK_ESCAPE
                         // SAFETY: DestroyWindow is safe because hwnd is valid
                         let _ = unsafe { DestroyWindow(hwnd) };
                     }
                     _ => {}
                 }
             }
-            
+
             LRESULT(0)
         }
-        WM_DESTROY => {
-            LRESULT(0)
-        }
+        WM_DESTROY => LRESULT(0),
         WM_NCDESTROY => {
             // Zero GWLP_USERDATA so any late-arriving messages see a null pointer.
             unsafe { SetWindowLongPtrW(hwnd, GWLP_USERDATA, 0) };
@@ -518,7 +518,6 @@ unsafe fn window_proc_inner(
         _ => {
             // SAFETY: DefWindowProcW is safe with valid hwnd and message parameters
             unsafe { DefWindowProcW(hwnd, msg, wparam, lparam) }
-        },
+        }
     }
 }
-
