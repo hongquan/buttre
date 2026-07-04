@@ -1,20 +1,54 @@
 # cargo-deny configuration for buttre
 # https://embarkstudios.github.io/cargo-deny/
 
+# cargo-deny 0.19 schema — the old `[advisories] vulnerability/unmaintained/
+# unsound` severity fields and `[licenses] deny/copyleft/allow-osi-fsf-free`
+# fields were REMOVED upstream (this file predated that break and had never
+# actually run since — `cargo deny check` failed to even deserialize it).
 [advisories]
-# Deny crates with security vulnerabilities
-vulnerability = "deny"
-# Warn about unmaintained crates
-unmaintained = "warn"
-# Warn about crates with unsound code
-unsound = "warn"
-# Ignore specific advisories (use sparingly)
+# Unlike cargo-audit, cargo-deny 0.19 has no separate warn/deny dial for
+# "unmaintained"/"unsound" advisories — they are hard errors unless listed
+# here. Every entry below is a TRANSITIVE dependency of the Linux desktop
+# stack (winit's Wayland/X11 backends, the GTK3 tray-icon fallback, zbus
+# D-Bus) — buttre's primary shipped target is Windows, and none of these
+# process untrusted input at runtime on any target. Re-evaluate if/when
+# winit, tray-icon, or zbus bump their own transitive pins upstream.
 ignore = [
-    # Example: "RUSTSEC-2020-0001",
+    # quick-xml (via wayland-scanner, a *build-time* codegen tool, not a
+    # runtime parser): quadratic-time / unbounded-alloc DoS advisories.
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+    # anyhow: Error::downcast_mut() unsoundness — buttre doesn't call
+    # downcast_mut() on anyhow errors anywhere in the codebase.
+    "RUSTSEC-2026-0190",
+    # gtk-rs GTK3 bindings (Linux tray-icon fallback backend): unmaintained.
+    "RUSTSEC-2024-0413", # atk
+    "RUSTSEC-2024-0416", # atk-sys
+    "RUSTSEC-2024-0412", # gdk
+    "RUSTSEC-2024-0418", # gdk-sys
+    "RUSTSEC-2024-0415", # gtk
+    "RUSTSEC-2024-0420", # gtk-sys
+    "RUSTSEC-2024-0419", # gtk3-macros
+    # bincode (via zbus, Linux D-Bus): unmaintained.
+    "RUSTSEC-2025-0141",
+    # derivative (via zbus): unmaintained.
+    "RUSTSEC-2024-0388",
+    # instant (via zbus's async stack): unmaintained.
+    "RUSTSEC-2024-0384",
+    # proc-macro-error (via glib-macros/gtk3-macros): unmaintained.
+    "RUSTSEC-2024-0370",
+    # ttf-parser (via winit's Wayland CSD font rendering): unmaintained.
+    "RUSTSEC-2026-0192",
 ]
 
 [licenses]
-# Allow these licenses
+# Allow-list only in the current schema — anything not listed here is
+# implicitly denied, which is what enforces "no GPL/AGPL in third-party
+# dependencies" (the old explicit `deny` list is gone, but an allow-list
+# achieves the same outcome). buttre's OWN crates are GPL-3.0-only by
+# design; they are exempted via `[licenses.private]` below rather than by
+# adding GPL to this list, so a genuinely new GPL third-party dependency
+# still gets caught.
 allow = [
     "MIT",
     "Apache-2.0",
@@ -23,20 +57,20 @@ allow = [
     "BSD-3-Clause",
     "ISC",
     "Unicode-DFS-2016",
+    "Unicode-3.0",
     "Zlib",
+    "CC0-1.0",
+    "MPL-2.0",
 ]
-# Deny these licenses
-deny = [
-    "GPL-2.0",
-    "GPL-3.0",
-    "AGPL-3.0",
-]
-# Warn on copyleft licenses
-copyleft = "warn"
-# Allow license files to be missing (some crates embed it differently)
-allow-osi-fsf-free = "both"
 # Require confidence threshold for license detection
 confidence-threshold = 0.8
+
+[licenses.private]
+# Workspace crates are internal (never published to crates.io) and
+# GPL-3.0-only by design — exclude them from the third-party allow-list
+# check above instead of adding GPL/AGPL to it. Requires `publish = false`
+# on each workspace member's Cargo.toml (see that field's own comment).
+ignore = true
 
 [bans]
 # Deny multiple versions of the same crate
