@@ -232,29 +232,24 @@ pub const SYLLABLES: &[&str] = &[
 /// `banana`, `canal`, `media`, `dad`, `dads`, `nasa`) compose to their literal
 /// ASCII form in both methods.
 pub const ENGLISH_WORDS: &[&str] = &[
-    "file", "text", "next", "expect", "window", "water", "their", "weird",
-    "fix", "email", "password", "data", "type", "user", "name", "first",
-    "last", "list", "from", "this", "that", "with", "have", "will", "been",
-    "some", "what", "when", "where", "which", "would", "could", "should",
-    "Claus", "hello", "world", "class", "style", "color", "width", "height",
-    "meme", "photo", "papa", "salsa", "radar", "banana", "canal", "media",
-    "dad", "dads", "reset", "nasa", "mama", "hawk", "gawk", "murk",
+    "file", "text", "next", "expect", "window", "water", "their", "weird", "fix", "email",
+    "password", "data", "type", "user", "name", "first", "last", "list", "from", "this", "that",
+    "with", "have", "will", "been", "some", "what", "when", "where", "which", "would", "could",
+    "should", "Claus", "hello", "world", "class", "style", "color", "width", "height", "meme",
+    "photo", "papa", "salsa", "radar", "banana", "canal", "media", "dad", "dads", "reset", "nasa",
+    "mama", "hawk", "gawk", "murk",
 ];
 
 /// Telex sequences testing undo / double-key toggle behaviour.
 pub const TELEX_UNDO_TOGGLE: &[&str] = &[
-    "aaa", "aww", "eee", "ooo", "uww", "ddd",
-    "ass", "aff", "arr", "axx", "ajj",
-    "aaaa", "dddd",
-    "bas", "bass", "hass",
-    "sin", "can", "ban", "tan", "man", "fan", "ran", "dan", "van", "pan", "win", "fin",
+    "aaa", "aww", "eee", "ooo", "uww", "ddd", "ass", "aff", "arr", "axx", "ajj", "aaaa", "dddd",
+    "bas", "bass", "hass", "sin", "can", "ban", "tan", "man", "fan", "ran", "dan", "van", "pan",
+    "win", "fin",
 ];
 
 /// VNI sequences testing undo / double-digit toggle behaviour.
 pub const VNI_UNDO_TOGGLE: &[&str] = &[
-    "a11", "a22", "a33", "a44", "a55", "a66", "a88", "d99",
-    "a61", "a62", "a63", "a64", "a65", "a81", "a82",
-    "ba1", "ba11", "ba2", "ba22",
-    "dua71", "dua72", "nguoi72", "nguoi73",
-    "sin", "can", "ban", "tan", "man", "fan", "ran", "dan",
+    "a11", "a22", "a33", "a44", "a55", "a66", "a88", "d99", "a61", "a62", "a63", "a64", "a65",
+    "a81", "a82", "ba1", "ba11", "ba2", "ba22", "dua71", "dua72", "nguoi72", "nguoi73", "sin",
+    "can", "ban", "tan", "man", "fan", "ran", "dan",
 ];

@@ -2,17 +2,17 @@
 //! Bug 1: huyeenf -> huỳên (should be huyền)
 //! Bug 2: thuowr -> thửơ (should be thuở)
 
-use buttre_engine::pipeline::{PipelineExecutor};
 use buttre_engine::pipeline::presets::telex_config;
+use buttre_engine::pipeline::PipelineExecutor;
 
 fn test_telex(input: &str) -> String {
     let config = telex_config();
     let mut executor = PipelineExecutor::new(config);
-    
+
     for ch in input.chars() {
         executor.process(ch);
     }
-    
+
     executor.syllable().to_string()
 }
 

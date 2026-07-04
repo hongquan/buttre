@@ -1,13 +1,13 @@
-use buttre_engine::pipeline::{PipelineExecutor, PipelineConfig};
-use buttre_engine::types::Action;
 use buttre_engine::pipeline::config::{ToneMark, ValidationSettings};
+use buttre_engine::pipeline::{PipelineConfig, PipelineExecutor};
+use buttre_engine::types::Action;
 
 fn create_telex_config() -> PipelineConfig {
     let mut config = PipelineConfig::new("telex");
-    
+
     // Enable permutation for flexible typing
     config.tone.allow_permutation = true;
-    
+
     // Add transformation rules
     config.add_transform("aa", "â");
     config.add_transform("aw", "ă");
@@ -16,14 +16,14 @@ fn create_telex_config() -> PipelineConfig {
     config.add_transform("oo", "ô");
     config.add_transform("ow", "ơ");
     config.add_transform("uw", "ư");
-    
+
     // Add tone mappings
     config.add_tone('s', ToneMark::Acute);
     config.add_tone('f', ToneMark::Grave);
     config.add_tone('r', ToneMark::Hook);
     config.add_tone('x', ToneMark::Tilde);
     config.add_tone('j', ToneMark::Dot);
-    
+
     config
 }
 
@@ -49,13 +49,16 @@ fn test_transformation_aa_to_a_circumflex() {
 
     // Type first 'a'
     executor.process('a');
-    
+
     // Type second 'a' - should transform to 'â'
     let actions = executor.process('a');
 
     assert_eq!(actions.len(), 1);
     match &actions[0] {
-        Action::Replace { backspace_count, text } => {
+        Action::Replace {
+            backspace_count,
+            text,
+        } => {
             assert_eq!(*backspace_count, 1);
             assert_eq!(text, "â");
         }
@@ -73,7 +76,10 @@ fn test_transformation_aw_to_a_breve() {
 
     assert_eq!(actions.len(), 1);
     match &actions[0] {
-        Action::Replace { backspace_count, text } => {
+        Action::Replace {
+            backspace_count,
+            text,
+        } => {
             assert_eq!(*backspace_count, 1);
             assert_eq!(text, "ă");
         }
@@ -88,13 +94,16 @@ fn test_tone_application() {
 
     // Type 'a'
     executor.process('a');
-    
+
     // Type 's' (acute tone)
     let actions = executor.process('s');
 
     assert_eq!(actions.len(), 1);
     match &actions[0] {
-        Action::Replace { backspace_count, text } => {
+        Action::Replace {
+            backspace_count,
+            text,
+        } => {
             assert_eq!(*backspace_count, 1);
             assert_eq!(text, "á");
         }
@@ -127,11 +136,11 @@ fn test_reset() {
 
     executor.process('a');
     executor.process('a');
-    
+
     assert_eq!(executor.syllable(), "â");
-    
+
     executor.reset();
-    
+
     assert_eq!(executor.syllable(), "");
     assert_eq!(executor.raw_buffer(), "");
 }
@@ -233,7 +242,10 @@ fn test_transformation_and_tone() {
 
     assert_eq!(executor.syllable(), "ấ");
     match &actions[0] {
-        Action::Replace { backspace_count, text } => {
+        Action::Replace {
+            backspace_count,
+            text,
+        } => {
             assert_eq!(*backspace_count, 1);
             assert_eq!(text, "ấ");
         }
@@ -251,17 +263,17 @@ fn test_composition_reset_on_passthrough() {
     let actions = executor.process('a');
     // First 'a' -> UpdateComposition("a")
     assert!(matches!(actions[0], Action::UpdateComposition { .. }));
-    
+
     let actions = executor.process('a');
     // Second 'a' -> UpdateComposition("â")
     match &actions[0] {
         Action::UpdateComposition { text, .. } => assert_eq!(text, "â"),
         _ => panic!("Expected UpdateComposition"),
     }
-    
+
     // Type '.' (passthrough)
     let actions = executor.process('.');
-    
+
     // Should confirm composition ("â") then commit '.'
     assert_eq!(actions.len(), 2);
     match &actions[0] {
@@ -272,7 +284,7 @@ fn test_composition_reset_on_passthrough() {
         Action::Commit(text) => assert_eq!(text, "."),
         _ => panic!("Expected Commit"),
     }
-    
+
     // And reset buffer
     assert_eq!(executor.syllable(), "");
 }
@@ -326,7 +338,7 @@ fn test_vietnamese_character_direct() {
 #[test]
 fn test_all_telex_transforms() {
     let config = create_telex_config();
-    
+
     let test_cases = vec![
         ("aa", "â"),
         ("aw", "ă"),
@@ -336,14 +348,14 @@ fn test_all_telex_transforms() {
         ("ow", "ơ"),
         ("uw", "ư"),
     ];
-    
+
     for (input, expected) in test_cases {
         let mut executor = PipelineExecutor::new(config.clone());
-        
+
         for ch in input.chars() {
             executor.process(ch);
         }
-        
+
         assert_eq!(executor.syllable(), expected, "Failed for input: {}", input);
     }
 }
@@ -371,11 +383,14 @@ fn test_transform_uppercase() {
     // Type "AA" (uppercase)
     executor.process('A');
     executor.process('A');
-    
+
     // With uppercase support, AA should produce Â (uppercase)
     let result = executor.syllable();
-    assert_eq!(result, "Â", 
-            "Expected uppercase 'Â' from 'AA' input, got: {}", result);
+    assert_eq!(
+        result, "Â",
+        "Expected uppercase 'Â' from 'AA' input, got: {}",
+        result
+    );
 }
 
 // === Tone Application Tests ===
@@ -383,7 +398,7 @@ fn test_transform_uppercase() {
 #[test]
 fn test_all_tones() {
     let config = create_telex_config();
-    
+
     let test_cases = vec![
         ('s', "á"), // Acute
         ('f', "à"), // Grave
@@ -391,14 +406,19 @@ fn test_all_tones() {
         ('x', "ã"), // Tilde
         ('j', "ạ"), // Dot
     ];
-    
+
     for (tone_key, expected) in test_cases {
         let mut executor = PipelineExecutor::new(config.clone());
-        
+
         executor.process('a');
         executor.process(tone_key);
-        
-        assert_eq!(executor.syllable(), expected, "Failed for tone key: {}", tone_key);
+
+        assert_eq!(
+            executor.syllable(),
+            expected,
+            "Failed for tone key: {}",
+            tone_key
+        );
     }
 }
 
@@ -411,7 +431,7 @@ fn test_tone_on_transformed_char() {
     executor.process('e');
     executor.process('e'); // ee → ê
     executor.process('s'); // add acute
-    
+
     assert_eq!(executor.syllable(), "ế");
 }
 
@@ -448,7 +468,7 @@ fn test_word_vietnam() {
     executor.process('e'); // ee → ê
     executor.process('j'); // add dot below → ệ
     executor.process('t');
-    
+
     assert_eq!(executor.syllable(), "việt");
 }
 
@@ -465,7 +485,7 @@ fn test_word_truong() {
     executor.process('w'); // ow → ơ, but retrofix will convert to ươ when ng follows
     executor.process('n');
     executor.process('g');
-    
+
     assert_eq!(executor.syllable(), "trương");
 }
 
@@ -481,7 +501,7 @@ fn test_word_dang() {
     executor.process('w'); // aw → ă
     executor.process('n');
     executor.process('g');
-    
+
     assert_eq!(executor.syllable(), "đăng");
 }
 
@@ -495,12 +515,12 @@ fn test_reset_clears_state() {
     executor.process('a');
     executor.process('a');
     executor.process('s');
-    
+
     assert_eq!(executor.syllable(), "ấ");
     assert_eq!(executor.raw_buffer(), "aas");
-    
+
     executor.reset();
-    
+
     assert_eq!(executor.syllable(), "");
     assert_eq!(executor.raw_buffer(), "");
 }
@@ -514,9 +534,9 @@ fn test_reset_between_words() {
     executor.process('a');
     executor.process('a');
     assert_eq!(executor.syllable(), "â");
-    
+
     executor.reset();
-    
+
     // Second word
     executor.process('e');
     executor.process('e');
@@ -531,11 +551,11 @@ fn test_passthrough_punctuation() {
     let mut executor = PipelineExecutor::new(config);
 
     let punctuation = vec!['.', ',', '!', '?', ';', ':'];
-    
+
     for p in punctuation {
         executor.reset();
         let actions = executor.process(p);
-        
+
         assert_eq!(actions.len(), 1);
         match &actions[0] {
             Action::Commit(text) => assert_eq!(text, &p.to_string()),
@@ -552,7 +572,7 @@ fn test_passthrough_digits() {
     for digit in '0'..='9' {
         executor.reset();
         let actions = executor.process(digit);
-        
+
         assert_eq!(actions.len(), 1);
         match &actions[0] {
             Action::Commit(text) => assert_eq!(text, &digit.to_string()),
@@ -573,9 +593,11 @@ fn test_passthrough_after_syllable() {
 
     // Type space (passthrough)
     let actions = executor.process(' ');
-    
+
     // Should commit space and reset
-    assert!(actions.iter().any(|a| matches!(a, Action::Commit(text) if text == " ")));
+    assert!(actions
+        .iter()
+        .any(|a| matches!(a, Action::Commit(text) if text == " ")));
     assert_eq!(executor.syllable(), "");
 }
 
@@ -604,7 +626,7 @@ fn test_raw_buffer_preserves_keystrokes() {
     executor.process('a');
     executor.process('a');
     executor.process('s');
-    
+
     // Raw buffer has actual keys typed
     assert_eq!(executor.raw_buffer(), "aas");
     // Syllable has transformed result
@@ -618,7 +640,7 @@ fn test_buffer_after_transform() {
 
     executor.process('d');
     executor.process('d');
-    
+
     assert_eq!(executor.syllable(), "đ");
     assert_eq!(executor.raw_buffer(), "dd");
 }
@@ -632,7 +654,7 @@ fn test_composition_mode_enabled() {
     let mut executor = PipelineExecutor::new(config);
 
     let actions = executor.process('a');
-    
+
     // Should use UpdateComposition instead of Commit
     assert!(matches!(actions[0], Action::UpdateComposition { .. }));
 }
@@ -645,7 +667,7 @@ fn test_composition_transform() {
 
     executor.process('a');
     let actions = executor.process('a');
-    
+
     // Transform in composition mode
     match &actions[0] {
         Action::UpdateComposition { text, .. } => assert_eq!(text, "â"),
@@ -661,7 +683,7 @@ fn test_composition_confirm_on_punctuation() {
 
     executor.process('a');
     let actions = executor.process('.');
-    
+
     // Should confirm "a" then commit "."
     assert_eq!(actions.len(), 2);
     assert!(matches!(actions[0], Action::ConfirmComposition(_)));
@@ -679,9 +701,12 @@ fn test_repeated_transform_key() {
     executor.process('a');
     executor.process('a'); // aa → â
     executor.process('a'); // undo → aa
-    
+
     assert_eq!(executor.syllable(), "aa");
-    assert!(executor.context().temp_english_mode, "Should set temp_english_mode after undo");
+    assert!(
+        executor.context().temp_english_mode,
+        "Should set temp_english_mode after undo"
+    );
 }
 
 #[test]
@@ -692,12 +717,23 @@ fn test_tone_toggling() {
     // Type "as" → "á" (apply sắc tone)
     executor.process('a');
     executor.process('s');
-    assert_eq!(executor.syllable(), "á", "First tone application should produce á");
-    
+    assert_eq!(
+        executor.syllable(),
+        "á",
+        "First tone application should produce á"
+    );
+
     // Type "s" again → should undo → "as" (remove tone, keep key - Unikey behavior)
     executor.process('s');
-    assert_eq!(executor.syllable(), "as", "Second tone key should undo to 'as'");
-    assert!(executor.context().temp_english_mode, "Should set temp_english_mode after tone undo");
+    assert_eq!(
+        executor.syllable(),
+        "as",
+        "Second tone key should undo to 'as'"
+    );
+    assert!(
+        executor.context().temp_english_mode,
+        "Should set temp_english_mode after tone undo"
+    );
 }
 
 #[test]
@@ -714,16 +750,16 @@ fn test_uoi_tone_positioning() {
     executor.process('o');
     executor.process('w'); // ưo+w → ươ (via Stage 6)
     executor.process('i');
-    
+
     // Before tone: should be "cươi" (no tone yet)
     assert_eq!(executor.syllable(), "cươi");
-    
+
     // Add huyền tone (f) → should produce "cười" (tone on ơ, 2nd vowel)
     executor.process('f');
     assert_eq!(executor.syllable(), "cười", "Tone on ơ for ươi pattern");
-    
+
     executor.reset();
-    
+
     // Test "trường" (tr + ườ + ng + huyền)
     // Type "truwowngf" → "trường"
     executor.process('t');
@@ -734,13 +770,17 @@ fn test_uoi_tone_positioning() {
     executor.process('w'); // ow → ơ
     executor.process('n');
     executor.process('g');
-    
+
     // Before tone: should be "trương" (transforms done, no tone yet)
     assert_eq!(executor.syllable(), "trương");
-    
+
     // Add huyền tone (f) → should produce "trường" (tone on ơ)
     executor.process('f');
-    assert_eq!(executor.syllable(), "trường", "Tone on ơ for ươ with final consonant");
+    assert_eq!(
+        executor.syllable(),
+        "trường",
+        "Tone on ơ for ươ with final consonant"
+    );
 }
 
 // test_wowts_edge_case removed: relied on the retired Permutation stage which
@@ -759,7 +799,7 @@ fn test_thuowr_edge_case() {
     for ch in "thuowr".chars() {
         executor.process(ch);
     }
-    
+
     assert_eq!(executor.syllable(), "thuở", "thuowr should produce thuở");
 }
 
@@ -778,52 +818,50 @@ fn test_dduowjc_edge_case() {
     for ch in "dduowjc".chars() {
         executor.process(ch);
     }
-    
+
     assert_eq!(executor.syllable(), "được", "dduowjc should produce được");
 }
 
 #[test]
 fn test_validation_permissive_mode() {
-    
     let mut config = create_telex_config();
     // Set permissive mode (allow invalid syllables)
     config.validation = Some(ValidationSettings {
         syllable_structure: "vietnamese".to_string(),
         allow_invalid: true,
     });
-    
+
     let mut executor = PipelineExecutor::new(config);
-    
+
     // Type invalid syllable "xyz" - should be allowed in permissive mode
     executor.process('x');
     executor.process('y');
     executor.process('z');
-    
+
     // Should continue processing (not rejected)
     assert!(executor.syllable().contains('x'));
 }
 
 #[test]
 fn test_validation_strict_mode() {
-    
     let mut config = create_telex_config();
     // Set strict mode (reject invalid syllables)
     config.validation = Some(ValidationSettings {
         syllable_structure: "vietnamese".to_string(),
         allow_invalid: false,
     });
-    
+
     let mut executor = PipelineExecutor::new(config);
-    
+
     // Type invalid syllable - should be rejected in strict mode
     // Note: In strict mode, invalid syllables trigger PassThrough
     executor.process('x');
     executor.process('y');
     let actions = executor.process('z');
-    
+
     // In strict mode with invalid input, should get PassThrough behavior
     // This test verifies the stage was created with strict mode enabled
-    assert!(executor.syllable().is_empty() || actions.len() > 0);
+    assert!(executor.syllable().is_empty() || !actions.is_empty());
 }
 
 #[test]
@@ -835,7 +873,7 @@ fn test_transform_undo_with_z() {
     executor.process('a');
     executor.process('a'); // aa → â
     let _actions = executor.process('z'); // retrofix key
-    
+
     // Result depends on retrofix stage implementation
     // Just verify it doesn't crash
     assert!(!executor.syllable().is_empty());
@@ -847,11 +885,11 @@ fn test_special_characters() {
     let mut executor = PipelineExecutor::new(config);
 
     let special = vec!['@', '#', '$', '%', '&', '*'];
-    
+
     for ch in special {
         executor.reset();
         let actions = executor.process(ch);
-        
+
         // Should pass through
         assert_eq!(actions.len(), 1);
         match &actions[0] {
@@ -877,11 +915,11 @@ fn test_full_sentence() {
     executor.process('j'); // add dot below
     executor.process('t');
     assert_eq!(executor.syllable(), "Việt");
-    
+
     // Space
     executor.process(' ');
     assert_eq!(executor.syllable(), "");
-    
+
     // "Nam"
     executor.process('N');
     executor.process('a');
@@ -898,9 +936,9 @@ fn test_sequential_transforms() {
     executor.process('d');
     executor.process('d');
     assert_eq!(executor.syllable(), "đ");
-    
+
     executor.reset();
-    
+
     executor.process('a');
     executor.process('w');
     assert_eq!(executor.syllable(), "ă");
@@ -916,7 +954,7 @@ fn test_transform_then_tone_then_more_chars() {
     executor.process('a'); // aa → â
     executor.process('s'); // add acute → ấ
     executor.process('n');
-    
+
     assert_eq!(executor.syllable(), "ấn");
 }
 
@@ -931,9 +969,9 @@ fn test_custom_stage_order() {
         "transform".to_string(),
         "tone".to_string(),
     ];
-    
+
     let executor = PipelineExecutor::new(config);
-    
+
     // Should have: normalization, gatekeeper, validation, transform, tone, output
     // Total: 6 stages (some auto-added)
     assert!(executor.stage_count() >= 3);
@@ -943,7 +981,7 @@ fn test_custom_stage_order() {
 fn test_empty_config_uses_defaults() {
     let config = PipelineConfig::new("telex");
     let executor = PipelineExecutor::new(config);
-    
+
     // Should still create executor with default stages
     assert!(executor.stage_count() > 0);
 }
@@ -956,7 +994,7 @@ fn test_commit_action() {
     let mut executor = PipelineExecutor::new(config);
 
     let actions = executor.process('x');
-    
+
     assert_eq!(actions.len(), 1);
     assert!(matches!(actions[0], Action::Commit(_)));
 }
@@ -968,7 +1006,7 @@ fn test_replace_action() {
 
     executor.process('a');
     let actions = executor.process('a');
-    
+
     assert_eq!(actions.len(), 1);
     assert!(matches!(actions[0], Action::Replace { .. }));
 }
@@ -985,7 +1023,7 @@ fn test_long_sequence() {
     for ch in input.chars() {
         executor.process(ch);
     }
-    
+
     // Should handle without crashing
     assert!(!executor.syllable().is_empty());
 }
@@ -999,7 +1037,7 @@ fn test_many_resets() {
         executor.process('a');
         executor.reset();
     }
-    
+
     assert_eq!(executor.syllable(), "");
 }
 
@@ -1014,13 +1052,13 @@ fn test_alternating_chars() {
         executor.process('b');
         executor.reset();
     }
-    
+
     // Should complete without issues
     assert_eq!(executor.syllable(), "");
 }
 
 /// Test for English fallback with "dessign" pattern
-/// 
+///
 /// Expected flow:
 /// - d → "d"
 /// - e → "de"
@@ -1043,35 +1081,61 @@ fn test_dessign_english_fallback() {
 
     executor.process('s');
     // After first 's', we expect tone to be applied: de → dé
-    println!("After first 's': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After first 's': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
 
     executor.process('s');
     // After second 's' (duplicate tone), should fallback: dé → des
     // And temp_english_mode should be true
-    println!("After second 's': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
-    assert_eq!(executor.syllable(), "des", "After double 's' should be 'des'");
-    assert!(executor.is_temp_english_mode(), "Should be in temp English mode after fallback");
+    println!(
+        "After second 's': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
+    assert_eq!(
+        executor.syllable(),
+        "des",
+        "After double 's' should be 'des'"
+    );
+    assert!(
+        executor.is_temp_english_mode(),
+        "Should be in temp English mode after fallback"
+    );
 
     executor.process('i');
-    println!("After 'i': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After 'i': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
     assert_eq!(executor.syllable(), "desi", "After 'i' should be 'desi'");
 
     executor.process('g');
-    println!("After 'g': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After 'g': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
     assert_eq!(executor.syllable(), "desig", "After 'g' should be 'desig'");
 
     executor.process('n');
-    println!("After 'n': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
-    assert_eq!(executor.syllable(), "design", "After 'n' should be 'design'");
+    println!(
+        "After 'n': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
+    assert_eq!(
+        executor.syllable(),
+        "design",
+        "After 'n' should be 'design'"
+    );
 }
 
 /// Test for English fallback with "tissot" pattern
-/// 
+///
 /// This tests that TONE KEYS remain in English mode after fallback.
 /// Expected flow:
 /// - t → "t"
@@ -1080,7 +1144,7 @@ fn test_dessign_english_fallback() {
 /// - s → "tis" (duplicate tone, fallback to English, temp_english_mode=true)
 /// - o → "tiso" (pass through in English mode - but 'o' is vowel!)
 /// - t → "tisot" (pass through)
-/// 
+///
 /// Critical: After fallback, 's' and 'o' should NOT trigger tone application!
 #[test]
 fn test_tissot_english_fallback() {
@@ -1096,33 +1160,59 @@ fn test_tissot_english_fallback() {
 
     executor.process('s');
     // After first 's', we expect tone to be applied: ti → tí
-    println!("After first 's': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After first 's': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
     assert_eq!(executor.syllable(), "tí", "After first 's' should be 'tí'");
 
     executor.process('s');
     // After second 's' (duplicate tone), should fallback: tí → tis
     // And temp_english_mode should be true
-    println!("After second 's': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
-    assert_eq!(executor.syllable(), "tis", "After double 's' should be 'tis'");
-    assert!(executor.is_temp_english_mode(), "Should be in temp English mode after fallback");
+    println!(
+        "After second 's': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
+    assert_eq!(
+        executor.syllable(),
+        "tis",
+        "After double 's' should be 'tis'"
+    );
+    assert!(
+        executor.is_temp_english_mode(),
+        "Should be in temp English mode after fallback"
+    );
 
     executor.process('o');
     // In temp_english_mode, 'o' should just append, NOT trigger any Vietnamese processing
-    println!("After 'o': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After 'o': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
     assert_eq!(executor.syllable(), "tiso", "After 'o' should be 'tiso'");
-    assert!(executor.is_temp_english_mode(), "Should still be in temp English mode");
+    assert!(
+        executor.is_temp_english_mode(),
+        "Should still be in temp English mode"
+    );
 
     executor.process('t');
-    println!("After final 't': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
-    assert_eq!(executor.syllable(), "tisot", "After final 't' should be 'tisot'");
+    println!(
+        "After final 't': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
+    assert_eq!(
+        executor.syllable(),
+        "tisot",
+        "After final 't' should be 'tisot'"
+    );
 }
 
 /// Test for English fallback with multiple consecutive tone keys: "tisssot"
-/// 
+///
 /// Critical: After fallback (ss), third and further 's' should pass through as English!
 /// Expected flow:
 /// - t → "t"
@@ -1143,32 +1233,61 @@ fn test_multiple_tone_keys_after_fallback() {
     assert_eq!(executor.syllable(), "ti", "After 'ti'");
 
     executor.process('s');
-    println!("After 1st 's': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After 1st 's': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
     assert_eq!(executor.syllable(), "tí", "After 1st 's' should be 'tí'");
 
     executor.process('s');
-    println!("After 2nd 's': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After 2nd 's': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
     assert_eq!(executor.syllable(), "tis", "After 2nd 's' should be 'tis'");
-    assert!(executor.is_temp_english_mode(), "Should be in temp English mode");
+    assert!(
+        executor.is_temp_english_mode(),
+        "Should be in temp English mode"
+    );
 
     // CRITICAL: Third 's' should just append, NOT toggle tone!
     executor.process('s');
-    println!("After 3rd 's': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
-    assert_eq!(executor.syllable(), "tiss", "After 3rd 's' should be 'tiss' NOT 'tís'!");
-    assert!(executor.is_temp_english_mode(), "Should still be in temp English mode");
+    println!(
+        "After 3rd 's': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
+    assert_eq!(
+        executor.syllable(),
+        "tiss",
+        "After 3rd 's' should be 'tiss' NOT 'tís'!"
+    );
+    assert!(
+        executor.is_temp_english_mode(),
+        "Should still be in temp English mode"
+    );
 
     executor.process('o');
-    println!("After 'o': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
+    println!(
+        "After 'o': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
     assert_eq!(executor.syllable(), "tisso", "After 'o' should be 'tisso'");
 
     executor.process('t');
-    println!("After 't': syllable='{}', temp_english_mode={}", 
-                executor.syllable(), executor.is_temp_english_mode());
-    assert_eq!(executor.syllable(), "tissot", "After 't' should be 'tissot'");
+    println!(
+        "After 't': syllable='{}', temp_english_mode={}",
+        executor.syllable(),
+        executor.is_temp_english_mode()
+    );
+    assert_eq!(
+        executor.syllable(),
+        "tissot",
+        "After 't' should be 'tissot'"
+    );
 }
 
 // ── Defensive syllable-length cap (bounds O(n²) + desync blast radius) ────────
@@ -1212,9 +1331,14 @@ fn test_long_valid_syllable_not_capped() {
 fn test_nonadjacent_dd_with_tone() {
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "datjd".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "đạt",
-        "trailing 'd' after a toned syllable must turn the onset into đ");
+    for ch in "datjd".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "đạt",
+        "trailing 'd' after a toned syllable must turn the onset into đ"
+    );
 }
 
 #[test]
@@ -1228,9 +1352,14 @@ fn test_nonadjacent_dd_with_coda_no_tone_demotes_to_literal() {
     // (`test_nonadjacent_dd_with_tone` above: "datjd" → "đạt", attested).
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "datd".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "datd",
-        "unattested 'đat' must demote to the literal keystrokes");
+    for ch in "datd".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "datd",
+        "unattested 'đat' must demote to the literal keystrokes"
+    );
 }
 
 #[test]
@@ -1240,7 +1369,9 @@ fn test_bare_dad_stays_english() {
     // (Fast-typing "dodong"→"đông" fires because vowel 'o' follows the second 'd'.)
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "dad".chars() { ex.process(ch); }
+    for ch in "dad".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "dad");
 }
 
@@ -1258,12 +1389,20 @@ fn test_viete_then_j_self_heals_to_viet() {
     // to this phase).
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "viete".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "viete",
-        "'viete' alone must demote to literal (unattested 'viêt')");
+    for ch in "viete".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "viete",
+        "'viete' alone must demote to literal (unattested 'viêt')"
+    );
     ex.process('j');
-    assert_eq!(ex.context().syllable_buffer, "việt",
-        "'vietej' must self-heal to attested 'việt' once the tone key arrives");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "việt",
+        "'vietej' must self-heal to attested 'việt' once the tone key arrives"
+    );
 }
 
 // ── Phase 2: fallback bypass regression (red-team C2) — executor level ───────
@@ -1284,17 +1423,23 @@ fn test_dataeee_no_bypass_diacritic() {
     // and ended on "dâteee".
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "dataeee".chars() { ex.process(ch); }
+    for ch in "dataeee".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "dataeee");
-    assert!(!ex.context().syllable_buffer.contains(['â', 'ê']),
-        "no diacritic must leak through the bypass at any keystroke");
+    assert!(
+        !ex.context().syllable_buffer.contains(['â', 'ê']),
+        "no diacritic must leak through the bypass at any keystroke"
+    );
 }
 
 #[test]
 fn test_databaaa_no_bypass_diacritic() {
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "databaaa".chars() { ex.process(ch); }
+    for ch in "databaaa".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "databaa");
 }
 
@@ -1302,7 +1447,9 @@ fn test_databaaa_no_bypass_diacritic() {
 fn test_vietess_no_bypass_diacritic() {
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "vietess".chars() { ex.process(ch); }
+    for ch in "vietess".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "vietes");
 }
 
@@ -1318,12 +1465,20 @@ fn test_cana_a_undoes_to_literal_latched() {
     // hatch targets (see compose::tests::medium_cana_collision_canal_self_heals).
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "cana".chars() { ex.process(ch); }
+    for ch in "cana".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "cân");
     ex.process('a');
-    assert_eq!(ex.context().syllable_buffer, "cana",
-        "retyping 'a' right after the collision must undo it to the literal keystrokes");
-    assert!(ex.context().temp_english_mode, "undo must latch English passthrough");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "cana",
+        "retyping 'a' right after the collision must undo it to the literal keystrokes"
+    );
+    assert!(
+        ex.context().temp_english_mode,
+        "undo must latch English passthrough"
+    );
 }
 
 #[test]
@@ -1337,18 +1492,28 @@ fn test_cana_a_n_latches_until_separator() {
     // documented in `compose::tests::high_cana_latch_survives_recompute_no_reentry`.)
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "canaan".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "canan",
-        "latched passthrough must append literally, not re-recompute from raw");
+    for ch in "canaan".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "canan",
+        "latched passthrough must append literally, not re-recompute from raw"
+    );
 }
 
 #[test]
 fn test_cana_uppercase_trigger_undoes_case_insensitively() {
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "canaA".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "cana",
-        "an uppercase retype of the trigger key must still undo");
+    for ch in "canaA".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "cana",
+        "an uppercase retype of the trigger key must still undo"
+    );
     assert!(ex.context().temp_english_mode);
 }
 
@@ -1359,12 +1524,20 @@ fn test_vni_digit_undo_parity_with_telex() {
     // not '7' as the matrix's literal example string states — '7' is only
     // ever registered for the o7/u7 horn, never for 'a'.
     let mut ex = PipelineExecutor::new(buttre_engine::pipeline::presets::vni_config());
-    for ch in "can6".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "cân",
-        "can6 must be the VNI attested collision analogous to Telex cana");
+    for ch in "can6".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "cân",
+        "can6 must be the VNI attested collision analogous to Telex cana"
+    );
     ex.process('6');
-    assert_eq!(ex.context().syllable_buffer, "can6",
-        "retyping the VNI digit trigger must undo exactly like Telex");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "can6",
+        "retyping the VNI digit trigger must undo exactly like Telex"
+    );
     assert!(ex.context().temp_english_mode);
 }
 
@@ -1380,12 +1553,20 @@ fn test_dand_d_consonant_class_undo_equivalence_note() {
     // satisfy immediacy.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "dand".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "đan",
-        "dand must be an attested đ collision (đan = to knit/weave)");
+    for ch in "dand".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "đan",
+        "dand must be an attested đ collision (đan = to knit/weave)"
+    );
     ex.process('d');
-    assert_eq!(ex.context().syllable_buffer, "dand",
-        "retyping 'd' right after dand must undo the đ mark");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "dand",
+        "retyping 'd' right after dand must undo the đ mark"
+    );
     assert!(ex.context().temp_english_mode);
 }
 
@@ -1398,11 +1579,16 @@ fn test_vieteje_immediacy_violated_no_undo() {
     // unrelated) English-fallback path on the full 7-key buffer.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "vietej".chars() { ex.process(ch); }
+    for ch in "vietej".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "việt");
     ex.process('e');
-    assert_eq!(ex.context().syllable_buffer, "vieteje",
-        "must not undo: immediacy violated (retyped key does not follow the fired mark)");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "vieteje",
+        "must not undo: immediacy violated (retyped key does not follow the fired mark)"
+    );
     assert!(ex.context().temp_english_mode);
 }
 
@@ -1416,14 +1602,19 @@ fn test_vieteje_immediacy_violated_no_undo() {
 #[test]
 fn test_data_class_words_stay_literal_at_executor_level() {
     for word in [
-        "data", "meme", "photo", "papa", "salsa", "radar", "banana", "canal",
-        "media", "dad", "dads", "nasa",
+        "data", "meme", "photo", "papa", "salsa", "radar", "banana", "canal", "media", "dad",
+        "dads", "nasa",
     ] {
         let config = create_telex_config();
         let mut ex = PipelineExecutor::new(config);
-        for ch in word.chars() { ex.process(ch); }
-        assert_eq!(ex.context().syllable_buffer, word,
-            "'{word}' must stay literal at the incremental executor level, not just at compose()");
+        for ch in word.chars() {
+            ex.process(ch);
+        }
+        assert_eq!(
+            ex.context().syllable_buffer,
+            word,
+            "'{word}' must stay literal at the incremental executor level, not just at compose()"
+        );
     }
 }
 
@@ -1435,7 +1626,9 @@ fn test_reset_accepted_collision_at_executor_level() {
     // non-adjacent undo (retype the trigger key), not a golden fixup.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "reset".chars() { ex.process(ch); }
+    for ch in "reset".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "rết");
 }
 
@@ -1450,14 +1643,29 @@ fn test_vietj_e_unlatches_to_viet() {
     // own 'e') recomposes the FULL raw to attested "việt" and un-latches.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "vietj".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "vietj", "'vietj' alone must still latch literal");
-    assert!(ex.context().temp_english_mode, "'vietj' must be latched before the completing key");
+    for ch in "vietj".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "vietj",
+        "'vietj' alone must still latch literal"
+    );
+    assert!(
+        ex.context().temp_english_mode,
+        "'vietj' must be latched before the completing key"
+    );
 
     ex.process('e');
-    assert_eq!(ex.context().syllable_buffer, "việt",
-        "'vietje' must un-latch to attested 'việt' — the class this phase fixes");
-    assert!(!ex.context().temp_english_mode, "un-latch must clear temp_english_mode");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "việt",
+        "'vietje' must un-latch to attested 'việt' — the class this phase fixes"
+    );
+    assert!(
+        !ex.context().temp_english_mode,
+        "un-latch must clear temp_english_mode"
+    );
 }
 
 #[test]
@@ -1467,10 +1675,14 @@ fn test_vietj_e_emits_corrective_replace_action() {
     // minimal backspace+text needed to turn "vietj" on screen into "việt").
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "vietj".chars() { ex.process(ch); }
+    for ch in "vietj".chars() {
+        ex.process(ch);
+    }
     let actions = ex.process('e');
     assert!(
-        actions.iter().any(|a| matches!(a, Action::Replace { backspace_count, .. } if *backspace_count > 0)),
+        actions
+            .iter()
+            .any(|a| matches!(a, Action::Replace { backspace_count, .. } if *backspace_count > 0)),
         "un-latch must emit a corrective Replace with a non-zero backspace, got {actions:?}"
     );
 }
@@ -1483,13 +1695,18 @@ fn test_cana_a_more_vowels_stays_literal_condition_d() {
     // the P6 parity fold, so condition (d) vetoes any resurrection of 'â'.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "canaa".chars() { ex.process(ch); }
+    for ch in "canaa".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "cana");
     assert!(ex.context().temp_english_mode);
 
     ex.process('a');
-    assert_eq!(ex.context().syllable_buffer, "canaa",
-        "further vowel taps after the undo must never resurrect 'â'");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "canaa",
+        "further vowel taps after the undo must never resurrect 'â'"
+    );
     assert!(ex.context().temp_english_mode, "must remain latched");
     assert!(!ex.context().syllable_buffer.contains('â'));
 }
@@ -1503,14 +1720,22 @@ fn test_unlatch_then_more_keys_relatches_bidirectional() {
     // not itself a one-way valve either.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "vietje".chars() { ex.process(ch); }
+    for ch in "vietje".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.context().syllable_buffer, "việt");
     assert!(!ex.context().temp_english_mode);
 
     ex.process('x');
-    assert_eq!(ex.context().syllable_buffer, "vietjex",
-        "an extra key that makes the word implausible must re-latch to literal");
-    assert!(ex.context().temp_english_mode, "re-latch must fire exactly like a fresh word would");
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "vietjex",
+        "an extra key that makes the word implausible must re-latch to literal"
+    );
+    assert!(
+        ex.context().temp_english_mode,
+        "re-latch must fire exactly like a fresh word would"
+    );
 }
 
 #[test]
@@ -1522,11 +1747,19 @@ fn test_seventeen_char_run_on_never_unlatches() {
     // executor-observable-behavior counterpart.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "bcdfghklmnpqrtvzb".chars() { ex.process(ch); } // 17 chars
-    assert!(ex.context().temp_english_mode, "run-on buffer must latch past the cap");
+    for ch in "bcdfghklmnpqrtvzb".chars() {
+        ex.process(ch);
+    } // 17 chars
+    assert!(
+        ex.context().temp_english_mode,
+        "run-on buffer must latch past the cap"
+    );
     ex.process('a'); // trigger-eligible, must still not un-latch
     ex.process('s'); // tone key, must still not un-latch
-    assert!(ex.context().temp_english_mode, "run-on buffer must never un-latch");
+    assert!(
+        ex.context().temp_english_mode,
+        "run-on buffer must never un-latch"
+    );
     assert_eq!(ex.context().syllable_buffer, "bcdfghklmnpqrtvzbas");
 }
 
@@ -1537,9 +1770,14 @@ fn test_uppercase_midword_unlatch_case_correct() {
     // un-latch path is case-correct, not just the normal recompute path.
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config);
-    for ch in "VIETJE".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "VIỆT",
-        "uppercase un-latch must produce upper-cased attested text, not lowercase 'việt'");
+    for ch in "VIETJE".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "VIỆT",
+        "uppercase un-latch must produce upper-cased attested text, not lowercase 'việt'"
+    );
     assert!(!ex.context().temp_english_mode);
 }
 
@@ -1563,7 +1801,10 @@ fn test_vni_nhat61_frame_level_no_literal_flicker() {
         for action in ex.process(ch) {
             match action {
                 Action::Commit(s) | Action::ConfirmComposition(s) => screen.push_str(&s),
-                Action::Replace { backspace_count, text } => {
+                Action::Replace {
+                    backspace_count,
+                    text,
+                } => {
                     let new_len = screen.chars().count().saturating_sub(backspace_count);
                     screen = screen.chars().take(new_len).collect();
                     screen.push_str(&text);
@@ -1584,7 +1825,10 @@ fn test_vni_nhat61_frame_level_no_literal_flicker() {
         vec!["n", "nh", "nha", "nhat", "nhât", "nhất"],
         "no literal-flicker frame may appear between shape-attestation ('6') and tone ('1')"
     );
-    assert!(!ex.is_temp_english_mode(), "final state must not be latched English");
+    assert!(
+        !ex.is_temp_english_mode(),
+        "final state must not be latched English"
+    );
 }
 
 // ── Phase 2: perf — probe cost stays bounded (red-team M2/M3) ────────────────
@@ -1607,7 +1851,9 @@ fn perf_latched_typing_and_backspace_storm_bounded() {
     for _ in 0..1000 {
         let config = create_telex_config();
         let mut ex = PipelineExecutor::new(config);
-        for ch in "thuongw".chars() { ex.process(ch); } // 7 chars, never latches
+        for ch in "thuongw".chars() {
+            ex.process(ch);
+        } // 7 chars, never latches
     }
     let unlatched_elapsed = start.elapsed();
 
@@ -1618,7 +1864,9 @@ fn perf_latched_typing_and_backspace_storm_bounded() {
     for _ in 0..1000 {
         let config = create_telex_config();
         let mut ex = PipelineExecutor::new(config);
-        for ch in "vietje".chars() { ex.process(ch); }
+        for ch in "vietje".chars() {
+            ex.process(ch);
+        }
     }
     let latched_typing_elapsed = start.elapsed();
 
@@ -1626,14 +1874,17 @@ fn perf_latched_typing_and_backspace_storm_bounded() {
         "[perf] unlatched baseline (1000x 'thuongw', never latches): {unlatched_elapsed:?} total, {:?}/iter",
         unlatched_elapsed / 1000
     );
-    let ratio = latched_typing_elapsed.as_nanos() as f64 / unlatched_elapsed.as_nanos().max(1) as f64;
+    let ratio =
+        latched_typing_elapsed.as_nanos() as f64 / unlatched_elapsed.as_nanos().max(1) as f64;
     // INFORMATIONAL ONLY, not asserted: both loops run in microseconds, so their
     // ratio is dominated by scheduler jitter when the full workspace test suite runs
     // in parallel (CPU contention) — a hard `ratio < 2.0` here flakes under load while
     // being ~1.05x in isolation. The meaningful, noise-robust guarantee is the absolute
     // per-run ceiling asserted below (<100ms), which is what proves the probe never
     // becomes the O(n^2)/O(n^3) blowup red-team M2 warned about.
-    println!("[perf] latched/unlatched ratio: {ratio:.2}x (informational; absolute bound is the gate)");
+    println!(
+        "[perf] latched/unlatched ratio: {ratio:.2}x (informational; absolute bound is the gate)"
+    );
 
     // ── Backspace-storm-shaped replay: a 20-char latched buffer (past the
     // 16-char run-on cap, so every candidate ALSO exercises the cap
@@ -1671,10 +1922,14 @@ fn perf_latched_typing_and_backspace_storm_bounded() {
     // must both stay comfortably under 100ms on any dev machine, proving the
     // probe never turns into the unbounded O(n^2)/O(n^3) blowup red-team
     // M2 warned about.
-    assert!(latched_typing_elapsed.as_millis() < 100,
-        "latched typing must stay fast: {latched_typing_elapsed:?}");
-    assert!(storm_elapsed.as_millis() < 100,
-        "backspace-storm-shaped replay must stay bounded: {storm_elapsed:?}");
+    assert!(
+        latched_typing_elapsed.as_millis() < 100,
+        "latched typing must stay fast: {latched_typing_elapsed:?}"
+    );
+    assert!(
+        storm_elapsed.as_millis() < 100,
+        "backspace-storm-shaped replay must stay bounded: {storm_elapsed:?}"
+    );
 }
 
 // ── Phase 3: word-boundary final repair — TSF (composition) delivery ────────
@@ -1707,57 +1962,97 @@ fn confirm_text(actions: &[Action]) -> &str {
 #[test]
 fn boundary_repair_vni_nhat6_space_restores_literal() {
     let mut ex = PipelineExecutor::new(vni_composition_config());
-    for ch in "nhat6".chars() { ex.process(ch); }
-    assert_eq!(ex.syllable(), "nhât", "pre-boundary display is the shape-attested intermediate");
+    for ch in "nhat6".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.syllable(),
+        "nhât",
+        "pre-boundary display is the shape-attested intermediate"
+    );
     let actions = ex.process(' ');
     assert_eq!(actions.len(), 2, "ConfirmComposition + Commit(' ')");
-    assert_eq!(confirm_text(&actions), "nhat6", "shape-only inferred mark must repair to literal raw at the boundary");
+    assert_eq!(
+        confirm_text(&actions),
+        "nhat6",
+        "shape-only inferred mark must repair to literal raw at the boundary"
+    );
     assert_eq!(actions[1], Action::Commit(" ".to_string()));
 }
 
 #[test]
 fn boundary_repair_vni_nhat61_space_untouched_exact_attested() {
     let mut ex = PipelineExecutor::new(vni_composition_config());
-    for ch in "nhat61".chars() { ex.process(ch); }
+    for ch in "nhat61".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "nhất");
     let actions = ex.process(' ');
-    assert_eq!(confirm_text(&actions), "nhất", "exact-attested word must be untouched");
+    assert_eq!(
+        confirm_text(&actions),
+        "nhất",
+        "exact-attested word must be untouched"
+    );
 }
 
 #[test]
 fn boundary_repair_telex_vietej_space_untouched_exact_path() {
     let mut ex = PipelineExecutor::new(telex_composition_config());
-    for ch in "vietej".chars() { ex.process(ch); }
+    for ch in "vietej".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "việt");
     let actions = ex.process(' ');
-    assert_eq!(confirm_text(&actions), "việt", "Telex's exact-attestation path is already correct, untouched by closed");
+    assert_eq!(
+        confirm_text(&actions),
+        "việt",
+        "Telex's exact-attestation path is already correct, untouched by closed"
+    );
 }
 
 #[test]
 fn boundary_repair_data_space_no_double_repair() {
     let mut ex = PipelineExecutor::new(telex_composition_config());
-    for ch in "data".chars() { ex.process(ch); }
+    for ch in "data".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "data");
     let actions = ex.process(' ');
-    assert_eq!(confirm_text(&actions), "data", "already-literal word must not be touched again");
+    assert_eq!(
+        confirm_text(&actions),
+        "data",
+        "already-literal word must not be touched again"
+    );
 }
 
 #[test]
 fn boundary_repair_reset_space_accepted_collision_untouched() {
     let mut ex = PipelineExecutor::new(telex_composition_config());
-    for ch in "reset".chars() { ex.process(ch); }
+    for ch in "reset".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "rết");
     let actions = ex.process(' ');
-    assert_eq!(confirm_text(&actions), "rết", "exact-attested collision must not be repaired");
+    assert_eq!(
+        confirm_text(&actions),
+        "rết",
+        "exact-attested collision must not be repaired"
+    );
 }
 
 #[test]
 fn boundary_repair_adjacent_vieet_space_never_repaired() {
     let mut ex = PipelineExecutor::new(telex_composition_config());
-    for ch in "vieet".chars() { ex.process(ch); }
+    for ch in "vieet".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "viêt");
     let actions = ex.process(' ');
-    assert_eq!(confirm_text(&actions), "viêt", "direct/adjacent typing carries no inferred mark, never repaired");
+    assert_eq!(
+        confirm_text(&actions),
+        "viêt",
+        "direct/adjacent typing carries no inferred mark, never repaired"
+    );
 }
 
 #[test]
@@ -1765,9 +2060,15 @@ fn boundary_repair_disabled_flag_keeps_old_behavior() {
     let mut config = vni_composition_config();
     config.boundary_repair = false;
     let mut ex = PipelineExecutor::new(config);
-    for ch in "nhat6".chars() { ex.process(ch); }
+    for ch in "nhat6".chars() {
+        ex.process(ch);
+    }
     let actions = ex.process(' ');
-    assert_eq!(confirm_text(&actions), "nhât", "boundary_repair=false must reproduce the old shape-attested-only behavior exactly");
+    assert_eq!(
+        confirm_text(&actions),
+        "nhât",
+        "boundary_repair=false must reproduce the old shape-attested-only behavior exactly"
+    );
 }
 
 #[test]
@@ -1777,11 +2078,17 @@ fn boundary_repair_noop_after_p2_unlatch_no_double_replace() {
     // boundary repair must be a complete no-op here, and the action list must
     // be exactly [ConfirmComposition, Commit] — no extra Replace anywhere.
     let mut ex = PipelineExecutor::new(telex_composition_config());
-    for ch in "vietje".chars() { ex.process(ch); }
+    for ch in "vietje".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "việt", "P2 un-latch must have already fired");
     assert!(!ex.is_temp_english_mode());
     let actions = ex.process(' ');
-    assert_eq!(actions.len(), 2, "no double-Replace: exactly ConfirmComposition + Commit");
+    assert_eq!(
+        actions.len(),
+        2,
+        "no double-Replace: exactly ConfirmComposition + Commit"
+    );
     assert_eq!(confirm_text(&actions), "việt");
     assert_eq!(actions[1], Action::Commit(" ".to_string()));
 }
@@ -1794,10 +2101,16 @@ fn boundary_repair_case_masked_diff_vieejt_space() {
     // already exact-attested ("Việt"), so this also doubles as a no-op-repair
     // case-preservation regression guard.
     let mut ex = PipelineExecutor::new(telex_composition_config());
-    for ch in "Vieejt".chars() { ex.process(ch); }
+    for ch in "Vieejt".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "Việt");
     let actions = ex.process(' ');
-    assert_eq!(confirm_text(&actions), "Việt", "case must survive the boundary-repair probe");
+    assert_eq!(
+        confirm_text(&actions),
+        "Việt",
+        "case must survive the boundary-repair probe"
+    );
 }
 
 #[test]
@@ -1806,12 +2119,16 @@ fn boundary_repair_digits_after_word_do_not_commit_telex() {
     // pin that no boundary-commit action ever fires while typing them, so the
     // repair hook stays untouched/inert for this path.
     let mut ex = PipelineExecutor::new(telex_composition_config());
-    for ch in "vietje".chars() { ex.process(ch); }
+    for ch in "vietje".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "việt");
     for ch in "2024".chars() {
         let actions = ex.process(ch);
         assert!(
-            !actions.iter().any(|a| matches!(a, Action::ConfirmComposition(_))),
+            !actions
+                .iter()
+                .any(|a| matches!(a, Action::ConfirmComposition(_))),
             "digit '{ch}' must not trigger a word-boundary commit"
         );
     }
@@ -1827,9 +2144,15 @@ fn boundary_repair_enter_no_separator_no_pass_through_hook() {
     // query it explicitly before their own commit), but nothing here
     // auto-fires it merely by sitting mid-word.
     let mut ex = PipelineExecutor::new(vni_composition_config());
-    for ch in "nhat6".chars() { ex.process(ch); }
+    for ch in "nhat6".chars() {
+        ex.process(ch);
+    }
     assert_eq!(ex.syllable(), "nhât");
-    assert_eq!(ex.boundary_repair(), Some("nhat6".to_string()), "probe available on demand for platform Enter/reset-key handlers");
+    assert_eq!(
+        ex.boundary_repair(),
+        Some("nhat6".to_string()),
+        "probe available on demand for platform Enter/reset-key handlers"
+    );
 }
 
 // ── Phase 8: cross-phase interaction tests ───────────────────────────────────
@@ -1862,17 +2185,32 @@ fn coda_k_overlay_promotes_via_single_consult_point() {
 
     let config = create_telex_config();
     let mut ex = PipelineExecutor::new(config.clone());
-    for ch in "cakw".chars() { ex.process(ch); }
-    assert_eq!(ex.context().syllable_buffer, "cakw", "unattested k-coda shape must demote to literal without an overlay");
+    for ch in "cakw".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.context().syllable_buffer,
+        "cakw",
+        "unattested k-coda shape must demote to literal without an overlay"
+    );
 
     let (o, n, c, t) = decompose_ids("căk").expect("'căk' must be a decomposable k-coda shape (nucleus 'ă' + coda 'k' is a valid P6 combination)");
     let mut overlay = HashSet::new();
     overlay.insert(bit_index(o, n, c, t) as u32);
 
     let mut ex2 = PipelineExecutor::new(config);
-    ex2.set_learning_snapshot(LearningSnapshot { user_attested: Some(Arc::new(overlay)), raw_prefs: None });
-    for ch in "cakw".chars() { ex2.process(ch); }
-    assert_eq!(ex2.context().syllable_buffer, "căk", "overlay-attested k-coda shape must survive the SAME consult point P6's static table uses");
+    ex2.set_learning_snapshot(LearningSnapshot {
+        user_attested: Some(Arc::new(overlay)),
+        raw_prefs: None,
+    });
+    for ch in "cakw".chars() {
+        ex2.process(ch);
+    }
+    assert_eq!(
+        ex2.context().syllable_buffer,
+        "căk",
+        "overlay-attested k-coda shape must survive the SAME consult point P6's static table uses"
+    );
 }
 
 #[test]
@@ -1903,7 +2241,10 @@ fn gate_hardening_non_digit_trigger_demoted_before_probe_sees_it() {
 
     let raw: Vec<char> = "nhat'".chars().collect();
     let r = compose(&raw, &opts);
-    assert_eq!(r.text, "nhat'", "a non-digit trigger's shape-only match must demote to literal (P6 hardening)");
+    assert_eq!(
+        r.text, "nhat'",
+        "a non-digit trigger's shape-only match must demote to literal (P6 hardening)"
+    );
     assert!(
         r.applied_marks.is_empty(),
         "the demoted mark must not survive into applied_marks — the un-latch probe's condition (c) would see nothing to pin to the last raw position"
@@ -1918,7 +2259,10 @@ fn gate_hardening_non_digit_trigger_demoted_before_probe_sees_it() {
     let vni_opts = ComposeOpts::from_config(&vni_cfg);
     let vni_raw: Vec<char> = "nhat6".chars().collect();
     let vni_r = compose(&vni_raw, &vni_opts);
-    assert_eq!(vni_r.text, "nhât", "VNI's digit trigger DOES get shape-relaxation for the same shape");
+    assert_eq!(
+        vni_r.text, "nhât",
+        "VNI's digit trigger DOES get shape-relaxation for the same shape"
+    );
     assert!(
         !vni_r.applied_marks.is_empty(),
         "the digit mark survives — this is exactly what condition (c) would see for a genuine VNI un-latch probe"

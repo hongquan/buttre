@@ -12,7 +12,7 @@
 //! Trade memory (small) for speed (huge gain).
 
 /// Telex transform table entry: (input_key1, input_key2, output)
-/// 
+///
 /// For 2-char transforms: (first_char, second_char, result)
 /// Example: ('a', 'a', 'â') for "aa" → "â"
 #[derive(Debug, Clone, Copy)]
@@ -26,32 +26,103 @@ pub struct TelexTransform {
 }
 
 /// Static Telex 2-character transform table
-/// 
+///
 /// Covers all basic Telex transformations:
 /// - aa → â, aw → ă, dd → đ, ee → ê, oo → ô, ow → ơ, uw → ư
 /// - Uppercase variants: AA, Aw, DD, Dd, EE, OO, Ow, UW, Uw
 pub static TELEX_2CHAR_TABLE: &[TelexTransform] = &[
     // Lowercase transforms
-    TelexTransform { key1: 'a', key2: 'a', result: 'â' },
-    TelexTransform { key1: 'a', key2: 'w', result: 'ă' },
-    TelexTransform { key1: 'd', key2: 'd', result: 'đ' },
-    TelexTransform { key1: 'e', key2: 'e', result: 'ê' },
-    TelexTransform { key1: 'o', key2: 'o', result: 'ô' },
-    TelexTransform { key1: 'o', key2: 'w', result: 'ơ' },
-    TelexTransform { key1: 'u', key2: 'w', result: 'ư' },
-    
+    TelexTransform {
+        key1: 'a',
+        key2: 'a',
+        result: 'â',
+    },
+    TelexTransform {
+        key1: 'a',
+        key2: 'w',
+        result: 'ă',
+    },
+    TelexTransform {
+        key1: 'd',
+        key2: 'd',
+        result: 'đ',
+    },
+    TelexTransform {
+        key1: 'e',
+        key2: 'e',
+        result: 'ê',
+    },
+    TelexTransform {
+        key1: 'o',
+        key2: 'o',
+        result: 'ô',
+    },
+    TelexTransform {
+        key1: 'o',
+        key2: 'w',
+        result: 'ơ',
+    },
+    TelexTransform {
+        key1: 'u',
+        key2: 'w',
+        result: 'ư',
+    },
     // Uppercase transforms
-    TelexTransform { key1: 'A', key2: 'A', result: 'Â' },
-    TelexTransform { key1: 'A', key2: 'w', result: 'Ă' },  // Mixed case
-    TelexTransform { key1: 'A', key2: 'W', result: 'Ă' },
-    TelexTransform { key1: 'D', key2: 'd', result: 'Đ' },  // Mixed case
-    TelexTransform { key1: 'D', key2: 'D', result: 'Đ' },
-    TelexTransform { key1: 'E', key2: 'E', result: 'Ê' },
-    TelexTransform { key1: 'O', key2: 'O', result: 'Ô' },
-    TelexTransform { key1: 'O', key2: 'w', result: 'Ơ' },  // Mixed case
-    TelexTransform { key1: 'O', key2: 'W', result: 'Ơ' },
-    TelexTransform { key1: 'U', key2: 'w', result: 'Ư' },  // Mixed case
-    TelexTransform { key1: 'U', key2: 'W', result: 'Ư' },
+    TelexTransform {
+        key1: 'A',
+        key2: 'A',
+        result: 'Â',
+    },
+    TelexTransform {
+        key1: 'A',
+        key2: 'w',
+        result: 'Ă',
+    }, // Mixed case
+    TelexTransform {
+        key1: 'A',
+        key2: 'W',
+        result: 'Ă',
+    },
+    TelexTransform {
+        key1: 'D',
+        key2: 'd',
+        result: 'Đ',
+    }, // Mixed case
+    TelexTransform {
+        key1: 'D',
+        key2: 'D',
+        result: 'Đ',
+    },
+    TelexTransform {
+        key1: 'E',
+        key2: 'E',
+        result: 'Ê',
+    },
+    TelexTransform {
+        key1: 'O',
+        key2: 'O',
+        result: 'Ô',
+    },
+    TelexTransform {
+        key1: 'O',
+        key2: 'w',
+        result: 'Ơ',
+    }, // Mixed case
+    TelexTransform {
+        key1: 'O',
+        key2: 'W',
+        result: 'Ơ',
+    },
+    TelexTransform {
+        key1: 'U',
+        key2: 'w',
+        result: 'Ư',
+    }, // Mixed case
+    TelexTransform {
+        key1: 'U',
+        key2: 'W',
+        result: 'Ư',
+    },
 ];
 
 /// Static Telex 3-character transform table (for ươ)
@@ -120,7 +191,10 @@ pub fn lookup_3char(key1: char, key2: char, key3: char) -> Option<&'static str> 
 /// * `false` - Character cannot start any transform
 #[inline]
 pub fn can_start_transform(ch: char) -> bool {
-    matches!(ch, 'a' | 'A' | 'd' | 'D' | 'e' | 'E' | 'o' | 'O' | 'u' | 'U')
+    matches!(
+        ch,
+        'a' | 'A' | 'd' | 'D' | 'e' | 'E' | 'o' | 'O' | 'u' | 'U'
+    )
 }
 
 #[cfg(test)]
@@ -142,15 +216,15 @@ mod tests {
     fn test_2char_uppercase() {
         assert_eq!(lookup_2char('A', 'A'), Some('Â'));
         assert_eq!(lookup_2char('A', 'W'), Some('Ă'));
-        assert_eq!(lookup_2char('A', 'w'), Some('Ă'));  // Mixed
+        assert_eq!(lookup_2char('A', 'w'), Some('Ă')); // Mixed
         assert_eq!(lookup_2char('D', 'D'), Some('Đ'));
-        assert_eq!(lookup_2char('D', 'd'), Some('Đ'));  // Mixed
+        assert_eq!(lookup_2char('D', 'd'), Some('Đ')); // Mixed
         assert_eq!(lookup_2char('E', 'E'), Some('Ê'));
         assert_eq!(lookup_2char('O', 'O'), Some('Ô'));
         assert_eq!(lookup_2char('O', 'W'), Some('Ơ'));
-        assert_eq!(lookup_2char('O', 'w'), Some('Ơ'));  // Mixed
+        assert_eq!(lookup_2char('O', 'w'), Some('Ơ')); // Mixed
         assert_eq!(lookup_2char('U', 'W'), Some('Ư'));
-        assert_eq!(lookup_2char('U', 'w'), Some('Ư'));  // Mixed
+        assert_eq!(lookup_2char('U', 'w'), Some('Ư')); // Mixed
     }
 
     #[test]
@@ -186,14 +260,14 @@ mod tests {
         assert!(can_start_transform('O'));
         assert!(can_start_transform('u'));
         assert!(can_start_transform('U'));
-        
+
         // Cannot start
         assert!(!can_start_transform('b'));
         assert!(!can_start_transform('x'));
         assert!(!can_start_transform('1'));
         assert!(!can_start_transform(' '));
     }
-    
+
     #[test]
     fn test_table_completeness() {
         // Verify all original HashMap rules are covered

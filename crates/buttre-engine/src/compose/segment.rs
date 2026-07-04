@@ -15,8 +15,8 @@
 //! Every key is a base key; double-key digraphs are resolved via the transform
 //! table (e.g. "kk" → "ꩀ"). No mark extraction at all.
 
-use crate::vowel::cluster::is_vowel;
 use super::ComposeOpts;
+use crate::vowel::cluster::is_vowel;
 
 /// Slot index for the per-call a/e/o/d counters (`double_candidates`,
 /// `vowel_in_base`) — fixed 4-char domain, so plain arrays beat per-call
@@ -105,8 +105,8 @@ pub struct Segment {
 /// elsewhere in the same word are unaffected.
 pub fn segment(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> Segment {
     match opts.segment_mode {
-        SegmentMode::MarkBased  => segment_mark_based(raw, opts, allow_nonadjacent),
-        SegmentMode::DirectMap  => segment_direct_map(raw, opts),
+        SegmentMode::MarkBased => segment_mark_based(raw, opts, allow_nonadjacent),
+        SegmentMode::DirectMap => segment_direct_map(raw, opts),
     }
 }
 
@@ -150,11 +150,16 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
     let has_vowel_after_second_d = {
         let mut d_count = 0usize;
         let second_d_pos = raw.iter().position(|&c| {
-            if c.to_ascii_lowercase() == 'd' { d_count += 1; }
+            if c.eq_ignore_ascii_case(&'d') {
+                d_count += 1;
+            }
             d_count == 2
         });
-        second_d_pos.map_or(false, |pos| {
-            raw.get(pos + 1..).unwrap_or(&[]).iter().any(|&c| is_vowel(c.to_ascii_lowercase()))
+        second_d_pos.is_some_and(|pos| {
+            raw.get(pos + 1..)
+                .unwrap_or(&[])
+                .iter()
+                .any(|&c| is_vowel(c.to_ascii_lowercase()))
         })
     };
 
@@ -184,20 +189,26 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
         // lexical one.
         if !base.is_empty() {
             let last_base_lc = base.chars().last().unwrap().to_ascii_lowercase();
-            if last_base_lc == lc && matches!(lc, 'a' | 'e' | 'o' | 'd') {
-                if !has_earlier_vowel_with_consonants(&base, lc) {
-                    let base_len = base.chars().count();
-                    let non_adjacent = mark_non_adjacent(raw, i, lc, base_len, opts);
-                    if allow_nonadjacent || !non_adjacent {
-                        transforms.push(TransformMark { key: ch, base_len_at_typing: base_len, raw_pos: i, non_adjacent });
-                        continue;
-                    }
-                    // Demote pass suppressing a non-adjacent mark: fall through
-                    // to treat this key as a literal base character (below).
+            if last_base_lc == lc
+                && matches!(lc, 'a' | 'e' | 'o' | 'd')
+                && !has_earlier_vowel_with_consonants(&base, lc)
+            {
+                let base_len = base.chars().count();
+                let non_adjacent = mark_non_adjacent(raw, i, lc, base_len, opts);
+                if allow_nonadjacent || !non_adjacent {
+                    transforms.push(TransformMark {
+                        key: ch,
+                        base_len_at_typing: base_len,
+                        raw_pos: i,
+                        non_adjacent,
+                    });
+                    continue;
                 }
-                // Guard fired — same vowel already exists with consonants between;
-                // fall through to treat this key as a literal base character.
+                // Demote pass suppressing a non-adjacent mark: fall through
+                // to treat this key as a literal base character (below).
             }
+            // Guard fired (or the double-letter/doubling-set check failed) —
+            // fall through to treat this key as a literal base character.
         }
 
         // ── Non-adjacent double (flexible typing: "vietej" → "việt") ───────
@@ -231,14 +242,16 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
             let count = double_candidates[idx];
             let legacy_shape_guards_pass = opts.attest_non_adjacent
                 || (count_vowel_groups(&base) <= 1 && coda_after_last_vowel_is_valid(&base, lc));
-            if count == 2
-                && vowel_in_base[idx]
-                && legacy_shape_guards_pass
-            {
+            if count == 2 && vowel_in_base[idx] && legacy_shape_guards_pass {
                 let base_len = base.chars().count();
                 let non_adjacent = mark_non_adjacent(raw, i, lc, base_len, opts);
                 if allow_nonadjacent || !non_adjacent {
-                    transforms.push(TransformMark { key: ch, base_len_at_typing: base_len, raw_pos: i, non_adjacent });
+                    transforms.push(TransformMark {
+                        key: ch,
+                        base_len_at_typing: base_len,
+                        raw_pos: i,
+                        non_adjacent,
+                    });
                     continue;
                 }
                 // Demote pass: suppressed, fall through to literal (đ-check
@@ -274,7 +287,12 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
             let base_len = base.chars().count();
             let non_adjacent = mark_non_adjacent(raw, i, lc, base_len, opts);
             if allow_nonadjacent || !non_adjacent {
-                transforms.push(TransformMark { key: ch, base_len_at_typing: base_len, raw_pos: i, non_adjacent });
+                transforms.push(TransformMark {
+                    key: ch,
+                    base_len_at_typing: base_len,
+                    raw_pos: i,
+                    non_adjacent,
+                });
                 continue;
             }
             // Demote pass: suppressed, fall through to literal push below.
@@ -319,7 +337,12 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
             let base_len = base.chars().count();
             let non_adjacent = mark_non_adjacent(raw, i, lc, base_len, opts);
             if allow_nonadjacent || !non_adjacent {
-                transforms.push(TransformMark { key: ch, base_len_at_typing: base_len, raw_pos: i, non_adjacent });
+                transforms.push(TransformMark {
+                    key: ch,
+                    base_len_at_typing: base_len,
+                    raw_pos: i,
+                    non_adjacent,
+                });
                 // The onset insertion's expansion ("w"→"ư") IS the syllable's
                 // nucleus: later tone keys must see a vowel ("twf"→"từ",
                 // "swj"→"sự") even though no raw vowel char exists in the
@@ -354,7 +377,11 @@ fn segment_mark_based(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool)
         }
     }
 
-    Segment { base, transforms, tones }
+    Segment {
+        base,
+        transforms,
+        tones,
+    }
 }
 
 // ── DirectMap ─────────────────────────────────────────────────────────────────
@@ -389,7 +416,11 @@ fn segment_direct_map(raw: &[char], opts: &ComposeOpts) -> Segment {
     }
 
     // DirectMap never produces separate marks.
-    Segment { base, transforms: Vec::new(), tones: Vec::new() }
+    Segment {
+        base,
+        transforms: Vec::new(),
+        tones: Vec::new(),
+    }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -404,7 +435,13 @@ fn segment_direct_map(raw: &[char], opts: &ComposeOpts) -> Segment {
 /// exact case.
 ///
 /// Otherwise, delegates to [`is_adjacent_trigger`] for the raw-order check.
-fn mark_non_adjacent(raw: &[char], i: usize, trigger_lc: char, base_len: usize, opts: &ComposeOpts) -> bool {
+fn mark_non_adjacent(
+    raw: &[char],
+    i: usize,
+    trigger_lc: char,
+    base_len: usize,
+    opts: &ComposeOpts,
+) -> bool {
     if base_len == 0 {
         return false;
     }
@@ -473,7 +510,10 @@ fn coda_after_last_vowel_is_valid(base: &str, vowel: char) -> bool {
     let Some(pos) = chars.iter().rposition(|&c| c.to_ascii_lowercase() == vowel) else {
         return false;
     };
-    let tail: String = chars[pos + 1..].iter().collect::<String>().to_ascii_lowercase();
+    let tail: String = chars[pos + 1..]
+        .iter()
+        .collect::<String>()
+        .to_ascii_lowercase();
     // Valid Vietnamese codas (single + 2-char); empty = open syllable.
     matches!(
         tail.as_str(),
@@ -623,7 +663,10 @@ mod tests {
         cfg.add_tone('r', ToneMark::Hook);
         cfg.add_tone('x', ToneMark::Tilde);
         cfg.add_tone('j', ToneMark::Dot);
-        cfg.validation = Some(ValidationSettings { syllable_structure: "hmong".to_string(), allow_invalid: true });
+        cfg.validation = Some(ValidationSettings {
+            syllable_structure: "hmong".to_string(),
+            allow_invalid: true,
+        });
         ComposeOpts::from_config(&cfg)
     }
 
@@ -661,8 +704,16 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "fan".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert!(seg.tones.is_empty(), "leading 'f' must not be collected as tone: {:?}", seg.tones);
-        assert!(seg.base.starts_with('f'), "leading 'f' must be in base: '{}'", seg.base);
+        assert!(
+            seg.tones.is_empty(),
+            "leading 'f' must not be collected as tone: {:?}",
+            seg.tones
+        );
+        assert!(
+            seg.base.starts_with('f'),
+            "leading 'f' must be in base: '{}'",
+            seg.base
+        );
     }
 
     #[test]
@@ -681,7 +732,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "jin".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert!(seg.tones.is_empty(), "leading 'j' must not be collected as tone: {:?}", seg.tones);
+        assert!(
+            seg.tones.is_empty(),
+            "leading 'j' must not be collected as tone: {:?}",
+            seg.tones
+        );
         assert!(seg.base.starts_with('j'));
     }
 
@@ -713,7 +768,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "fallbaack".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert!(seg.transforms.is_empty(), "guard must block transform in 'fallbaack': {:?}", seg.transforms);
+        assert!(
+            seg.transforms.is_empty(),
+            "guard must block transform in 'fallbaack': {:?}",
+            seg.transforms
+        );
         assert_eq!(seg.base, "fallbaack");
     }
 
@@ -724,7 +783,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "implemeent".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert!(seg.transforms.is_empty(), "guard must block transform in 'implemeent': {:?}", seg.transforms);
+        assert!(
+            seg.transforms.is_empty(),
+            "guard must block transform in 'implemeent': {:?}",
+            seg.transforms
+        );
         assert_eq!(seg.base, "implemeent");
     }
 
@@ -761,8 +824,11 @@ mod tests {
         for word in ["fallback", "implement", "impleme"] {
             let raw: Vec<char> = word.chars().collect();
             let seg = segment(&raw, &opts, true);
-            assert!(seg.transforms.is_empty(),
-                "Hmong config must keep the legacy shape guards active for '{word}': {:?}", seg.transforms);
+            assert!(
+                seg.transforms.is_empty(),
+                "Hmong config must keep the legacy shape guards active for '{word}': {:?}",
+                seg.transforms
+            );
             assert_eq!(seg.base, word);
         }
     }
@@ -773,7 +839,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "viete".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(transform_keys(&seg), vec!['e'], "non-adjacent must fire in 'viete'");
+        assert_eq!(
+            transform_keys(&seg),
+            vec!['e'],
+            "non-adjacent must fire in 'viete'"
+        );
     }
 
     #[test]
@@ -782,7 +852,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "vieet".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(transform_keys(&seg), vec!['e'], "ee transform must fire in 'vieet'");
+        assert_eq!(
+            transform_keys(&seg),
+            vec!['e'],
+            "ee transform must fire in 'vieet'"
+        );
     }
 
     #[test]
@@ -791,7 +865,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "baan".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(transform_keys(&seg), vec!['a'], "aa transform must fire in 'baan'");
+        assert_eq!(
+            transform_keys(&seg),
+            vec!['a'],
+            "aa transform must fire in 'baan'"
+        );
     }
 
     #[test]
@@ -803,8 +881,15 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "dodongf".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(seg.base, "dong", "base must be 'dong' after both transforms extracted");
-        assert_eq!(transform_keys(&seg), vec!['d', 'o'], "both 'd' and 'o' must be transform marks");
+        assert_eq!(
+            seg.base, "dong",
+            "base must be 'dong' after both transforms extracted"
+        );
+        assert_eq!(
+            transform_keys(&seg),
+            vec!['d', 'o'],
+            "both 'd' and 'o' must be transform marks"
+        );
         assert_eq!(seg.tones, vec!['f']);
     }
 
@@ -847,7 +932,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "vieet".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(non_adjacent_flags(&seg), vec![false], "adjacent 'ee' must not be flagged non-adjacent");
+        assert_eq!(
+            non_adjacent_flags(&seg),
+            vec![false],
+            "adjacent 'ee' must not be flagged non-adjacent"
+        );
     }
 
     #[test]
@@ -856,7 +945,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "how".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(non_adjacent_flags(&seg), vec![false], "how's 'w' must not be flagged non-adjacent");
+        assert_eq!(
+            non_adjacent_flags(&seg),
+            vec![false],
+            "how's 'w' must not be flagged non-adjacent"
+        );
     }
 
     #[test]
@@ -865,7 +958,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "viete".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(non_adjacent_flags(&seg), vec![true], "viete's 'e' must be flagged non-adjacent");
+        assert_eq!(
+            non_adjacent_flags(&seg),
+            vec![true],
+            "viete's 'e' must be flagged non-adjacent"
+        );
     }
 
     #[test]
@@ -877,7 +974,11 @@ mod tests {
         let raw: Vec<char> = "reset".chars().collect();
         let seg = segment(&raw, &opts, true);
         assert_eq!(transform_keys(&seg), vec!['e']);
-        assert_eq!(non_adjacent_flags(&seg), vec![true], "reset's 'e' must be flagged non-adjacent (tone key between)");
+        assert_eq!(
+            non_adjacent_flags(&seg),
+            vec![true],
+            "reset's 'e' must be flagged non-adjacent (tone key between)"
+        );
     }
 
     #[test]
@@ -887,7 +988,11 @@ mod tests {
         let raw: Vec<char> = "nasa".chars().collect();
         let seg = segment(&raw, &opts, true);
         assert_eq!(transform_keys(&seg), vec!['a']);
-        assert_eq!(non_adjacent_flags(&seg), vec![true], "nasa's 'a' must be flagged non-adjacent (tone key between)");
+        assert_eq!(
+            non_adjacent_flags(&seg),
+            vec![true],
+            "nasa's 'a' must be flagged non-adjacent (tone key between)"
+        );
     }
 
     #[test]
@@ -898,7 +1003,11 @@ mod tests {
         let raw: Vec<char> = "dodongf".chars().collect();
         let seg = segment(&raw, &opts, true);
         assert_eq!(transform_keys(&seg), vec!['d', 'o']);
-        assert_eq!(non_adjacent_flags(&seg), vec![true, true], "both đ and o must be flagged non-adjacent");
+        assert_eq!(
+            non_adjacent_flags(&seg),
+            vec![true, true],
+            "both đ and o must be flagged non-adjacent"
+        );
     }
 
     #[test]
@@ -909,7 +1018,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "luuw".chars().collect();
         let seg = segment(&raw, &opts, true);
-        assert_eq!(non_adjacent_flags(&seg), vec![false], "luuw's 'w' must not be flagged non-adjacent");
+        assert_eq!(
+            non_adjacent_flags(&seg),
+            vec![false],
+            "luuw's 'w' must not be flagged non-adjacent"
+        );
     }
 
     #[test]
@@ -922,7 +1035,10 @@ mod tests {
         let seg = segment(&raw, &opts, true);
         assert_eq!(seg.transforms.len(), 1);
         assert_eq!(seg.transforms[0].base_len_at_typing, 0);
-        assert!(!seg.transforms[0].non_adjacent, "base_len==0 prefix mark must be adjacent by definition");
+        assert!(
+            !seg.transforms[0].non_adjacent,
+            "base_len==0 prefix mark must be adjacent by definition"
+        );
     }
 
     #[test]
@@ -946,7 +1062,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "viete".chars().collect();
         let seg = segment(&raw, &opts, false);
-        assert!(seg.transforms.is_empty(), "demote pass must extract no marks: {:?}", seg.transforms);
+        assert!(
+            seg.transforms.is_empty(),
+            "demote pass must extract no marks: {:?}",
+            seg.transforms
+        );
         assert_eq!(seg.base, "viete");
     }
 
@@ -957,7 +1077,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "vieet".chars().collect();
         let seg = segment(&raw, &opts, false);
-        assert_eq!(transform_keys(&seg), vec!['e'], "adjacent mark must still fire when demoted");
+        assert_eq!(
+            transform_keys(&seg),
+            vec!['e'],
+            "adjacent mark must still fire when demoted"
+        );
     }
 
     #[test]
@@ -967,7 +1091,11 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "dodongf".chars().collect();
         let seg = segment(&raw, &opts, false);
-        assert!(seg.transforms.is_empty(), "demote pass must extract no marks: {:?}", seg.transforms);
+        assert!(
+            seg.transforms.is_empty(),
+            "demote pass must extract no marks: {:?}",
+            seg.transforms
+        );
         assert_eq!(seg.base, "dodong");
         assert_eq!(seg.tones, vec!['f']);
     }
@@ -980,7 +1108,11 @@ mod tests {
         let opts = vni_opts();
         let raw: Vec<char> = "nhat6".chars().collect();
         let seg = segment(&raw, &opts, false);
-        assert!(seg.transforms.is_empty(), "demote pass must suppress VNI standalone digit: {:?}", seg.transforms);
+        assert!(
+            seg.transforms.is_empty(),
+            "demote pass must suppress VNI standalone digit: {:?}",
+            seg.transforms
+        );
         assert_eq!(seg.base, "nhat6");
     }
 }

@@ -51,15 +51,15 @@
 //! let action = keyboard.process('a')?;
 //! ```
 
-mod keyboard_service;
 mod config_service;
-mod method_registry;
 mod hotkey_service;
+mod keyboard_service;
+mod method_registry;
 mod settings_service;
 
 // Re-export public types
-pub use keyboard_service::{KeyboardService, Preset};
-pub use config_service::{ConfigService, ConfigInfo, ConfigSource};
-pub use method_registry::MethodRegistry;
+pub use config_service::{ConfigInfo, ConfigService, ConfigSource};
 pub use hotkey_service::HotkeyService;
+pub use keyboard_service::{KeyboardService, Preset};
+pub use method_registry::MethodRegistry;
 pub use settings_service::SettingsService;

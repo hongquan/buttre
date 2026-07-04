@@ -1,4 +1,4 @@
-use buttre_engine::vowel::{VowelSeqInfo, VowelSeqTable, VowelSeq};
+use buttre_engine::vowel::{VowelSeq, VowelSeqInfo, VowelSeqTable};
 
 #[test]
 fn test_vowel_seq_info_creation() {
@@ -13,7 +13,7 @@ fn test_vowel_seq_info_creation() {
         with_roof: Some(VowelSeq::UHO),
         with_hook: None,
     };
-    
+
     assert_eq!(info.sequence, "ươ");
     assert_eq!(info.len, 2);
     assert!(info.complete);
@@ -27,13 +27,13 @@ fn test_can_receive_tone() {
         len: 2,
         complete: true,
         vowels: vec!['o', 'a'],
-        tone_positions: vec![0, 1],  // Can tone both positions
+        tone_positions: vec![0, 1], // Can tone both positions
         roof_pos: None,
         hook_pos: None,
         with_roof: None,
         with_hook: None,
     };
-    
+
     assert!(info.can_receive_tone(0));
     assert!(info.can_receive_tone(1));
     assert!(!info.can_receive_tone(2));
@@ -46,13 +46,13 @@ fn test_primary_tone_position() {
         len: 3,
         complete: true,
         vowels: vec!['ư', 'ơ', 'i'],
-        tone_positions: vec![1, 0, 2],  // Prefer 'ơ'
+        tone_positions: vec![1, 0, 2], // Prefer 'ơ'
         roof_pos: None,
         hook_pos: None,
         with_roof: None,
         with_hook: None,
     };
-    
+
     assert_eq!(info.primary_tone_position(), Some(1));
 }
 
@@ -82,7 +82,7 @@ fn test_vowel_seq_table_find() {
             with_hook: None,
         },
     ]);
-    
+
     assert!(table.find("a").is_some());
     assert!(table.find("ươ").is_some());
     assert!(table.find("xyz").is_none());
@@ -90,20 +90,18 @@ fn test_vowel_seq_table_find() {
 
 #[test]
 fn test_vowel_seq_table_find_by_vowels() {
-    let table = VowelSeqTable::new(vec![
-        VowelSeqInfo {
-            sequence: "ươ".to_string(),
-            len: 2,
-            complete: true,
-            vowels: vec!['ư', 'ơ'],
-            tone_positions: vec![1, 0],
-            roof_pos: None,
-            hook_pos: None,
-            with_roof: None,
-            with_hook: None,
-        },
-    ]);
-    
+    let table = VowelSeqTable::new(vec![VowelSeqInfo {
+        sequence: "ươ".to_string(),
+        len: 2,
+        complete: true,
+        vowels: vec!['ư', 'ơ'],
+        tone_positions: vec![1, 0],
+        roof_pos: None,
+        hook_pos: None,
+        with_roof: None,
+        with_hook: None,
+    }]);
+
     assert!(table.find_by_vowels(&['ư', 'ơ']).is_some());
     assert!(table.find_by_vowels(&['a', 'b']).is_none());
 }

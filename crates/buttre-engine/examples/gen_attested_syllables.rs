@@ -57,7 +57,10 @@ fn report(result: &attested_gen::GenerationResult) {
     let total_skipped = vowel_less + other;
     let unexplained_pct = 100.0 * other as f64 / result.total_lines.max(1) as f64;
 
-    eprintln!("[gen_attested_syllables] dict lines: {}", result.total_lines);
+    eprintln!(
+        "[gen_attested_syllables] dict lines: {}",
+        result.total_lines
+    );
     eprintln!(
         "[gen_attested_syllables] embedded tuples (popcount): {}",
         result.popcount
@@ -87,7 +90,10 @@ fn print_words(label: &str, skipped: &[(String, SkipReason)], want: SkipReason) 
     if words.is_empty() {
         return;
     }
-    eprintln!("[gen_attested_syllables] {label} entries ({}):", words.len());
+    eprintln!(
+        "[gen_attested_syllables] {label} entries ({}):",
+        words.len()
+    );
     eprintln!("    {}", words.join(", "));
 }
 

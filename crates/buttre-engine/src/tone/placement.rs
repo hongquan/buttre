@@ -47,11 +47,15 @@ pub fn place(nucleus: &[char], tone_style: ToneStyle, has_final_consonant: bool)
         let v2 = normalize_vowel(nucleus[2]);
         let triple = [v0, v1, v2];
         match triple {
-            ['i', 'e', 'u'] | ['y', 'e', 'u'] |
-            ['u', 'o', 'i'] | ['u', 'o', 'u'] |
-            ['o', 'a', 'i'] | ['o', 'a', 'y'] |
-            ['u', 'a', 'y'] | ['u', 'y', 'a'] |
-            ['u', 'y', 'u'] => return Some(1),
+            ['i', 'e', 'u']
+            | ['y', 'e', 'u']
+            | ['u', 'o', 'i']
+            | ['u', 'o', 'u']
+            | ['o', 'a', 'i']
+            | ['o', 'a', 'y']
+            | ['u', 'a', 'y']
+            | ['u', 'y', 'a']
+            | ['u', 'y', 'u'] => return Some(1),
             _ => {} // fall through
         }
     }
@@ -97,7 +101,8 @@ pub fn place(nucleus: &[char], tone_style: ToneStyle, has_final_consonant: bool)
 #[inline]
 fn is_super_vowel(ch: char) -> bool {
     let lower = ch.to_lowercase().next().unwrap_or(ch);
-    matches!(lower,
+    matches!(
+        lower,
         'ă' | 'â' | 'ê' | 'ô' | 'ơ' | 'ư' |
         // toned variants
         'ắ' | 'ằ' | 'ẳ' | 'ẵ' | 'ặ' |
@@ -120,16 +125,24 @@ mod tests {
     #[test]
     fn oa_tone_style() {
         let nucleus = ['o', 'a'];
-        assert_eq!(place(&nucleus, ToneStyle::Old, false), Some(0), "Old: tone on 'o'");
-        assert_eq!(place(&nucleus, ToneStyle::New, false), Some(1), "New: tone on 'a'");
+        assert_eq!(
+            place(&nucleus, ToneStyle::Old, false),
+            Some(0),
+            "Old: tone on 'o'"
+        );
+        assert_eq!(
+            place(&nucleus, ToneStyle::New, false),
+            Some(1),
+            "New: tone on 'a'"
+        );
     }
 
     // tuần / tuấn — "ua" + final consonant → second vowel
     #[test]
     fn ua_with_final_consonant() {
         let nucleus = ['u', 'a'];
-        assert_eq!(place(&nucleus, ToneStyle::Old, true),  Some(1));
-        assert_eq!(place(&nucleus, ToneStyle::New, true),  Some(1));
+        assert_eq!(place(&nucleus, ToneStyle::Old, true), Some(1));
+        assert_eq!(place(&nucleus, ToneStyle::New, true), Some(1));
     }
 
     // ua open (vua) — ia/ua pattern → first vowel
@@ -181,7 +194,7 @@ mod tests {
     #[test]
     fn single_vowel_returns_zero() {
         assert_eq!(place(&['a'], ToneStyle::Old, false), Some(0));
-        assert_eq!(place(&['i'], ToneStyle::New, true),  Some(0));
+        assert_eq!(place(&['i'], ToneStyle::New, true), Some(0));
     }
 
     // ư is treated as super-vowel — prevents it from being skipped in "ưa" open

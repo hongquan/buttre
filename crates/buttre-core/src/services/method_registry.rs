@@ -36,7 +36,7 @@ use anyhow::Result;
 pub struct MethodRegistry {
     /// List of registered methods
     methods: Vec<MethodInfo>,
-    
+
     /// Config service for discovering custom methods
     config_service: ConfigService,
 }
@@ -45,13 +45,13 @@ impl MethodRegistry {
     /// Create a new MethodRegistry
     pub fn new() -> Result<Self> {
         let config_service = ConfigService::new()?;
-        
+
         Ok(Self {
             methods: Vec::new(),
             config_service,
         })
     }
-    
+
     /// Create a MethodRegistry with a custom ConfigService
     pub fn with_config_service(config_service: ConfigService) -> Self {
         Self {
@@ -59,17 +59,17 @@ impl MethodRegistry {
             config_service,
         }
     }
-    
+
     /// Scan for all available methods
     ///
     /// This will discover both built-in and custom methods by scanning
     /// the keyboards directory.
     pub fn scan(&mut self) -> Result<()> {
         self.methods.clear();
-        
+
         // Get all configs from ConfigService
         let configs = self.config_service.list()?;
-        
+
         // Convert to MethodInfo
         for config in configs {
             self.methods.push(MethodInfo {
@@ -77,22 +77,20 @@ impl MethodRegistry {
                 name: config.name,
                 language: config.language,
                 source: match config.source {
-                    crate::services::config_service::ConfigSource::Builtin => {
-                        MethodSource::Builtin
-                    }
+                    crate::services::config_service::ConfigSource::Builtin => MethodSource::Builtin,
                     crate::services::config_service::ConfigSource::Custom(path) => {
                         MethodSource::Custom(path.to_string_lossy().to_string())
                     }
                 },
             });
         }
-        
+
         // Sort by name for consistent ordering
         self.methods.sort_by(|a, b| a.name.cmp(&b.name));
-        
+
         Ok(())
     }
-    
+
     /// Get a method by ID
     ///
     /// # Arguments
@@ -105,12 +103,12 @@ impl MethodRegistry {
     pub fn get(&self, id: &str) -> Option<&MethodInfo> {
         self.methods.iter().find(|m| m.id == id)
     }
-    
+
     /// List all registered methods
     pub fn list(&self) -> &[MethodInfo] {
         &self.methods
     }
-    
+
     /// Get methods by language
     ///
     /// # Arguments
@@ -122,7 +120,7 @@ impl MethodRegistry {
             .filter(|m| m.language == language)
             .collect()
     }
-    
+
     /// Get only built-in methods
     pub fn builtins(&self) -> Vec<&MethodInfo> {
         self.methods
@@ -130,7 +128,7 @@ impl MethodRegistry {
             .filter(|m| matches!(m.source, MethodSource::Builtin))
             .collect()
     }
-    
+
     /// Get only custom methods
     pub fn customs(&self) -> Vec<&MethodInfo> {
         self.methods
@@ -138,7 +136,7 @@ impl MethodRegistry {
             .filter(|m| matches!(m.source, MethodSource::Custom(_)))
             .collect()
     }
-    
+
     /// Register a custom method manually
     ///
     /// This is useful for adding methods that were discovered through
@@ -150,14 +148,14 @@ impl MethodRegistry {
     pub fn register(&mut self, info: MethodInfo) {
         // Remove existing entry with same ID
         self.methods.retain(|m| m.id != info.id);
-        
+
         // Add new entry
         self.methods.push(info);
-        
+
         // Re-sort
         self.methods.sort_by(|a, b| a.name.cmp(&b.name));
     }
-    
+
     /// Unregister a method
     ///
     /// # Arguments
@@ -172,12 +170,12 @@ impl MethodRegistry {
         self.methods.retain(|m| m.id != id);
         self.methods.len() < before_len
     }
-    
+
     /// Get the number of registered methods
     pub fn count(&self) -> usize {
         self.methods.len()
     }
-    
+
     /// Check if a method exists
     pub fn contains(&self, id: &str) -> bool {
         self.methods.iter().any(|m| m.id == id)
@@ -189,4 +187,3 @@ impl Default for MethodRegistry {
         Self::new().expect("Failed to create MethodRegistry")
     }
 }
-

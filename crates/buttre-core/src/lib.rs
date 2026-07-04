@@ -7,7 +7,9 @@
 //! Provides centralized state management, services, and event-driven architecture
 //! for the buttre application. This is the heart of the application logic.
 
-#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+// See buttre-engine/src/lib.rs's doc comment on this attribute — pedantic
+// and nursery are deliberately excluded, matching the workspace lint policy.
+#![warn(clippy::all)]
 #![deny(unsafe_code)]
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 //!
@@ -78,36 +80,39 @@
 //! See `.agent/plans/buttre-core-restructure.md` for full refactoring plan.
 
 // Re-export core engine components (types only, NOT for processing!)
+pub use buttre_engine::buffer;
 pub use buttre_engine::types;
 pub use buttre_engine::unicode;
-pub use buttre_engine::buffer;
 
 // Core modules
-pub mod core;       // ButtreCore facade (NEW!)
-pub mod events;     // Event Bus
-pub mod services;   // Services Layer
-pub mod state;      // Settings, AppState
-pub mod hotkey;     // Hotkey management
-pub mod keyboard;   // Keyboard core (from buttre-keyboard)
+pub mod core; // ButtreCore facade (NEW!)
+pub mod events; // Event Bus
+pub mod hotkey; // Hotkey management
+pub mod keyboard;
+pub mod services; // Services Layer
+pub mod state; // Settings, AppState // Keyboard core (from buttre-keyboard)
 
 // Compatibility stubs (will be refactored in Phase 4)
 pub mod vietnamese; // Only ConfigLoader for UI (MethodMetadata, get_custom_dir)
 
 // Re-exports from buttre_engine (types only)
-pub use types::{Action, CharInfo, WordForm};
-pub use types::Config as EngineConfig; // Rename to avoid conflict
 pub use buttre_engine::InputBuffer;
-pub use unicode::{normalize_nfc, normalize_nfd, str_eq_normalized, sanitize_filename};
+pub use types::Config as EngineConfig; // Rename to avoid conflict
+pub use types::{Action, CharInfo, WordForm};
+pub use unicode::{normalize_nfc, normalize_nfd, sanitize_filename, str_eq_normalized};
 
 // State management exports
 pub use state::{AppState, Settings, StateObserver};
 
 // Event system exports
-pub use events::{AppEvent, EventBus, SharedEventBus, create_event_bus, HotkeyAction, MethodInfo, MethodSource, LogLevel};
+pub use events::{
+    create_event_bus, AppEvent, EventBus, HotkeyAction, LogLevel, MethodInfo, MethodSource,
+    SharedEventBus,
+};
 
 // Keyboard exports (from buttre-keyboard)
 pub use keyboard::{
-    Config as KeyboardConfig,  // Renamed to avoid conflict with EngineConfig
+    Config as KeyboardConfig, // Renamed to avoid conflict with EngineConfig
     Keyboard,
     KeyboardBuilder,
     Metadata,
@@ -117,14 +122,8 @@ pub use keyboard::{
 
 // Services exports
 pub use services::{
-    KeyboardService,
-    ConfigService,
-    MethodRegistry,
-    HotkeyService,
-    SettingsService,
-    Preset,
-    ConfigInfo,
-    ConfigSource,
+    ConfigInfo, ConfigService, ConfigSource, HotkeyService, KeyboardService, MethodRegistry,
+    Preset, SettingsService,
 };
 
 // ButtreCore facade - Main entry point
@@ -148,5 +147,4 @@ pub use core::ButtreCore;
 
 // Re-export keyboard types with backward-compatible names
 // (Most types are already exported above, we just need the Config alias)
-pub use KeyboardConfig as Config;  // Alias for old code that uses "Config"
-
+pub use KeyboardConfig as Config; // Alias for old code that uses "Config"

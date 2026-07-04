@@ -8,7 +8,7 @@ use crate::state::learning::{LearningFile, LearningStore, PreferKind};
 use crate::Action;
 use buttre_engine::compose::{compose_closed, is_last_event_undo, ComposeOpts, Validator};
 use buttre_engine::pipeline::validation::{is_attested_overlay, SyllableStructure};
-use buttre_engine::pipeline::{PipelineExecutor, PipelineConfig};
+use buttre_engine::pipeline::{PipelineConfig, PipelineExecutor};
 use buttre_engine::types::Action as EngineAction;
 use std::collections::HashMap;
 use std::sync::mpsc::Sender;
@@ -210,7 +210,11 @@ impl Keyboard {
     /// store applies from the very next keystroke — the Combined Contract's
     /// "boundary only" rule governs when NEW signals are COLLECTED, not this
     /// one-time hand-off at construction/method-switch time.
-    pub fn set_learning(&mut self, store: Arc<Mutex<LearningStore>>, save_tx: Sender<LearningFile>) {
+    pub fn set_learning(
+        &mut self,
+        store: Arc<Mutex<LearningStore>>,
+        save_tx: Sender<LearningFile>,
+    ) {
         let snapshot = {
             let guard = store.lock().unwrap_or_else(PoisonError::into_inner);
             guard.snapshot_for_method(&self.method)
@@ -291,15 +295,23 @@ impl Keyboard {
         let word_str: String = word_raw.iter().collect();
         let toggles = self.drain_matching_toggle_signals(&word_str);
 
-        let Some(handle) = self.learning.as_ref() else { return };
-        let Some(opts) = self.compose_opts.as_ref() else { return };
+        let Some(handle) = self.learning.as_ref() else {
+            return;
+        };
+        let Some(opts) = self.compose_opts.as_ref() else {
+            return;
+        };
 
         let has_trigger = opts.has_trigger_key(word_raw);
         let mut store = handle.store.lock().unwrap_or_else(PoisonError::into_inner);
 
         if !toggles.is_empty() {
             for sig in &toggles {
-                let prefer = if sig.literal { PreferKind::Literal } else { PreferKind::Composed };
+                let prefer = if sig.literal {
+                    PreferKind::Literal
+                } else {
+                    PreferKind::Composed
+                };
                 store.record_pref(&self.method, &word_str, prefer, has_trigger);
             }
         } else if is_last_event_undo(word_raw, opts) {
@@ -351,7 +363,7 @@ impl Keyboard {
     }
 
     /// Process a keystroke
-    /// 
+    ///
     /// Returns a vector of actions to perform. Usually contains 1-2 actions:
     /// - Main action (DoNothing/Commit/Replace/UpdateComposition)
     /// - Optional ShowCandidates/HideCandidates for Nôm input
@@ -383,10 +395,10 @@ impl Keyboard {
     fn process_legacy(&mut self, key: char) -> anyhow::Result<Vec<Action>> {
         // Process through engine pipeline
         let engine_actions = self.executor.process(key);
-        
+
         // Convert engine actions to our actions
         let mut result = Vec::new();
-        
+
         for action in &engine_actions {
             match action {
                 EngineAction::DoNothing => {
@@ -396,16 +408,19 @@ impl Keyboard {
                 }
                 EngineAction::Commit(text) => {
                     // Append committed text to buffer
-                    self.buffer.push_str(&text);
+                    self.buffer.push_str(text);
                     result.push(Action::Commit(text.clone()));
                 }
-                EngineAction::Replace { backspace_count, text } => {
+                EngineAction::Replace {
+                    backspace_count,
+                    text,
+                } => {
                     // Update buffer
                     for _ in 0..*backspace_count {
                         self.buffer.pop();
                     }
-                    self.buffer.push_str(&text);
-                    
+                    self.buffer.push_str(text);
+
                     result.push(Action::Replace {
                         backspace_count: *backspace_count,
                         text: text.clone(),
@@ -414,7 +429,10 @@ impl Keyboard {
                 EngineAction::UpdateComposition { text, cursor } => {
                     // Update buffer with current composition
                     self.buffer = text.clone();
-                    result.push(Action::UpdateComposition { text: text.clone(), cursor: *cursor });
+                    result.push(Action::UpdateComposition {
+                        text: text.clone(),
+                        cursor: *cursor,
+                    });
                 }
                 EngineAction::ConfirmComposition(text) => {
                     // Update buffer with confirmed text
@@ -422,14 +440,17 @@ impl Keyboard {
                     result.push(Action::ConfirmComposition(text.clone()));
                 }
                 EngineAction::ShowCandidates { candidates, input } => {
-                    result.push(Action::ShowCandidates { candidates: candidates.clone(), input: input.clone() });
+                    result.push(Action::ShowCandidates {
+                        candidates: candidates.clone(),
+                        input: input.clone(),
+                    });
                 }
                 EngineAction::HideCandidates => {
                     result.push(Action::HideCandidates);
                 }
             }
         }
-        
+
         if result.is_empty() {
             result.push(Action::DoNothing);
         }
@@ -437,10 +458,10 @@ impl Keyboard {
         // ALWAYS synchronize buffer with engine's canonical state
         // This prevents "ignored" characters in PermutationStage from lingering in buffer
         self.buffer = self.executor.get_buffer().to_string();
-        
+
         Ok(result)
     }
-    
+
     /// Process backspace — delete the last displayed grapheme while KEEPING the
     /// current word's composition alive, so the user can keep editing it (e.g.
     /// re-apply a tone after fixing a fast-typing error).
@@ -614,42 +635,44 @@ impl Keyboard {
         }
         self.executor.get_buffer().to_string()
     }
-    
+
     /// Process backspace when candidates are showing (Nôm mode)
-    /// 
+    ///
     /// This method properly syncs the executor state with the keyboard buffer
     /// after removing a character. It:
     /// 1. Pops one character from buffer
     /// 2. Resets the executor
     /// 3. Re-processes the remaining buffer through the executor
     /// 4. Returns the new candidates
-    /// 
+    ///
     /// Returns: (remaining_buffer, candidates) or None if buffer is empty
-    pub fn backspace_with_candidates(&mut self) -> Option<(String, Vec<buttre_engine::pipeline::Candidate>)> {
+    pub fn backspace_with_candidates(
+        &mut self,
+    ) -> Option<(String, Vec<buttre_engine::pipeline::Candidate>)> {
         if self.buffer.is_empty() {
             return None;
         }
-        
+
         // Pop one character
         self.buffer.pop();
-        
+
         // If buffer is now empty, reset and return empty
         if self.buffer.is_empty() {
             self.executor.reset();
             return Some((String::new(), vec![]));
         }
-        
+
         // Reset executor to clear stale state
         self.executor.reset();
-        
+
         // Re-process each character in the remaining buffer
         let buffer_copy = self.buffer.clone();
-        
+
         // Process each character to rebuild executor state
         let mut last_candidates = vec![];
         for ch in buffer_copy.chars() {
             let actions = self.executor.process(ch);
-            
+
             // Extract candidates from actions
             for action in actions {
                 if let EngineAction::ShowCandidates { candidates, .. } = action {
@@ -657,10 +680,10 @@ impl Keyboard {
                 }
             }
         }
-        
+
         Some((self.buffer.clone(), last_candidates))
     }
-    
+
     /// Reset state — hard reset (clears the whole window + frozen prefix).
     /// Called on word-boundary / cursor-relocation keys (Enter, arrows, mouse,
     /// modifiers) so the editable window never spans a cursor jump.
@@ -806,7 +829,12 @@ impl Keyboard {
             while end < raw.len() && !Self::is_window_separator(raw[end]) {
                 end += 1;
             }
-            if let Some(&forced) = self.toggle_map.keys().filter(|&&b| b > start && b <= end).min() {
+            if let Some(&forced) = self
+                .toggle_map
+                .keys()
+                .filter(|&&b| b > start && b <= end)
+                .min()
+            {
                 end = forced;
             }
             runs.push((start, end));
@@ -896,7 +924,10 @@ impl Keyboard {
         self.toggle_map.insert(end, now_literal);
 
         let raw_sequence: String = raw[start..end].iter().collect();
-        self.toggle_signals.push(ToggleSignal { raw_sequence, literal: now_literal });
+        self.toggle_signals.push(ToggleSignal {
+            raw_sequence,
+            literal: now_literal,
+        });
 
         let window = self.compose_window(&raw);
         let new = format!("{}{}", self.committed, window);
@@ -950,12 +981,11 @@ impl Keyboard {
         }
         raw[..raw.len() - 1].to_vec()
     }
-    
+
     /// Get current buffer
     pub fn buffer(&self) -> &str {
         &self.buffer
     }
-
 }
 
 /// Build the screen action to go from `old` display text to `new` via a
@@ -975,6 +1005,9 @@ fn diff_to_action(old: &str, new: &str) -> Action {
     } else if backspace_count == 0 {
         Action::Commit(text)
     } else {
-        Action::Replace { backspace_count, text }
+        Action::Replace {
+            backspace_count,
+            text,
+        }
     }
 }

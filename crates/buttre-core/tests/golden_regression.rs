@@ -14,7 +14,7 @@
 
 mod golden;
 
-use buttre_core::keyboard::{telex, vni, nom};
+use buttre_core::keyboard::{nom, telex, vni};
 use buttre_engine::pipeline::PipelineConfig;
 use golden::type_sequence;
 
@@ -23,9 +23,9 @@ use std::path::{Path, PathBuf};
 // ── snapshot loader ───────────────────────────────────────────────────────────
 
 struct SnapCase {
-    keys:     String,
+    keys: String,
     expected: String,
-    tag:      String,
+    tag: String,
 }
 
 fn load_snap(path: &Path) -> Vec<SnapCase> {
@@ -43,9 +43,9 @@ fn load_snap(path: &Path) -> Vec<SnapCase> {
                 line
             );
             SnapCase {
-                keys:     parts[0].to_string(),
+                keys: parts[0].to_string(),
                 expected: parts[1].to_string(),
-                tag:      parts[2].to_string(),
+                tag: parts[2].to_string(),
             }
         })
         .collect()
@@ -69,7 +69,10 @@ fn run_regression(method: &str, config_fn: fn() -> PipelineConfig) {
         );
     }
     let cases = load_snap(&path);
-    assert!(!cases.is_empty(), "{method}.snap is empty — run gen_golden first");
+    assert!(
+        !cases.is_empty(),
+        "{method}.snap is empty — run gen_golden first"
+    );
 
     let mut failures = 0usize;
     let mut failure_msgs: Vec<String> = Vec::new();

@@ -54,7 +54,7 @@ pub enum VowelSeq {
     UH,
     /// Single vowel: y
     Y,
-    
+
     // Double vowels (28)
     /// Double vowel: ai
     AI,
@@ -110,7 +110,7 @@ pub enum VowelSeq {
     UOI,
     /// Double vowel: ươi
     UHOI,
-    
+
     // Triple vowels (8)
     /// Triple vowel: oai
     OAI,
@@ -126,7 +126,7 @@ pub enum VowelSeq {
     UAYA,
     /// Triple vowel: uyê
     UYER,
-    
+
     /// No vowel sequence
     Nil,
 }
@@ -138,18 +138,18 @@ pub enum VowelSeq {
 pub enum Mark {
     /// Roof mark (^): a→â, e→ê, o→ô
     Roof,
-    
+
     /// Hook mark (+): o→ơ, u→ư
     Hook,
-    
+
     /// Breve mark (˘): a→ă
     Breve,
-    
+
     /// Stroke mark (đ): d→đ
     Stroke,
-    
+
     /// Tone marks (see ToneMark in config.rs)
-    Tone(char),  // s, f, r, x, j for Telex; 1-5 for VNI
+    Tone(char), // s, f, r, x, j for Telex; 1-5 for VNI
 }
 
 /// Vowel Sequence Information
@@ -187,30 +187,30 @@ pub enum Mark {
 pub struct VowelSeqInfo {
     /// The vowel sequence as a string
     pub sequence: String,
-    
+
     /// Length of the sequence (1-3)
     pub len: usize,
-    
+
     /// Whether this is a complete/valid sequence
     /// Used for spell checking (incomplete sequences may need more vowels)
     pub complete: bool,
-    
+
     /// Individual vowel characters
     pub vowels: Vec<char>,
-    
+
     /// Valid positions for tone marks (priority order)
     /// Example: [1, 0] means "prefer position 1, fallback to 0"
     pub tone_positions: Vec<usize>,
-    
+
     /// Position that can receive ^ (roof) mark
     pub roof_pos: Option<usize>,
-    
+
     /// Position that can receive + (hook/horn) mark
     pub hook_pos: Option<usize>,
-    
+
     /// Sequence when ^ is added
     pub with_roof: Option<VowelSeq>,
-    
+
     /// Sequence when + is added
     pub with_hook: Option<VowelSeq>,
 }
@@ -228,19 +228,19 @@ impl VowelSeqInfo {
     pub fn can_receive_tone(&self, pos: usize) -> bool {
         self.tone_positions.contains(&pos)
     }
-    
+
     /// Get the primary tone position
     ///
     /// Returns the first position in `tone_positions` (highest priority)
     pub fn primary_tone_position(&self) -> Option<usize> {
         self.tone_positions.first().copied()
     }
-    
+
     /// Check if this sequence can receive a roof mark (^)
     pub fn can_receive_roof(&self) -> bool {
         self.roof_pos.is_some()
     }
-    
+
     /// Check if this sequence can receive a hook mark (+)
     pub fn can_receive_hook(&self) -> bool {
         self.hook_pos.is_some()
@@ -249,8 +249,11 @@ impl VowelSeqInfo {
 
 impl fmt::Display for VowelSeqInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} (len={}, complete={}, tone_pos={:?})", 
-               self.sequence, self.len, self.complete, self.tone_positions)
+        write!(
+            f,
+            "{} (len={}, complete={}, tone_pos={:?})",
+            self.sequence, self.len, self.complete, self.tone_positions
+        )
     }
 }
 
@@ -286,12 +289,14 @@ impl VowelSeqTable {
     pub fn new(sequences: Vec<VowelSeqInfo>) -> Self {
         Self { sequences }
     }
-    
+
     /// Create an empty table
     pub fn empty() -> Self {
-        Self { sequences: Vec::new() }
+        Self {
+            sequences: Vec::new(),
+        }
     }
-    
+
     /// Find a vowel sequence by its string representation
     ///
     /// ## Algorithm
@@ -309,7 +314,7 @@ impl VowelSeqTable {
     pub fn find(&self, seq: &str) -> Option<&VowelSeqInfo> {
         self.sequences.iter().find(|s| s.sequence == seq)
     }
-    
+
     /// Find a vowel sequence by vowel characters
     ///
     /// ## Arguments
@@ -322,17 +327,17 @@ impl VowelSeqTable {
     pub fn find_by_vowels(&self, vowels: &[char]) -> Option<&VowelSeqInfo> {
         self.sequences.iter().find(|s| s.vowels == vowels)
     }
-    
+
     /// Get all sequences
     pub fn all(&self) -> &[VowelSeqInfo] {
         &self.sequences
     }
-    
+
     /// Get the number of sequences in the table
     pub fn len(&self) -> usize {
         self.sequences.len()
     }
-    
+
     /// Check if the table is empty
     pub fn is_empty(&self) -> bool {
         self.sequences.is_empty()
@@ -344,4 +349,3 @@ impl Default for VowelSeqTable {
         Self::empty()
     }
 }
-

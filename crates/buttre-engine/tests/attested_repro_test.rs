@@ -14,7 +14,7 @@ use std::fs;
 use std::path::PathBuf;
 
 /// Embedded tuple count as of the last regeneration (7,884 upstream entries
-/// + 5 buttre-curated informal supplement entries, 166 skipped — see
+/// plus 5 buttre-curated informal supplement entries, 166 skipped — see
 /// `data/attested-syllables.txt`'s header for the category breakdown). Bump
 /// intentionally when the dict or the phonology tables change; an
 /// unintentional change here means the dataset drifted.

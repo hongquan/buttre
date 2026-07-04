@@ -39,7 +39,7 @@ use tracing::trace;
 pub struct LearningStage {
     /// Whether learning is enabled
     pub enabled: bool,
-    
+
     /// Maximum number of syllables to track per session
     pub max_history: usize,
 }
@@ -52,7 +52,7 @@ impl LearningStage {
             max_history: 1000,
         }
     }
-    
+
     /// Create a learning stage with specific settings
     pub fn with_settings(enabled: bool, max_history: usize) -> Self {
         Self {
@@ -60,34 +60,34 @@ impl LearningStage {
             max_history,
         }
     }
-    
+
     /// Enable or disable learning
     pub fn set_enabled(&mut self, enabled: bool) {
         self.enabled = enabled;
     }
-    
+
     /// Check if learning is enabled
     pub fn is_enabled(&self) -> bool {
         self.enabled
     }
-    
+
     /// Record a completed syllable (future implementation)
     #[allow(dead_code)]
     pub fn record_syllable(&self, ctx: &mut TypingContext, syllable: &str) {
         if !self.enabled || !ctx.learning_enabled {
             return;
         }
-        
+
         // Add to session history
         if ctx.completed_syllables.len() < self.max_history {
             ctx.completed_syllables.push(syllable.to_string());
         }
-        
+
         // Future: Persist to disk
         // Future: Update frequency counters
         // Future: Track bigrams
     }
-    
+
     /// Get frequency of a syllable (future implementation)
     #[allow(dead_code)]
     fn get_frequency(&self, _syllable: &str) -> Option<f32> {
@@ -103,21 +103,20 @@ impl PipelineStage for LearningStage {
             trace!("Learning stage: disabled");
             return StageResult::Continue;
         }
-        
+
         // Future: Track typing patterns here
         // For now, just pass through
         trace!("Learning stage: enabled but not yet implemented");
-        
+
         StageResult::Continue
     }
-    
+
     fn name(&self) -> &'static str {
         "LearningStage"
     }
-    
+
     fn reset(&mut self) {
         // Don't reset enabled flag - it's a configuration setting
         // Session history is in TypingContext and managed there
     }
 }
-

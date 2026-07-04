@@ -1,6 +1,6 @@
 use buttre_engine::unicode::vowel_sequences::{
-    char_to_vnlexi, lookup_vowel_seq, lookup_vowel_seq_str, get_tone_position,
-    VnLexiName, VowelSeq, VowelSeqInfo, VSEQ_LIST
+    char_to_vnlexi, get_tone_position, lookup_vowel_seq, lookup_vowel_seq_str, VnLexiName,
+    VSEQ_LIST,
 };
 
 // ==================== char_to_vnlexi Tests ====================
@@ -66,7 +66,11 @@ fn test_lookup_vowel_seq_three_vowels() {
 
 #[test]
 fn test_lookup_vowel_seq_not_found() {
-    let vowels = [VnLexiName::NonVnChar, VnLexiName::NonVnChar, VnLexiName::NonVnChar];
+    let vowels = [
+        VnLexiName::NonVnChar,
+        VnLexiName::NonVnChar,
+        VnLexiName::NonVnChar,
+    ];
     let info = lookup_vowel_seq(&vowels, 1);
     assert!(info.is_none());
 }
@@ -175,12 +179,8 @@ fn test_vseq_list_length() {
 #[test]
 fn test_vseq_list_single_vowels() {
     // First 12 entries should be single vowels
-    for i in 0..12 {
-        assert_eq!(
-            VSEQ_LIST[i].len, 1,
-            "Entry {} should be single vowel",
-            i
-        );
+    for (i, entry) in VSEQ_LIST.iter().enumerate().take(12) {
+        assert_eq!(entry.len, 1, "Entry {} should be single vowel", i);
     }
 }
 
@@ -188,7 +188,7 @@ fn test_vseq_list_single_vowels() {
 fn test_vseq_list_two_vowels() {
     // Find the range of two-vowel entries
     let mut two_vowel_count = 0;
-    for (_i, entry) in VSEQ_LIST.iter().enumerate() {
+    for entry in VSEQ_LIST.iter() {
         if entry.len == 2 {
             two_vowel_count += 1;
         }
@@ -201,7 +201,7 @@ fn test_vseq_list_two_vowels() {
 fn test_vseq_list_three_vowels() {
     // Find the range of three-vowel entries
     let mut three_vowel_count = 0;
-    for (_i, entry) in VSEQ_LIST.iter().enumerate() {
+    for entry in VSEQ_LIST.iter() {
         if entry.len == 3 {
             three_vowel_count += 1;
         }

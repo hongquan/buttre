@@ -63,6 +63,8 @@ use crate::types::Action;
 /// ```
 #[derive(Debug, Clone)]
 pub struct OutputStage {
+    /// Whether to emit TSF composition actions (`UpdateComposition`) instead
+    /// of the standard commit/replace diff — see [`Self::generate_action`].
     pub use_composition: bool,
 }
 
@@ -120,7 +122,7 @@ impl OutputStage {
             if old == new {
                 return Action::DoNothing;
             }
-            
+
             return Action::UpdateComposition {
                 text: new.to_string(),
                 cursor: new.chars().count(), // Cursor at end for now
@@ -128,14 +130,14 @@ impl OutputStage {
         }
 
         // Standard Mode: Generate Diff (Replace/Commit)
-        
+
         // Find where they differ
         let diff_pos = Self::find_diff_position(old, new);
-        
+
         // Calculate what needs to change
         let backspace_count = Self::calculate_backspace_count(old, diff_pos);
         let changed_text = Self::get_changed_text(new, diff_pos);
-        
+
         // Generate appropriate action
         if backspace_count == 0 && changed_text.is_empty() {
             // No change
@@ -162,7 +164,7 @@ impl Default for OutputStage {
 impl PipelineStage for OutputStage {
     fn process(&self, ctx: &mut TypingContext, input: char) -> StageResult {
         let mut actions = Vec::new();
-        
+
         // SPECIAL CASE: Space with candidates (multi-keyword Nôm search)
         // Don't output space to screen, only update candidates
         if input == ' ' && ctx.showing_candidates {
@@ -176,11 +178,11 @@ impl PipelineStage for OutputStage {
             }
             return StageResult::Output(actions);
         }
-        
+
         // Algorithm Step 1: Generate main action (composition/replace/commit)
         let main_action = self.generate_action(&ctx.last_output, &ctx.syllable_buffer);
         actions.push(main_action);
-        
+
         // Algorithm Step 2: Generate candidate UI action if candidates are available
         if ctx.showing_candidates && !ctx.candidates.is_empty() {
             // Pass full Candidate objects (includes display text and actual value)
@@ -194,10 +196,10 @@ impl PipelineStage for OutputStage {
                 actions.push(Action::HideCandidates);
             }
         }
-        
+
         // Algorithm Step 3: Update last_output
         ctx.commit_output();
-        
+
         // Algorithm Step 4: Return output actions
         StageResult::Output(actions)
     }
@@ -210,4 +212,3 @@ impl PipelineStage for OutputStage {
         // No internal state to reset
     }
 }
-

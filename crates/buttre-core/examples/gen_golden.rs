@@ -40,7 +40,7 @@ use buttre_engine::types::Action;
 #[path = "../tests/golden/corpus_data/mod.rs"]
 mod corpus_data;
 
-use corpus_data::{telex_corpus, vni_corpus, nom_corpus, Tag};
+use corpus_data::{nom_corpus, telex_corpus, vni_corpus, Tag};
 
 // ── replay / type_sequence ────────────────────────────────────────────────────
 
@@ -53,7 +53,10 @@ fn replay(actions: &[Action]) -> String {
     for action in actions {
         match action {
             Action::Commit(s) => buf.extend(s.chars()),
-            Action::Replace { backspace_count, text } => {
+            Action::Replace {
+                backspace_count,
+                text,
+            } => {
                 let remove = (*backspace_count).min(buf.len());
                 buf.truncate(buf.len() - remove);
                 buf.extend(text.chars());
@@ -86,7 +89,10 @@ fn type_sequence(config: PipelineConfig, keys: &str) -> String {
     for action in &all {
         match action {
             Action::Commit(s) => buf_len += s.chars().count(),
-            Action::Replace { backspace_count, text } => {
+            Action::Replace {
+                backspace_count,
+                text,
+            } => {
                 if *backspace_count > buf_len {
                     eprintln!(
                         "[gen_golden] WARN over-backspace: keys={:?} \
@@ -115,7 +121,11 @@ fn write_snap(path: &Path, corpus: &[(String, Tag)], config_fn: fn() -> Pipeline
     }
     let content = lines.join("\n") + "\n";
     fs::write(path, &content).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
-    println!("[gen_golden] wrote {} — {} cases", path.display(), lines.len());
+    println!(
+        "[gen_golden] wrote {} — {} cases",
+        path.display(),
+        lines.len()
+    );
 }
 
 fn snap_path(method: &str) -> PathBuf {

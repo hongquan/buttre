@@ -51,10 +51,10 @@ pub enum Action {
         /// Cursor position relative to start of composition
         cursor: usize,
     },
-    
+
     /// Confirm TSF composition (end of word)
     ConfirmComposition(String),
-    
+
     /// Show candidates UI (for Hook mode fake UI or TSF candidate window)
     /// Contains list of candidates with numbered selection (1-5 or more)
     ShowCandidates {
@@ -63,7 +63,7 @@ pub enum Action {
         /// Current input/syllable being typed
         input: String,
     },
-    
+
     /// Hide candidates UI
     HideCandidates,
 }
@@ -149,4 +149,3 @@ impl Default for Config {
         }
     }
 }
-

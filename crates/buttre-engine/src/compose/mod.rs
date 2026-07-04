@@ -21,18 +21,18 @@
 //! keystroke rebuilds the syllable from the raw buffer with no accumulated
 //! inter-stage state.
 
-mod segment;
-mod transform;
 mod assemble;
 mod fallback;
+mod segment;
+mod transform;
 
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
 use crate::pipeline::config::{PipelineConfig, ToneMark, ToneStyle};
 use crate::pipeline::validation::{is_attested_overlay, is_shape_attested};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 // Re-export public types only.
 pub use segment::{AppliedMark, SegmentMode};
@@ -216,10 +216,10 @@ impl ComposeOpts {
             .map(|v| v.syllable_structure.as_str())
             .unwrap_or("vietnamese")
         {
-            "hmong"  => Validator::Hmong,
+            "hmong" => Validator::Hmong,
             "custom" => Validator::Custom,
-            "none"   => Validator::None,
-            _        => Validator::Vietnamese,
+            "none" => Validator::None,
+            _ => Validator::Vietnamese,
         };
         let attest_non_adjacent = validator == Validator::Vietnamese;
 
@@ -261,7 +261,10 @@ impl ComposeOpts {
                 _ => None,
             };
             if let Some(c) = modifier {
-                if !config.tone_map.contains_key(&c) && !crate::vowel::cluster::is_vowel(c) && c != 'd' {
+                if !config.tone_map.contains_key(&c)
+                    && !crate::vowel::cluster::is_vowel(c)
+                    && c != 'd'
+                {
                     standalone_keys.insert(c);
                 }
             }
@@ -297,10 +300,11 @@ impl ComposeOpts {
         raw.iter().any(|&c| {
             let lc = c.to_ascii_lowercase();
             self.tone_map.contains_key(&lc)
-                || self
-                    .transform_rules
-                    .keys()
-                    .any(|rule| rule.chars().last().is_some_and(|last| last.to_ascii_lowercase() == lc))
+                || self.transform_rules.keys().any(|rule| {
+                    rule.chars()
+                        .last()
+                        .is_some_and(|last| last.to_ascii_lowercase() == lc)
+                })
         })
     }
 }
@@ -429,9 +433,20 @@ pub fn compose_closed(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
 /// which re-enters on a STRICTLY SHORTER buffer — so it always terminates,
 /// but its depth is O(raw-len), not 1. This is only reachable from a
 /// top-level call and is bounded by the ≤16-char syllable cap.)
-fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, closed: bool) -> ComposeResult {
+fn compose_internal(
+    raw: &[char],
+    opts: &ComposeOpts,
+    allow_nonadjacent: bool,
+    closed: bool,
+) -> ComposeResult {
     if raw.is_empty() {
-        return ComposeResult { text: String::new(), temp_english: false, applied_marks: Vec::new(), consumed_tone: None, demoted: false };
+        return ComposeResult {
+            text: String::new(),
+            temp_english: false,
+            applied_marks: Vec::new(),
+            consumed_tone: None,
+            demoted: false,
+        };
     }
 
     // Step 0 — P5 preference short-circuit (Combined Contract: pref lookup
@@ -483,7 +498,8 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, c
         let last_tone_key = *seg.tones.last().unwrap();
         match assemble::apply_tone(&transformed, last_tone_key, opts) {
             Some(toned) => {
-                consumed_tone = last_tone_raw_pos(raw, last_tone_key).map(|pos| (last_tone_key, pos));
+                consumed_tone =
+                    last_tone_raw_pos(raw, last_tone_key).map(|pos| (last_tone_key, pos));
                 toned
             }
             None => transformed,
@@ -550,10 +566,22 @@ fn compose_internal(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, c
             return elong;
         }
         let literal: String = raw.iter().collect();
-        return ComposeResult { text: literal, temp_english: true, applied_marks: Vec::new(), consumed_tone: None, demoted: false };
+        return ComposeResult {
+            text: literal,
+            temp_english: true,
+            applied_marks: Vec::new(),
+            consumed_tone: None,
+            demoted: false,
+        };
     }
 
-    ComposeResult { text, temp_english: false, applied_marks: applied, consumed_tone, demoted: false }
+    ComposeResult {
+        text,
+        temp_english: false,
+        applied_marks: applied,
+        consumed_tone,
+        demoted: false,
+    }
 }
 
 /// Step 0 (Combined Contract) — a raw sequence with a stored, deliberate
@@ -584,7 +612,8 @@ fn compose_forced(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
         match seg.tones.last() {
             Some(&last_tone_key) => match assemble::apply_tone(&transformed, last_tone_key, opts) {
                 Some(toned) => {
-                    consumed_tone = last_tone_raw_pos(raw, last_tone_key).map(|pos| (last_tone_key, pos));
+                    consumed_tone =
+                        last_tone_raw_pos(raw, last_tone_key).map(|pos| (last_tone_key, pos));
                     toned
                 }
                 None => transformed,
@@ -594,7 +623,13 @@ fn compose_forced(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
     } else {
         transformed
     };
-    ComposeResult { text, temp_english: false, applied_marks: applied, consumed_tone, demoted: false }
+    ComposeResult {
+        text,
+        temp_english: false,
+        applied_marks: applied,
+        consumed_tone,
+        demoted: false,
+    }
 }
 
 /// Recover the raw index of the tone key actually consumed by
@@ -680,7 +715,12 @@ fn last_tone_raw_pos(raw: &[char], tone_key: char) -> Option<usize> {
 /// specific onset/nucleus/coda/TONE tuple), not shape families, so
 /// widening a shape check to the overlay would double-relax an
 /// already-permissive path for no corresponding user signal.
-fn passes_attestation_gate(text: &str, applied: &[AppliedMark], closed: bool, opts: &ComposeOpts) -> bool {
+fn passes_attestation_gate(
+    text: &str,
+    applied: &[AppliedMark],
+    closed: bool,
+    opts: &ComposeOpts,
+) -> bool {
     let mut flagged = applied.iter().filter(|m| m.non_adjacent).peekable();
     if flagged.peek().is_none() {
         return true;
@@ -739,7 +779,12 @@ fn carries_tone(text: &str) -> bool {
 /// `"náa"`. Restricting elongation to top-level calls closes this without
 /// touching the heuristic itself (legitimate top-level elongation — a
 /// non-demoted `"khoongggg"` — never sets `allow_nonadjacent = false`).
-fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool, closed: bool) -> Option<ComposeResult> {
+fn try_elongation_fallback(
+    raw: &[char],
+    opts: &ComposeOpts,
+    allow_nonadjacent: bool,
+    closed: bool,
+) -> Option<ComposeResult> {
     use crate::vowel::cluster::normalize_vowel;
 
     if !allow_nonadjacent {
@@ -771,7 +816,7 @@ fn try_elongation_fallback(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: 
     if run < 2 && !lengthens_final {
         return None;
     }
-    let suffix: String = std::iter::repeat(last).take(run).collect();
+    let suffix: String = std::iter::repeat_n(last, run).collect();
     Some(ComposeResult {
         text: format!("{}{}", base.text, suffix),
         temp_english: true,

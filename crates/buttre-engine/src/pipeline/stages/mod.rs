@@ -24,10 +24,10 @@ pub mod stage3_validation;
 pub mod compose_stage;
 
 // Post-compose stages
-pub mod stage9_orthography;
 pub mod stage10_learning;
 pub mod stage11_lookup;
 pub mod stage12_output;
+pub mod stage9_orthography;
 
 // VNI-specific optimizations (retained for reference; not used in default pipeline)
 pub mod vni_optimized;
@@ -39,12 +39,12 @@ pub mod telex_table;
 mod integration_tests;
 
 // Re-exports for convenience
-pub use stage1_normalization::NormalizationStage;
-pub use stage2_gatekeeper::GatekeeperStage;
-pub use stage3_validation::ValidationStage;
 pub use compose_stage::ComposeStage;
-pub use stage9_orthography::OrthographyStage;
 pub use stage10_learning::LearningStage;
 pub use stage11_lookup::LookupStage;
 pub use stage12_output::OutputStage;
+pub use stage1_normalization::NormalizationStage;
+pub use stage2_gatekeeper::GatekeeperStage;
+pub use stage3_validation::ValidationStage;
+pub use stage9_orthography::OrthographyStage;
 pub use vni_optimized::VniOptimizedTransformStage;

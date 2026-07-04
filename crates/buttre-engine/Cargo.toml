@@ -5,6 +5,10 @@ edition = "2021"
 description = "Universal Vietnamese input engine with 7-stage pipeline"
 license = "GPL-3.0-only"
 authors = ["Buttre Contributors"]
+# Internal workspace crate — never published to crates.io. Also lets
+# cargo-deny's [licenses.private] exempt this GPL-3.0-only crate from the
+# third-party license allow-list check (see root deny.toml).
+publish = false
 
 [lints]
 workspace = true

@@ -4,18 +4,14 @@
 //!
 //! This module defines Telex-specific context rules for complex cases.
 
-use buttre_engine::pipeline::rules::{ContextRule, RuleMatcher, RuleAction};
+use buttre_engine::pipeline::rules::{ContextRule, RuleAction, RuleMatcher};
 
 /// Get all Telex special context rules
 ///
 /// ## Returns
 /// Vector of ContextRules for Telex special cases
 pub fn get_rules() -> Vec<ContextRule> {
-    vec![
-        w_after_u_horn(),
-        oeo_block(),
-        ua_tone_position(),
-    ]
+    vec![w_after_u_horn(), oeo_block(), ua_tone_position()]
 }
 
 /// Block 'w' transformation after 'ư'
@@ -73,4 +69,3 @@ fn ua_tone_position() -> ContextRule {
         })),
     )
 }
-

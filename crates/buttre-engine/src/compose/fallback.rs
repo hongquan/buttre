@@ -120,13 +120,13 @@
 //! demonstrates) — so this note documents the underlying design principle
 //! for the general case, not a claim that `"dodongd"` itself exercises it.
 
-use super::ComposeOpts;
 use super::assemble;
 use super::segment;
 use super::segment::AppliedMark;
 use super::transform;
-use crate::tone;
+use super::ComposeOpts;
 use crate::pipeline::config::ToneMark;
+use crate::tone;
 
 // Test-only instrumentation (red-team M4, perf): counts how many times
 // `recompute_prefix_marks` actually ran segment+transform on a prefix. Used
@@ -154,11 +154,19 @@ pub struct FallbackResult {
 
 impl FallbackResult {
     fn not_handled() -> Self {
-        Self { is_handled: false, text: String::new(), temp_english: false }
+        Self {
+            is_handled: false,
+            text: String::new(),
+            temp_english: false,
+        }
     }
 
     fn handled(text: impl Into<String>, temp_english: bool) -> Self {
-        Self { is_handled: true, text: text.into(), temp_english }
+        Self {
+            is_handled: true,
+            text: text.into(),
+            temp_english,
+        }
     }
 }
 
@@ -266,7 +274,11 @@ pub fn is_last_event_undo(raw: &[char], opts: &ComposeOpts) -> bool {
 /// (with non-tone chars in between), compose raw-without-last to see if it
 /// produced a vowel with the same tone mark.  If so, strip that tone and
 /// append the literal key.
-fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> Option<FallbackResult> {
+fn check_tone_toggle(
+    raw: &[char],
+    opts: &ComposeOpts,
+    allow_nonadjacent: bool,
+) -> Option<FallbackResult> {
     let last = *raw.last()?;
     let last_lc = last.to_ascii_lowercase();
 
@@ -280,7 +292,9 @@ fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) 
     // words like "seess" (Telex 's' is tone key *and* leading consonant) where
     // the first-occurrence approach would find index 0 and fail to detect the
     // trailing "ss" undo pair.
-    let trailing_count = raw.iter().rev()
+    let trailing_count = raw
+        .iter()
+        .rev()
         .take_while(|&&c| c.to_ascii_lowercase() == last_lc)
         .count();
 
@@ -321,7 +335,7 @@ fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) 
                 }
             }
 
-            let suffix: String = std::iter::repeat(last_lc).take(n / 2).collect();
+            let suffix: String = std::iter::repeat_n(last_lc, n / 2).collect();
             let text = format!("{transformed_base}{suffix}");
             return Some(FallbackResult::handled(text, true));
         }
@@ -340,7 +354,8 @@ fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) 
     }
 
     // The raw-without-last must contain the same tone key somewhere earlier.
-    let same_tone_earlier = raw_without_last.iter()
+    let same_tone_earlier = raw_without_last
+        .iter()
         .any(|&c| c.to_ascii_lowercase() == last_lc);
     if !same_tone_earlier {
         return None;
@@ -354,13 +369,16 @@ fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) 
     }
 
     // Compose raw-without-last to get the candidate toned syllable.
-    let candidate = compose_base_and_transforms_with_tone(raw_without_last, opts, allow_nonadjacent)?;
+    let candidate =
+        compose_base_and_transforms_with_tone(raw_without_last, opts, allow_nonadjacent)?;
 
     // Same visibility gate as Path 1: the toned candidate must be a plausible
     // Vietnamese syllable, or the earlier tone key never actually displayed a
     // tone (English word, e.g. "asks": "ák" was never on screen) and this
     // repeat is a plain letter, not a repress.
-    if opts.validator == super::Validator::Vietnamese && !super::could_be_vietnamese(&candidate, opts) {
+    if opts.validator == super::Validator::Vietnamese
+        && !super::could_be_vietnamese(&candidate, opts)
+    {
         return None;
     }
 
@@ -388,7 +406,11 @@ fn check_tone_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) 
 ///
 /// This is the same orthogonal-transform principle applied by the tone-undo path:
 /// undoing ONE transform must NEVER revert unrelated earlier transforms.
-fn check_transform_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> Option<FallbackResult> {
+fn check_transform_toggle(
+    raw: &[char],
+    opts: &ComposeOpts,
+    allow_nonadjacent: bool,
+) -> Option<FallbackResult> {
     if raw.len() < 3 {
         return None;
     }
@@ -478,7 +500,11 @@ fn check_transform_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: b
 /// composing the prefix can NEVER re-enter this function — total additional
 /// depth from the gate-demote inside it is bounded at 1, exactly like every
 /// other re-entry point threaded on `allow_nonadjacent`.
-fn check_nonadjacent_transform_toggle(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> Option<FallbackResult> {
+fn check_nonadjacent_transform_toggle(
+    raw: &[char],
+    opts: &ComposeOpts,
+    allow_nonadjacent: bool,
+) -> Option<FallbackResult> {
     if !allow_nonadjacent {
         return None;
     }
@@ -531,8 +557,7 @@ fn is_transform_trigger_char(key_lc: char, opts: &ComposeOpts) -> bool {
     // rescanning every rule key: a trigger is the second char of a 2-char
     // rule or the sole char of a 1-char rule — the same set the runtime
     // transform lookups can actually act on.
-    opts.single_rules.contains_key(&key_lc)
-        || opts.pair_rules.keys().any(|&(_, b)| b == key_lc)
+    opts.single_rules.contains_key(&key_lc) || opts.pair_rules.keys().any(|&(_, b)| b == key_lc)
 }
 
 /// Recompute `raw` through segment + transform + tone + the attestation gate
@@ -549,7 +574,11 @@ fn is_transform_trigger_char(key_lc: char, opts: &ComposeOpts) -> bool {
 /// `could_be_vietnamese(text)` would also hold — `is_attested`/
 /// `is_shape_attested` both imply structural validity — so step 6 could never
 /// additionally revert a mark this function reports as fired.
-fn recompute_prefix_marks(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> (String, Vec<AppliedMark>) {
+fn recompute_prefix_marks(
+    raw: &[char],
+    opts: &ComposeOpts,
+    allow_nonadjacent: bool,
+) -> (String, Vec<AppliedMark>) {
     #[cfg(test)]
     PREFIX_COMPOSE_CALLS.with(|c| c.set(c.get() + 1));
 
@@ -621,7 +650,11 @@ fn apply_transforms_only(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bo
 ///
 /// Returns `None` if `raw` is empty or composition produces no output.
 /// Used by the same-tone-repress path to evaluate `raw[..-1]`.
-fn compose_base_and_transforms_with_tone(raw: &[char], opts: &ComposeOpts, allow_nonadjacent: bool) -> Option<String> {
+fn compose_base_and_transforms_with_tone(
+    raw: &[char],
+    opts: &ComposeOpts,
+    allow_nonadjacent: bool,
+) -> Option<String> {
     if raw.is_empty() {
         return None;
     }
@@ -767,8 +800,14 @@ mod tests {
         let opts = vni_opts();
         let raw: Vec<char> = "a611".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "a611 should trigger transform-preserving undo");
-        assert_eq!(result.text, "â1", "a611: should keep â and strip tone to give â1");
+        assert!(
+            result.is_handled,
+            "a611 should trigger transform-preserving undo"
+        );
+        assert_eq!(
+            result.text, "â1",
+            "a611: should keep â and strip tone to give â1"
+        );
     }
 
     #[test]
@@ -777,8 +816,14 @@ mod tests {
         let opts = vni_opts();
         let raw: Vec<char> = "a822".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "a822 should trigger transform-preserving undo");
-        assert_eq!(result.text, "ă2", "a822: should keep ă and strip tone to give ă2");
+        assert!(
+            result.is_handled,
+            "a822 should trigger transform-preserving undo"
+        );
+        assert_eq!(
+            result.text, "ă2",
+            "a822: should keep ă and strip tone to give ă2"
+        );
     }
 
     #[test]
@@ -787,8 +832,14 @@ mod tests {
         let opts = vni_opts();
         let raw: Vec<char> = "u733".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "u733 should trigger transform-preserving undo");
-        assert_eq!(result.text, "ư3", "u733: should keep ư and strip tone to give ư3");
+        assert!(
+            result.is_handled,
+            "u733 should trigger transform-preserving undo"
+        );
+        assert_eq!(
+            result.text, "ư3",
+            "u733: should keep ư and strip tone to give ư3"
+        );
     }
 
     #[test]
@@ -797,8 +848,14 @@ mod tests {
         let opts = vni_opts();
         let raw: Vec<char> = "o744".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "o744 should trigger transform-preserving undo");
-        assert_eq!(result.text, "ơ4", "o744: should keep ơ and strip tone to give ơ4");
+        assert!(
+            result.is_handled,
+            "o744 should trigger transform-preserving undo"
+        );
+        assert_eq!(
+            result.text, "ơ4",
+            "o744: should keep ơ and strip tone to give ơ4"
+        );
     }
 
     #[test]
@@ -807,8 +864,14 @@ mod tests {
         let opts = vni_opts();
         let raw: Vec<char> = "u7o711".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "u7o711 should trigger transform-preserving undo");
-        assert_eq!(result.text, "ươ1", "u7o711: should keep ươ and strip tone to give ươ1");
+        assert!(
+            result.is_handled,
+            "u7o711 should trigger transform-preserving undo"
+        );
+        assert_eq!(
+            result.text, "ươ1",
+            "u7o711: should keep ươ and strip tone to give ươ1"
+        );
     }
 
     // ── Multi-level toggle stays Unikey-standard (no re-apply) ────────────────
@@ -824,7 +887,10 @@ mod tests {
         // Odd n=3: fallback returns not_handled; compose handles it as tone application
         // on the base, which then gives a11 via temp_english in PipelineExecutor.
         // The unit-level fallback check for n=3 returns None (let compose handle).
-        assert!(!result.is_handled, "a111 odd count: fallback defers to compose (which gives a11)");
+        assert!(
+            !result.is_handled,
+            "a111 odd count: fallback defers to compose (which gives a11)"
+        );
     }
 
     #[test]
@@ -836,7 +902,10 @@ mod tests {
         let raw: Vec<char> = "a66".chars().collect();
         let result = check_fallback(&raw, &opts, true);
         assert!(result.is_handled, "a66 should fire transform undo");
-        assert_eq!(result.text, "a6", "a66 → a6 + temp_english (Unikey standard)");
+        assert_eq!(
+            result.text, "a6",
+            "a66 → a6 + temp_english (Unikey standard)"
+        );
     }
 
     // ── Regression guards: transform-preserving transform undo ───────────────
@@ -850,8 +919,10 @@ mod tests {
         let raw: Vec<char> = "ddaaa".chars().collect();
         let result = check_fallback(&raw, &opts, true);
         assert!(result.is_handled, "ddaaa should trigger transform undo");
-        assert_eq!(result.text, "đaa",
-            "ddaaa → đaa: dd prefix re-composed to đ, aa literal (transform-preserving undo)");
+        assert_eq!(
+            result.text, "đaa",
+            "ddaaa → đaa: dd prefix re-composed to đ, aa literal (transform-preserving undo)"
+        );
         assert!(result.temp_english);
     }
 
@@ -862,8 +933,10 @@ mod tests {
         let raw: Vec<char> = "ddeee".chars().collect();
         let result = check_fallback(&raw, &opts, true);
         assert!(result.is_handled, "ddeee should trigger transform undo");
-        assert_eq!(result.text, "đee",
-            "ddeee → đee: dd prefix re-composed to đ, ee literal (transform-preserving undo)");
+        assert_eq!(
+            result.text, "đee",
+            "ddeee → đee: dd prefix re-composed to đ, ee literal (transform-preserving undo)"
+        );
         assert!(result.temp_english);
     }
 
@@ -874,8 +947,10 @@ mod tests {
         let raw: Vec<char> = "ddooo".chars().collect();
         let result = check_fallback(&raw, &opts, true);
         assert!(result.is_handled, "ddooo should trigger transform undo");
-        assert_eq!(result.text, "đoo",
-            "ddooo → đoo: dd prefix re-composed to đ, oo literal (transform-preserving undo)");
+        assert_eq!(
+            result.text, "đoo",
+            "ddooo → đoo: dd prefix re-composed to đ, oo literal (transform-preserving undo)"
+        );
         assert!(result.temp_english);
     }
 
@@ -916,7 +991,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "fanss".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(!result.is_handled, "fanss: tone never displayed → repeat 's' is a plain letter");
+        assert!(
+            !result.is_handled,
+            "fanss: tone never displayed → repeat 's' is a plain letter"
+        );
     }
 
     #[test]
@@ -926,8 +1004,14 @@ mod tests {
         let opts = telex_opts_with_ee();
         let raw: Vec<char> = "seess".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "seess should trigger tone undo (trailing-run fix)");
-        assert_eq!(result.text, "sês", "seess → sês + temp_english (ee transform preserved)");
+        assert!(
+            result.is_handled,
+            "seess should trigger tone undo (trailing-run fix)"
+        );
+        assert_eq!(
+            result.text, "sês",
+            "seess → sês + temp_english (ee transform preserved)"
+        );
         assert!(result.temp_english);
     }
 
@@ -939,7 +1023,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "sass".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "sass should trigger tone undo (frame 'sá' was visible)");
+        assert!(
+            result.is_handled,
+            "sass should trigger tone undo (frame 'sá' was visible)"
+        );
         assert_eq!(result.text, "sas");
         assert!(result.temp_english);
     }
@@ -962,7 +1049,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "sinff".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "sinff should trigger tone undo (trailing-run fix)");
+        assert!(
+            result.is_handled,
+            "sinff should trigger tone undo (trailing-run fix)"
+        );
         assert_eq!(result.text, "sinf", "sinff → sinf + temp_english");
         assert!(result.temp_english);
     }
@@ -979,7 +1069,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "canaa".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "canaa should undo the non-adjacent â mark");
+        assert!(
+            result.is_handled,
+            "canaa should undo the non-adjacent â mark"
+        );
         assert_eq!(result.text, "cana");
         assert!(result.temp_english);
     }
@@ -989,7 +1082,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "canaA".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "uppercase retype of the trigger must still undo");
+        assert!(
+            result.is_handled,
+            "uppercase retype of the trigger must still undo"
+        );
         assert_eq!(result.text, "cana");
     }
 
@@ -1001,7 +1097,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "dandd".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "dandd should undo the non-adjacent đ mark");
+        assert!(
+            result.is_handled,
+            "dandd should undo the non-adjacent đ mark"
+        );
         assert_eq!(result.text, "dand");
         assert!(result.temp_english);
     }
@@ -1012,7 +1111,10 @@ mod tests {
         let opts = vni_opts();
         let raw: Vec<char> = "can66".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(result.is_handled, "VNI digit retype must undo exactly like Telex");
+        assert!(
+            result.is_handled,
+            "VNI digit retype must undo exactly like Telex"
+        );
         assert_eq!(result.text, "can6");
         assert!(result.temp_english);
     }
@@ -1029,7 +1131,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "dataa".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(!result.is_handled, "dataa's prefix mark was already demoted — no-op, no double-strip");
+        assert!(
+            !result.is_handled,
+            "dataa's prefix mark was already demoted — no-op, no double-strip"
+        );
     }
 
     #[test]
@@ -1041,7 +1146,10 @@ mod tests {
         let opts = telex_opts();
         let raw: Vec<char> = "vieteje".chars().collect();
         let result = check_fallback(&raw, &opts, true);
-        assert!(!result.is_handled, "vieteje must not undo: immediacy violated");
+        assert!(
+            !result.is_handled,
+            "vieteje must not undo: immediacy violated"
+        );
     }
 
     #[test]
@@ -1068,8 +1176,11 @@ mod tests {
         PREFIX_COMPOSE_CALLS.with(|c| c.set(0));
         let raw: Vec<char> = "canan".chars().collect(); // 'n' does not repeat 'a'
         let _ = check_fallback(&raw, &opts, true);
-        assert_eq!(PREFIX_COMPOSE_CALLS.with(|c| c.get()), 0,
-            "a non-repeating final key must never trigger a prefix compose");
+        assert_eq!(
+            PREFIX_COMPOSE_CALLS.with(|c| c.get()),
+            0,
+            "a non-repeating final key must never trigger a prefix compose"
+        );
     }
 
     #[test]
@@ -1078,8 +1189,11 @@ mod tests {
         PREFIX_COMPOSE_CALLS.with(|c| c.set(0));
         let raw: Vec<char> = "cannn".chars().collect(); // 'n' repeats but can never trigger a transform
         let _ = check_fallback(&raw, &opts, true);
-        assert_eq!(PREFIX_COMPOSE_CALLS.with(|c| c.get()), 0,
-            "repeating a non-transform-capable key must never trigger a prefix compose");
+        assert_eq!(
+            PREFIX_COMPOSE_CALLS.with(|c| c.get()),
+            0,
+            "repeating a non-transform-capable key must never trigger a prefix compose"
+        );
     }
 
     #[test]
@@ -1090,8 +1204,10 @@ mod tests {
         PREFIX_COMPOSE_CALLS.with(|c| c.set(0));
         let raw: Vec<char> = "canaa".chars().collect();
         let _ = check_fallback(&raw, &opts, true);
-        assert!(PREFIX_COMPOSE_CALLS.with(|c| c.get()) > 0,
-            "an eligible retype must perform at least one prefix compose");
+        assert!(
+            PREFIX_COMPOSE_CALLS.with(|c| c.get()) > 0,
+            "an eligible retype must perform at least one prefix compose"
+        );
     }
 
     // ── Last-event parity fold: base cases (P6) ───────────────────────────────
@@ -1104,14 +1220,20 @@ mod tests {
     fn parity_fold_a611_is_undo() {
         let opts = vni_opts();
         let raw: Vec<char> = "a611".chars().collect();
-        assert!(is_last_event_undo(&raw, &opts), "a611's tail is a fired tone-undo (-> â1)");
+        assert!(
+            is_last_event_undo(&raw, &opts),
+            "a611's tail is a fired tone-undo (-> â1)"
+        );
     }
 
     #[test]
     fn parity_fold_seess_is_undo() {
         let opts = telex_opts_with_ee();
         let raw: Vec<char> = "seess".chars().collect();
-        assert!(is_last_event_undo(&raw, &opts), "seess's tail is a fired tone-undo (-> sês)");
+        assert!(
+            is_last_event_undo(&raw, &opts),
+            "seess's tail is a fired tone-undo (-> sês)"
+        );
     }
 
     #[test]
@@ -1122,15 +1244,20 @@ mod tests {
         // Path 2), not trailing-run parity.
         let opts = vni_opts();
         let raw: Vec<char> = "vie65t5".chars().collect();
-        assert!(is_last_event_undo(&raw, &opts),
-            "vie65t5 undoes via same-tone repress (-> viêt5), not trailing parity");
+        assert!(
+            is_last_event_undo(&raw, &opts),
+            "vie65t5 undoes via same-tone repress (-> viêt5), not trailing parity"
+        );
     }
 
     #[test]
     fn parity_fold_aaa_is_undo() {
         let opts = telex_opts();
         let raw: Vec<char> = "aaa".chars().collect();
-        assert!(is_last_event_undo(&raw, &opts), "aaa's tail is a fired transform-undo (-> aa)");
+        assert!(
+            is_last_event_undo(&raw, &opts),
+            "aaa's tail is a fired transform-undo (-> aa)"
+        );
     }
 
     #[test]
@@ -1141,18 +1268,27 @@ mod tests {
         // (temp_english_mode, `ComposeStage`), not a repeated undo event,
         // so the predicate correctly says "no" once the tail has moved on.
         let opts = telex_opts();
-        assert!(is_last_event_undo(&"dess".chars().collect::<Vec<_>>(), &opts),
-            "the 2nd 's' in dessign is the undo-firing instant");
-        assert!(!is_last_event_undo(&"dessign".chars().collect::<Vec<_>>(), &opts),
-            "the full word's tail is no longer an undo pattern");
+        assert!(
+            is_last_event_undo(&"dess".chars().collect::<Vec<_>>(), &opts),
+            "the 2nd 's' in dessign is the undo-firing instant"
+        );
+        assert!(
+            !is_last_event_undo(&"dessign".chars().collect::<Vec<_>>(), &opts),
+            "the full word's tail is no longer an undo pattern"
+        );
     }
 
     #[test]
     fn parity_fold_plain_compose_is_not_undo() {
         let opts = telex_opts();
-        assert!(!is_last_event_undo(&"viet".chars().collect::<Vec<_>>(), &opts));
+        assert!(!is_last_event_undo(
+            &"viet".chars().collect::<Vec<_>>(),
+            &opts
+        ));
         assert!(!is_last_event_undo(&"a".chars().collect::<Vec<_>>(), &opts));
-        assert!(!is_last_event_undo(&"cana".chars().collect::<Vec<_>>(), &opts),
-            "cana composes to the attested collision 'cân' — not itself an undo event");
+        assert!(
+            !is_last_event_undo(&"cana".chars().collect::<Vec<_>>(), &opts),
+            "cana composes to the attested collision 'cân' — not itself an undo event"
+        );
     }
 }

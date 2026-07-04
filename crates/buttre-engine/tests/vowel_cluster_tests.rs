@@ -1,4 +1,6 @@
-use buttre_engine::vowel::cluster::{find_vowel_clusters, classify_cluster, is_vowel, normalize_vowel, VowelCluster, ClusterType};
+use buttre_engine::vowel::cluster::{
+    classify_cluster, find_vowel_clusters, is_vowel, ClusterType, VowelCluster,
+};
 
 #[test]
 fn test_is_vowel() {
@@ -9,7 +11,7 @@ fn test_is_vowel() {
     assert!(is_vowel('o'));
     assert!(is_vowel('u'));
     assert!(is_vowel('y'));
-    
+
     // Marked vowels
     assert!(is_vowel('ă'));
     assert!(is_vowel('â'));
@@ -17,13 +19,13 @@ fn test_is_vowel() {
     assert!(is_vowel('ô'));
     assert!(is_vowel('ơ'));
     assert!(is_vowel('ư'));
-    
+
     // Toned vowels
     assert!(is_vowel('á'));
     assert!(is_vowel('à'));
     assert!(is_vowel('ế'));
     assert!(is_vowel('ề'));
-    
+
     // Non-vowels
     assert!(!is_vowel('b'));
     assert!(!is_vowel('c'));
@@ -69,7 +71,7 @@ fn test_find_vowel_clusters_multiple() {
     let clusters = find_vowel_clusters("hoàn");
     // Should find "oà" cluster (normalized to "oa")
     assert_eq!(clusters.len(), 1);
-    assert_eq!(clusters[0].vowels, vec!['o', 'a']);  // Normalized
+    assert_eq!(clusters[0].vowels, vec!['o', 'a']); // Normalized
 }
 
 #[test]
@@ -114,7 +116,7 @@ fn test_vowel_cluster_contains_position() {
         vowels: vec!['ư', 'ơ'],
         cluster_type: ClusterType::CompoundUO,
     };
-    
+
     assert!(!cluster.contains_position(1));
     assert!(cluster.contains_position(2));
     assert!(cluster.contains_position(3));
@@ -129,6 +131,6 @@ fn test_vowel_cluster_to_string() {
         vowels: vec!['ư', 'ơ'],
         cluster_type: ClusterType::CompoundUO,
     };
-    
+
     assert_eq!(cluster.to_string(), "ươ");
 }

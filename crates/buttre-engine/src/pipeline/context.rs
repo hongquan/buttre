@@ -47,7 +47,7 @@ use std::collections::HashMap;
 pub struct CharInfo {
     /// Normalized (lowercase) character for internal processing
     pub ch: char,
-    
+
     /// Whether the original input was uppercase
     pub is_uppercase: bool,
 }
@@ -62,12 +62,12 @@ impl CharInfo {
             is_uppercase: input.is_uppercase(),
         }
     }
-    
+
     /// Create CharInfo from already-normalized char with explicit case
     pub fn with_case(ch: char, is_uppercase: bool) -> Self {
         Self { ch, is_uppercase }
     }
-    
+
     /// Get the output character with original case restored
     pub fn to_output_char(&self) -> char {
         if self.is_uppercase {
@@ -88,13 +88,13 @@ impl From<char> for CharInfo {
 pub trait CharInfoBufferExt {
     /// Convert to normalized (lowercase) string for internal processing
     fn to_normalized_string(&self) -> String;
-    
+
     /// Convert to output string with case restored
     fn to_output_string(&self) -> String;
-    
+
     /// Get just the characters as a vector
     fn to_char_vec(&self) -> Vec<char>;
-    
+
     /// Get the case mask (for backward compatibility)
     fn to_case_mask(&self) -> Vec<bool>;
 }
@@ -103,15 +103,15 @@ impl CharInfoBufferExt for Vec<CharInfo> {
     fn to_normalized_string(&self) -> String {
         self.iter().map(|c| c.ch).collect()
     }
-    
+
     fn to_output_string(&self) -> String {
         self.iter().map(|c| c.to_output_char()).collect()
     }
-    
+
     fn to_char_vec(&self) -> Vec<char> {
         self.iter().map(|c| c.ch).collect()
     }
-    
+
     fn to_case_mask(&self) -> Vec<bool> {
         self.iter().map(|c| c.is_uppercase).collect()
     }
@@ -121,15 +121,15 @@ impl CharInfoBufferExt for [CharInfo] {
     fn to_normalized_string(&self) -> String {
         self.iter().map(|c| c.ch).collect()
     }
-    
+
     fn to_output_string(&self) -> String {
         self.iter().map(|c| c.to_output_char()).collect()
     }
-    
+
     fn to_char_vec(&self) -> Vec<char> {
         self.iter().map(|c| c.ch).collect()
     }
-    
+
     fn to_case_mask(&self) -> Vec<bool> {
         self.iter().map(|c| c.is_uppercase).collect()
     }
@@ -200,7 +200,6 @@ pub struct TypingContext {
     // ========================================
     // Enhanced State Tracking (Phase 1)
     // ========================================
-    
     /// Last input character
     /// Used by RuleMatcher::LastChar for pattern matching
     /// Example: For Telex W handling, check if last_char == 'w'
@@ -225,7 +224,6 @@ pub struct TypingContext {
     // ========================================
     // Transform History (Phase 1: Undo Support)
     // ========================================
-    
     /// History of transformations for undo support
     /// Tracks each transformation to enable Unikey-style undo
     /// Example: "aa" → "â" creates record (input='a', type=Transform)
@@ -245,7 +243,6 @@ pub struct TypingContext {
     // scope (bool deletions only) but are equally dead; a future cleanup
     // pass may remove them too.
     // ========================================
-
     /// Legacy permutation result slot (not populated by ComposeStage).
     pub permutation_result: Option<PermutationResult>,
 
@@ -255,7 +252,6 @@ pub struct TypingContext {
     // ========================================
     // Learning Support (Stage 5 — future)
     // ========================================
-
     /// Whether learning is enabled for this session
     pub learning_enabled: bool,
 
@@ -265,16 +261,15 @@ pub struct TypingContext {
     // ========================================
     // Cross-Word Backspace Support (UniKey Pattern)
     // ========================================
-
     /// Indices where words start in syllable_buffer
-    /// 
+    ///
     /// When space is typed, the current position is recorded as a word boundary.
     /// This allows:
     /// - Tone processing to only affect current word (chars after last boundary)
     /// - Full buffer preservation for cross-word backspace
-    /// 
+    ///
     /// ## Example
-    /// 
+    ///
     /// Buffer: "tiếp theo"
     /// word_start_indices: [0, 5]  // "tiếp" starts at 0, "theo" starts at 5
     /// current_word(): "theo"      // Only this gets tone processing
@@ -408,7 +403,7 @@ impl TypingContext {
             learning_enabled: false,
             completed_syllables: Vec::new(),
             // Cross-word backspace support
-            word_start_indices: vec![0],  // First word always starts at 0
+            word_start_indices: vec![0], // First word always starts at 0
         }
     }
 
@@ -438,8 +433,8 @@ impl TypingContext {
         self.permutation_result = None;
         self.incremental_result = None;
         // Cross-word backspace support
-        self.word_start_indices = vec![0];  // Reset with first word at 0
-        // Note: Don't clear learning_enabled or completed_syllables (session-level)
+        self.word_start_indices = vec![0]; // Reset with first word at 0
+                                           // Note: Don't clear learning_enabled or completed_syllables (session-level)
     }
 
     /// Save current state to history
@@ -449,10 +444,8 @@ impl TypingContext {
     /// Pushes a snapshot of (raw_buffer, syllable_buffer) to the history stack.
     /// This allows for multi-level undo in the future.
     pub fn save_to_history(&mut self) {
-        self.history.push((
-            self.raw_buffer(),
-            self.syllable_buffer.clone(),
-        ));
+        self.history
+            .push((self.raw_buffer(), self.syllable_buffer.clone()));
     }
 
     /// Check if buffers are empty
@@ -485,7 +478,7 @@ impl TypingContext {
     // ========================================
 
     /// Get raw buffer as string (normalized, for backward compatibility)
-    /// 
+    ///
     /// Returns the characters only (without case info) as a string.
     pub fn raw_buffer(&self) -> String {
         self.char_buffer.to_normalized_string()
@@ -497,7 +490,7 @@ impl TypingContext {
     }
 
     /// Set char_buffer from a string (for testing/backward compatibility)
-    /// 
+    ///
     /// Converts each character in the string to CharInfo and replaces char_buffer.
     /// All characters are assumed lowercase (is_uppercase = false).
     pub fn set_raw_buffer(&mut self, s: &str) {
@@ -505,7 +498,7 @@ impl TypingContext {
     }
 
     /// Set case mask for existing char_buffer (for testing)
-    /// 
+    ///
     /// Updates the is_uppercase flag for each character in char_buffer.
     /// The case_mask length should match char_buffer length.
     pub fn set_case_mask(&mut self, case_mask: Vec<bool>) {
@@ -531,7 +524,7 @@ impl TypingContext {
     // ========================================
 
     /// Get the start index of the current word in syllable_buffer
-    /// 
+    ///
     /// Returns the byte offset where the current word starts.
     /// If no word boundaries exist, returns 0.
     pub fn current_word_start(&self) -> usize {
@@ -539,12 +532,12 @@ impl TypingContext {
     }
 
     /// Get the current word (substring from last word boundary to end)
-    /// 
+    ///
     /// This is the portion of syllable_buffer that tone/transform stages
     /// should operate on. Characters before this are from previous words.
-    /// 
+    ///
     /// ## Example
-    /// 
+    ///
     /// Buffer: "tiếp theo"
     /// word_start_indices: [0, 5]
     /// current_word(): "theo"
@@ -558,7 +551,7 @@ impl TypingContext {
     }
 
     /// Mark current position as a word boundary
-    /// 
+    ///
     /// Called when a space or soft separator is typed. Records the
     /// current syllable_buffer length as the start of the next word.
     pub fn mark_word_boundary(&mut self) {
@@ -566,7 +559,7 @@ impl TypingContext {
     }
 
     /// Remove the last word boundary (on backspace that removes separator)
-    /// 
+    ///
     /// Called when backspace removes a space/separator, merging the
     /// current word with the previous one.
     pub fn pop_word_boundary(&mut self) {
@@ -582,7 +575,7 @@ impl TypingContext {
     }
 
     /// Get char count offset for current word (for tone position calculation)
-    /// 
+    ///
     /// Since word_start_indices stores byte offsets but tone positioning uses
     /// char indices, this method converts byte offset to char count.
     pub fn current_word_char_offset(&self) -> usize {
@@ -685,15 +678,15 @@ impl TypingContext {
     pub fn accept_selected_candidate(&mut self) -> Option<String> {
         if let Some(candidate) = self.get_selected_candidate() {
             let text = candidate.text.clone();
-            
+
             // Update syllable buffer with accepted candidate
             self.syllable_buffer = text.clone();
-            
+
             // Clear candidates
             self.candidates.clear();
             self.showing_candidates = false;
             self.selected_candidate = None;
-            
+
             Some(text)
         } else {
             None
@@ -795,9 +788,9 @@ mod tests {
         ctx.push_raw('a');
         ctx.set_syllable("â".to_string());
         ctx.temp_english_mode = true;
-        
+
         ctx.clear();
-        
+
         assert!(ctx.is_empty());
         assert!(!ctx.temp_english_mode);
         assert_eq!(ctx.history.len(), 0);
@@ -809,11 +802,11 @@ mod tests {
         ctx.push_raw('a');
         ctx.set_syllable("a".to_string());
         ctx.save_to_history();
-        
+
         ctx.push_raw('a');
         ctx.set_syllable("â".to_string());
         ctx.save_to_history();
-        
+
         assert_eq!(ctx.history.len(), 2);
         assert_eq!(ctx.history[0], ("a".to_string(), "a".to_string()));
         assert_eq!(ctx.history[1], ("aa".to_string(), "â".to_string()));
@@ -824,7 +817,7 @@ mod tests {
         let mut ctx = TypingContext::new();
         ctx.set_syllable("thường".to_string());
         ctx.commit_output();
-        
+
         assert_eq!(ctx.last_output, "thường");
     }
 
@@ -867,7 +860,7 @@ mod tests {
     #[test]
     fn test_select_next_candidate() {
         let mut ctx = TypingContext::new();
-        
+
         // Add 3 candidates
         for i in 0..3 {
             ctx.candidates.push(Candidate {
@@ -901,7 +894,7 @@ mod tests {
     #[test]
     fn test_select_previous_candidate() {
         let mut ctx = TypingContext::new();
-        
+
         // Add 3 candidates
         for i in 0..3 {
             ctx.candidates.push(Candidate {
@@ -935,7 +928,7 @@ mod tests {
     #[test]
     fn test_select_candidate_by_index() {
         let mut ctx = TypingContext::new();
-        
+
         // Add 3 candidates
         for i in 0..3 {
             ctx.candidates.push(Candidate {
@@ -962,7 +955,7 @@ mod tests {
     #[test]
     fn test_get_selected_candidate() {
         let mut ctx = TypingContext::new();
-        
+
         ctx.candidates.push(Candidate {
             text: "người".to_string(),
             value: None,
@@ -993,7 +986,7 @@ mod tests {
     #[test]
     fn test_get_candidate() {
         let mut ctx = TypingContext::new();
-        
+
         ctx.candidates.push(Candidate {
             text: "người".to_string(),
             value: None,
@@ -1010,7 +1003,7 @@ mod tests {
     fn test_accept_selected_candidate() {
         let mut ctx = TypingContext::new();
         ctx.syllable_buffer = "nguoi".to_string();
-        
+
         ctx.candidates.push(Candidate {
             text: "người".to_string(),
             value: None,
@@ -1031,7 +1024,7 @@ mod tests {
         // Select and accept
         ctx.select_candidate(1);
         let accepted = ctx.accept_selected_candidate().unwrap();
-        
+
         assert_eq!(accepted, "𠊛");
         assert_eq!(ctx.syllable_buffer, "𠊛");
         assert!(!ctx.has_candidates());
@@ -1042,7 +1035,7 @@ mod tests {
     #[test]
     fn test_dismiss_candidates() {
         let mut ctx = TypingContext::new();
-        
+
         ctx.candidates.push(Candidate {
             text: "người".to_string(),
             value: None,

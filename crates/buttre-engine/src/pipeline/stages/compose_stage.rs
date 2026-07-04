@@ -343,9 +343,15 @@ fn should_unlatch(probe: &ComposeResult, raw: &[char], opts: &ComposeOpts) -> bo
 /// `is_last_event_undo` unaffected by this check), or it falls in the gap
 /// above — either way, Unikey's "no re-apply" zone, never a fresh mark.
 fn is_repeated_trigger_tap(raw: &[char]) -> bool {
-    let Some(&last) = raw.last() else { return false };
+    let Some(&last) = raw.last() else {
+        return false;
+    };
     let last_lc = last.to_ascii_lowercase();
-    raw.iter().rev().take_while(|&&c| c.to_ascii_lowercase() == last_lc).count() >= 3
+    raw.iter()
+        .rev()
+        .take_while(|&&c| c.to_ascii_lowercase() == last_lc)
+        .count()
+        >= 3
 }
 
 // ── Case application ──────────────────────────────────────────────────────────
@@ -433,7 +439,9 @@ pub(crate) fn apply_case_mask(text: &str, char_buffer: &[CharInfo], opts: &Compo
             // This means two input chars merged into one output char.
             let is_doubling = ci + 1 < case_chars.len()
                 && case_chars[ci + 1].ch == cur.ch
-                && opts.transform_rules.contains_key(&format!("{0}{0}", cur.ch));
+                && opts
+                    .transform_rules
+                    .contains_key(&format!("{0}{0}", cur.ch));
             if is_doubling {
                 ci += 2; // consume both
             } else {
@@ -483,13 +491,19 @@ mod tests {
     #[test]
     fn first_upper_capitalizes_first_char() {
         // "Aa" — content chars: a(upper), a(lower) → NOT all-content-upper → first-cap
-        let buf = vec![CharInfo::with_case('a', true), CharInfo::with_case('a', false)];
+        let buf = vec![
+            CharInfo::with_case('a', true),
+            CharInfo::with_case('a', false),
+        ];
         assert_eq!(apply_case_mask("â", &buf, &no_tone_opts()), "Â");
     }
 
     #[test]
     fn all_caps_uppercases_result() {
-        let buf = vec![CharInfo::with_case('a', true), CharInfo::with_case('a', true)];
+        let buf = vec![
+            CharInfo::with_case('a', true),
+            CharInfo::with_case('a', true),
+        ];
         assert_eq!(apply_case_mask("â", &buf, &no_tone_opts()), "Â");
     }
 
@@ -536,8 +550,11 @@ mod tests {
             CharInfo::with_case('d', true),
             CharInfo::with_case('a', false),
         ];
-        assert_eq!(apply_case_mask("đa", &buf, &telex_opts()), "Đa",
-                   "DDa: DD collapse → Đ; a stays lowercase");
+        assert_eq!(
+            apply_case_mask("đa", &buf, &telex_opts()),
+            "Đa",
+            "DDa: DD collapse → Đ; a stays lowercase"
+        );
     }
 
     #[test]
@@ -554,8 +571,11 @@ mod tests {
             CharInfo::with_case('i', false),
             CharInfo::with_case('f', false), // tone key — excluded from case_chars
         ];
-        assert_eq!(apply_case_mask("người", &buf, &telex_opts()), "NGười",
-                   "NGuwowif: N+G prefix uppercase preserved");
+        assert_eq!(
+            apply_case_mask("người", &buf, &telex_opts()),
+            "NGười",
+            "NGuwowif: N+G prefix uppercase preserved"
+        );
     }
 
     #[test]
@@ -583,7 +603,11 @@ mod tests {
     }
 
     fn mark(key: char, raw_pos: usize) -> crate::compose::AppliedMark {
-        crate::compose::AppliedMark { key, raw_pos, non_adjacent: true }
+        crate::compose::AppliedMark {
+            key,
+            raw_pos,
+            non_adjacent: true,
+        }
     }
 
     #[test]
@@ -592,7 +616,10 @@ mod tests {
         // 'i', 'g', 'n' never appear as a tone key or a transform-rule trigger
         // char in Telex — the overwhelming majority of latched keystrokes.
         for c in ['i', 'g', 'n', 'b', 'c', 't'] {
-            assert!(!is_probe_trigger_char(c, &opts), "'{c}' must not be a probe trigger");
+            assert!(
+                !is_probe_trigger_char(c, &opts),
+                "'{c}' must not be a probe trigger"
+            );
         }
     }
 
@@ -600,7 +627,10 @@ mod tests {
     fn probe_trigger_char_tone_key_triggers() {
         let opts = telex_opts();
         for c in ['s', 'f', 'r', 'x', 'j'] {
-            assert!(is_probe_trigger_char(c, &opts), "tone key '{c}' must be a probe trigger");
+            assert!(
+                is_probe_trigger_char(c, &opts),
+                "tone key '{c}' must be a probe trigger"
+            );
         }
     }
 
@@ -609,7 +639,10 @@ mod tests {
         let opts = telex_opts();
         // Second char of a 2-char doubling/compound rule (aa/aw/dd/ee/oo/ow/uw).
         for c in ['a', 'w', 'd', 'e', 'o'] {
-            assert!(is_probe_trigger_char(c, &opts), "transform trigger '{c}' must be a probe trigger");
+            assert!(
+                is_probe_trigger_char(c, &opts),
+                "transform trigger '{c}' must be a probe trigger"
+            );
         }
     }
 
@@ -617,11 +650,17 @@ mod tests {
     fn probe_trigger_char_vni_digit_triggers() {
         let opts = vni_opts();
         for c in ['6', '7', '8', '9'] {
-            assert!(is_probe_trigger_char(c, &opts), "VNI digit '{c}' must be a probe trigger");
+            assert!(
+                is_probe_trigger_char(c, &opts),
+                "VNI digit '{c}' must be a probe trigger"
+            );
         }
         // VNI tone digits are also probe triggers (tone_map, not transform_rules).
         for c in ['1', '2', '3', '4', '5'] {
-            assert!(is_probe_trigger_char(c, &opts), "VNI tone digit '{c}' must be a probe trigger");
+            assert!(
+                is_probe_trigger_char(c, &opts),
+                "VNI tone digit '{c}' must be a probe trigger"
+            );
         }
     }
 
@@ -636,14 +675,26 @@ mod tests {
 
     #[test]
     fn repeated_trigger_tap_three_or_more_is_repeated() {
-        assert!(is_repeated_trigger_tap(&raw("tisss")), "3x trailing 's' is the Unikey no-reapply zone");
-        assert!(is_repeated_trigger_tap(&raw("a1111")), "4x trailing '1' is also caught");
-        assert!(is_repeated_trigger_tap(&raw("awww")), "3x trailing 'w' (non-doubling trigger) is caught too");
+        assert!(
+            is_repeated_trigger_tap(&raw("tisss")),
+            "3x trailing 's' is the Unikey no-reapply zone"
+        );
+        assert!(
+            is_repeated_trigger_tap(&raw("a1111")),
+            "4x trailing '1' is also caught"
+        );
+        assert!(
+            is_repeated_trigger_tap(&raw("awww")),
+            "3x trailing 'w' (non-doubling trigger) is caught too"
+        );
     }
 
     #[test]
     fn repeated_trigger_tap_case_insensitive() {
-        assert!(is_repeated_trigger_tap(&raw("tiSsS")), "run detection must be case-insensitive");
+        assert!(
+            is_repeated_trigger_tap(&raw("tiSsS")),
+            "run detection must be case-insensitive"
+        );
     }
 
     #[test]
@@ -734,7 +785,10 @@ mod tests {
             .expect("'dât' must be a decomposable shape");
         let mut overlay = HashSet::new();
         overlay.insert(crate::pipeline::validation::bit_index(o, n, c, t) as u32);
-        let opts = ComposeOpts { user_attested: Some(Arc::new(overlay)), ..telex_opts() };
+        let opts = ComposeOpts {
+            user_attested: Some(Arc::new(overlay)),
+            ..telex_opts()
+        };
         let r = ComposeResult {
             text: "dât".to_string(),
             temp_english: false,
@@ -742,7 +796,10 @@ mod tests {
             consumed_tone: None,
             demoted: false,
         };
-        assert!(should_unlatch(&r, &raw("data"), &opts), "overlay-attested text must satisfy condition (b)");
+        assert!(
+            should_unlatch(&r, &raw("data"), &opts),
+            "overlay-attested text must satisfy condition (b)"
+        );
         // Same probe, WITHOUT the overlay, must still be rejected.
         let plain_opts = telex_opts();
         assert!(!should_unlatch(&r, &raw("data"), &plain_opts));
@@ -812,8 +869,10 @@ mod tests {
             consumed_tone: None,
             demoted: false,
         };
-        assert!(!should_unlatch(&r, &raw("canaa"), &opts),
-            "condition (d) must veto even when (a)-(c) are synthetically satisfied");
+        assert!(
+            !should_unlatch(&r, &raw("canaa"), &opts),
+            "condition (d) must veto even when (a)-(c) are synthetically satisfied"
+        );
     }
 
     // ── Executor-level: probe instrumentation (red-team M2/M3) ────────────────
@@ -833,11 +892,19 @@ mod tests {
     fn no_probe_for_non_trigger_key_while_latched() {
         use crate::pipeline::PipelineExecutor;
         let mut ex = PipelineExecutor::new(crate::pipeline::presets::telex_config());
-        for ch in "dess".chars() { ex.process(ch); } // latches at the 2nd 's' ("des")
+        for ch in "dess".chars() {
+            ex.process(ch);
+        } // latches at the 2nd 's' ("des")
         assert!(ex.context().temp_english_mode);
         reset_probe_calls();
-        for ch in "ign".chars() { ex.process(ch); } // none of i/g/n are triggers
-        assert_eq!(probe_calls(), 0, "plain letters must never trigger a probe compose");
+        for ch in "ign".chars() {
+            ex.process(ch);
+        } // none of i/g/n are triggers
+        assert_eq!(
+            probe_calls(),
+            0,
+            "plain letters must never trigger a probe compose"
+        );
         assert_eq!(ex.context().syllable_buffer, "design");
     }
 
@@ -845,11 +912,16 @@ mod tests {
     fn probe_fires_for_trigger_key_while_latched() {
         use crate::pipeline::PipelineExecutor;
         let mut ex = PipelineExecutor::new(crate::pipeline::presets::telex_config());
-        for ch in "vietj".chars() { ex.process(ch); } // latches ("vietj")
+        for ch in "vietj".chars() {
+            ex.process(ch);
+        } // latches ("vietj")
         assert!(ex.context().temp_english_mode);
         reset_probe_calls();
         ex.process('e'); // 'e' is a transform trigger — must probe
-        assert!(probe_calls() > 0, "a trigger key must perform at least one probe compose");
+        assert!(
+            probe_calls() > 0,
+            "a trigger key must perform at least one probe compose"
+        );
         assert_eq!(ex.context().syllable_buffer, "việt");
         assert!(!ex.context().temp_english_mode);
     }
@@ -859,13 +931,19 @@ mod tests {
         use crate::pipeline::PipelineExecutor;
         let mut ex = PipelineExecutor::new(crate::pipeline::presets::telex_config());
         // 17 distinct consonants: trips the run-on cap and latches.
-        for ch in "bcdfghklmnpqrtvzb".chars() { ex.process(ch); }
+        for ch in "bcdfghklmnpqrtvzb".chars() {
+            ex.process(ch);
+        }
         assert!(ex.context().temp_english_mode, "run-on buffer must latch");
         reset_probe_calls();
         // Further trigger-eligible keys ('a', 's') must still never probe —
         // the cap exemption is monotonic once tripped.
         ex.process('a');
         ex.process('s');
-        assert_eq!(probe_calls(), 0, "past the run-on cap, probing must be fully exempt");
+        assert_eq!(
+            probe_calls(),
+            0,
+            "past the run-on cap, probing must be fully exempt"
+        );
     }
 }

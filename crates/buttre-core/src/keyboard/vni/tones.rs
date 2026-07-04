@@ -21,14 +21,13 @@ use std::collections::HashMap;
 /// - '0' → None (remove tone)
 pub fn get_map() -> HashMap<char, ToneMark> {
     let mut map = HashMap::new();
-    
+
     map.insert('1', ToneMark::Acute);
     map.insert('2', ToneMark::Grave);
     map.insert('3', ToneMark::Hook);
     map.insert('4', ToneMark::Tilde);
     map.insert('5', ToneMark::Dot);
     map.insert('0', ToneMark::None);
-    
+
     map
 }
-

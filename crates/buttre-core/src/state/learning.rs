@@ -223,8 +223,12 @@ impl LearningStore {
         let today = today_days();
         let mut prefs = HashMap::with_capacity(file.prefs.len());
         for (key, record) in file.prefs {
-            let Some(sanitized_key) = sanitize_pref_key(&key) else { continue };
-            let Some(last_used_days) = parse_date(&record.last_used) else { continue };
+            let Some(sanitized_key) = sanitize_pref_key(&key) else {
+                continue;
+            };
+            let Some(last_used_days) = parse_date(&record.last_used) else {
+                continue;
+            };
             if today.saturating_sub(last_used_days) > MAX_IDLE_DAYS {
                 continue;
             }
@@ -242,7 +246,13 @@ impl LearningStore {
             prefs = entries.into_iter().collect();
         }
 
-        Self { file: LearningFile { user_attested: file.user_attested, prefs }, dirty: false }
+        Self {
+            file: LearningFile {
+                user_attested: file.user_attested,
+                prefs,
+            },
+            dirty: false,
+        }
     }
 
     /// `true` once something has changed since the last
@@ -331,7 +341,13 @@ impl LearningStore {
     /// AGAINST it" needs no special-case code, since acting against an
     /// existing pref is just calling this again with the opposite
     /// `PreferKind` for the same key.
-    pub fn record_pref(&mut self, method: &str, raw: &str, prefer: PreferKind, has_trigger_key: bool) -> bool {
+    pub fn record_pref(
+        &mut self,
+        method: &str,
+        raw: &str,
+        prefer: PreferKind,
+        has_trigger_key: bool,
+    ) -> bool {
         if raw.chars().count() < MIN_PREF_RAW_LEN || !has_trigger_key {
             return false;
         }
@@ -341,7 +357,10 @@ impl LearningStore {
         let is_new = !self.file.prefs.contains_key(&key);
         self.file.prefs.insert(
             key,
-            PrefRecord { prefer, last_used: format_date(today_days()) },
+            PrefRecord {
+                prefer,
+                last_used: format_date(today_days()),
+            },
         );
         if is_new {
             enforce_cap_by(&mut self.file.prefs, |_, rec| {
@@ -375,7 +394,11 @@ impl LearningStore {
         let overlay = self.overlay_snapshot();
         let prefs = self.prefs_snapshot_for_method(method);
         buttre_engine::compose::LearningSnapshot {
-            user_attested: if overlay.is_empty() { None } else { Some(overlay) },
+            user_attested: if overlay.is_empty() {
+                None
+            } else {
+                Some(overlay)
+            },
             raw_prefs: if prefs.is_empty() { None } else { Some(prefs) },
         }
     }
@@ -500,13 +523,24 @@ mod tests {
     fn date_round_trips_across_a_wide_range() {
         for days in (-20_000..20_000).step_by(37) {
             let s = format_date(days);
-            assert_eq!(parse_date(&s), Some(days), "round trip failed for day {days} ({s})");
+            assert_eq!(
+                parse_date(&s),
+                Some(days),
+                "round trip failed for day {days} ({s})"
+            );
         }
     }
 
     #[test]
     fn date_rejects_garbage() {
-        for s in ["", "not-a-date", "2026-13-01", "2026-01-32", "2026/01/01", "2026-01"] {
+        for s in [
+            "",
+            "not-a-date",
+            "2026-13-01",
+            "2026-01-32",
+            "2026/01/01",
+            "2026-01",
+        ] {
             assert_eq!(parse_date(s), None, "'{s}' must not parse");
         }
     }
@@ -543,7 +577,10 @@ mod tests {
         // `load()`'s real filesystem path, keeping this test hermetic) and
         // checking the SAME byte-ceiling predicate `load()` applies.
         let huge_content = "x = 1\n".repeat(50_000); // ~300 KB
-        assert!(huge_content.len() as u64 > MAX_FILE_BYTES, "fixture must exceed the ceiling");
+        assert!(
+            huge_content.len() as u64 > MAX_FILE_BYTES,
+            "fixture must exceed the ceiling"
+        );
         // The real hardening path is exercised at the `load()` level via
         // `fs::metadata` — this test documents and pins the threshold
         // itself so a future edit to `MAX_FILE_BYTES` is deliberate.
@@ -560,7 +597,10 @@ mod tests {
         for i in 0..1_000_000u32 {
             user_attested.insert(format!("s{i}"), i % 5);
         }
-        let store = LearningStore::from_file(LearningFile { user_attested, prefs: HashMap::new() });
+        let store = LearningStore::from_file(LearningFile {
+            user_attested,
+            prefs: HashMap::new(),
+        });
         assert!(store.file.user_attested.len() <= MAX_ENTRIES_PER_TABLE);
     }
 
@@ -570,10 +610,16 @@ mod tests {
         for i in 0..(MAX_ENTRIES_PER_TABLE + 10) {
             user_attested.insert(format!("s{i}"), i as u32);
         }
-        let store = LearningStore::from_file(LearningFile { user_attested, prefs: HashMap::new() });
+        let store = LearningStore::from_file(LearningFile {
+            user_attested,
+            prefs: HashMap::new(),
+        });
         assert_eq!(store.file.user_attested.len(), MAX_ENTRIES_PER_TABLE);
         // The highest-count entries (largest `i`) must have survived.
-        assert!(store.file.user_attested.contains_key(&format!("s{}", MAX_ENTRIES_PER_TABLE + 9)));
+        assert!(store
+            .file
+            .user_attested
+            .contains_key(&format!("s{}", MAX_ENTRIES_PER_TABLE + 9)));
         assert!(!store.file.user_attested.contains_key("s0"));
     }
 
@@ -583,7 +629,11 @@ mod tests {
         for i in 0..(MAX_ENTRIES_PER_TABLE + 5) {
             store.record_pref("telex", &format!("word{i:04}"), PreferKind::Literal, true);
         }
-        assert_eq!(store.file.prefs.len(), MAX_ENTRIES_PER_TABLE, "cap must hold after ordinary inserts, not just at load");
+        assert_eq!(
+            store.file.prefs.len(),
+            MAX_ENTRIES_PER_TABLE,
+            "cap must hold after ordinary inserts, not just at load"
+        );
     }
 
     #[test]
@@ -591,14 +641,26 @@ mod tests {
         let mut prefs = HashMap::new();
         prefs.insert(
             "telex:oldword".to_string(),
-            PrefRecord { prefer: PreferKind::Literal, last_used: format_date(today_days() - MAX_IDLE_DAYS - 1) },
+            PrefRecord {
+                prefer: PreferKind::Literal,
+                last_used: format_date(today_days() - MAX_IDLE_DAYS - 1),
+            },
         );
         prefs.insert(
             "telex:freshword".to_string(),
-            PrefRecord { prefer: PreferKind::Literal, last_used: format_date(today_days()) },
+            PrefRecord {
+                prefer: PreferKind::Literal,
+                last_used: format_date(today_days()),
+            },
         );
-        let store = LearningStore::from_file(LearningFile { user_attested: HashMap::new(), prefs });
-        assert!(!store.file.prefs.contains_key("telex:oldword"), "idle (>180d) pref must be dropped at load");
+        let store = LearningStore::from_file(LearningFile {
+            user_attested: HashMap::new(),
+            prefs,
+        });
+        assert!(
+            !store.file.prefs.contains_key("telex:oldword"),
+            "idle (>180d) pref must be dropped at load"
+        );
         assert!(store.file.prefs.contains_key("telex:freshword"));
     }
 
@@ -607,23 +669,48 @@ mod tests {
         let mut prefs = HashMap::new();
         prefs.insert(
             "telex:badword".to_string(),
-            PrefRecord { prefer: PreferKind::Literal, last_used: "not-a-date".to_string() },
+            PrefRecord {
+                prefer: PreferKind::Literal,
+                last_used: "not-a-date".to_string(),
+            },
         );
-        let store = LearningStore::from_file(LearningFile { user_attested: HashMap::new(), prefs });
-        assert!(store.file.prefs.is_empty(), "a corrupt date must be treated as corrupt, not kept");
+        let store = LearningStore::from_file(LearningFile {
+            user_attested: HashMap::new(),
+            prefs,
+        });
+        assert!(
+            store.file.prefs.is_empty(),
+            "a corrupt date must be treated as corrupt, not kept"
+        );
     }
 
     #[test]
     fn pref_key_sanitization_rejects_bad_shapes() {
         let mut prefs = HashMap::new();
-        for bad_key in ["noColon", "telex:", ":reset", "te lex:reset", "telex:re set", "telex:ab"] {
+        for bad_key in [
+            "noColon",
+            "telex:",
+            ":reset",
+            "te lex:reset",
+            "telex:re set",
+            "telex:ab",
+        ] {
             prefs.insert(
                 bad_key.to_string(),
-                PrefRecord { prefer: PreferKind::Literal, last_used: format_date(today_days()) },
+                PrefRecord {
+                    prefer: PreferKind::Literal,
+                    last_used: format_date(today_days()),
+                },
             );
         }
-        let store = LearningStore::from_file(LearningFile { user_attested: HashMap::new(), prefs });
-        assert!(store.file.prefs.is_empty(), "every malformed key must be dropped at load");
+        let store = LearningStore::from_file(LearningFile {
+            user_attested: HashMap::new(),
+            prefs,
+        });
+        assert!(
+            store.file.prefs.is_empty(),
+            "every malformed key must be dropped at load"
+        );
     }
 
     #[test]
@@ -631,9 +718,15 @@ mod tests {
         let mut prefs = HashMap::new();
         prefs.insert(
             "TELEX:RESET".to_string(),
-            PrefRecord { prefer: PreferKind::Literal, last_used: format_date(today_days()) },
+            PrefRecord {
+                prefer: PreferKind::Literal,
+                last_used: format_date(today_days()),
+            },
         );
-        let store = LearningStore::from_file(LearningFile { user_attested: HashMap::new(), prefs });
+        let store = LearningStore::from_file(LearningFile {
+            user_attested: HashMap::new(),
+            prefs,
+        });
         assert!(store.file.prefs.contains_key("telex:reset"));
     }
 
@@ -645,10 +738,21 @@ mod tests {
         // `snapshot_for_save`) but contribute nothing to the overlay.
         let mut user_attested = HashMap::new();
         user_attested.insert("not-a-valid-syllable-shape".to_string(), 5);
-        let mut store = LearningStore::from_file(LearningFile { user_attested, prefs: HashMap::new() });
-        assert!(store.overlay_snapshot().is_empty(), "an undecomposable entry must not contribute an overlay bit");
+        let mut store = LearningStore::from_file(LearningFile {
+            user_attested,
+            prefs: HashMap::new(),
+        });
+        assert!(
+            store.overlay_snapshot().is_empty(),
+            "an undecomposable entry must not contribute an overlay bit"
+        );
         let saved = store.snapshot_for_save();
-        assert!(saved.user_attested.contains_key("not-a-valid-syllable-shape"), "must be RETAINED in the file, not dropped");
+        assert!(
+            saved
+                .user_attested
+                .contains_key("not-a-valid-syllable-shape"),
+            "must be RETAINED in the file, not dropped"
+        );
     }
 
     // ── Overlay promotion / min-specificity ─────────────────────────────────
@@ -658,9 +762,16 @@ mod tests {
         let mut store = LearningStore::default();
         store.record_direct_typed("dât");
         store.record_direct_typed("dât");
-        assert!(store.overlay_snapshot().is_empty(), "2 hits must not yet promote");
+        assert!(
+            store.overlay_snapshot().is_empty(),
+            "2 hits must not yet promote"
+        );
         store.record_direct_typed("dât");
-        assert_eq!(store.overlay_snapshot().len(), 1, "the 3rd hit must promote");
+        assert_eq!(
+            store.overlay_snapshot().len(),
+            1,
+            "the 3rd hit must promote"
+        );
     }
 
     #[test]
@@ -696,8 +807,14 @@ mod tests {
         let mut store = LearningStore::default();
         store.record_pref("telex", "reset", PreferKind::Literal, true);
         store.record_pref("vni", "reset", PreferKind::Composed, true);
-        assert_eq!(store.prefs_snapshot_for_method("telex").get("reset"), Some(&EnginePref::Literal));
-        assert_eq!(store.prefs_snapshot_for_method("vni").get("reset"), Some(&EnginePref::Composed));
+        assert_eq!(
+            store.prefs_snapshot_for_method("telex").get("reset"),
+            Some(&EnginePref::Literal)
+        );
+        assert_eq!(
+            store.prefs_snapshot_for_method("vni").get("reset"),
+            Some(&EnginePref::Composed)
+        );
     }
 
     #[test]

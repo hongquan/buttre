@@ -18,8 +18,11 @@
 //! - SUPPRESSED when another compound-trigger mark follows: "uwow" → first mark
 //!   applies to 'u' individually, second mark applies to 'o' individually.
 
+use super::{
+    segment::{AppliedMark, TransformMark},
+    ComposeOpts,
+};
 use crate::vowel::cluster::normalize_vowel;
-use super::{ComposeOpts, segment::{AppliedMark, TransformMark}};
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -34,7 +37,11 @@ use super::{ComposeOpts, segment::{AppliedMark, TransformMark}};
 /// each `TransformMark` — `apply_one_transform`'s leftward retry (see module
 /// doc) may change WHICH vowel receives the diacritic, but it never changes
 /// whether the trigger key itself was typed adjacently.
-pub fn apply_transforms(base: &str, transforms: &[TransformMark], opts: &ComposeOpts) -> (String, Vec<AppliedMark>) {
+pub fn apply_transforms(
+    base: &str,
+    transforms: &[TransformMark],
+    opts: &ComposeOpts,
+) -> (String, Vec<AppliedMark>) {
     let mut result = base.to_string();
     let mut applied = Vec::new();
     for (idx, tm) in transforms.iter().enumerate() {
@@ -44,7 +51,11 @@ pub fn apply_transforms(base: &str, transforms: &[TransformMark], opts: &Compose
         let new = apply_one_transform(&result, tm.key, tm.base_len_at_typing, remaining, opts);
         if let Some(new_result) = new {
             result = new_result;
-            applied.push(AppliedMark { key: tm.key, raw_pos: tm.raw_pos, non_adjacent: tm.non_adjacent });
+            applied.push(AppliedMark {
+                key: tm.key,
+                raw_pos: tm.raw_pos,
+                non_adjacent: tm.non_adjacent,
+            });
         } else {
             result.push(tm.key);
         }
@@ -78,7 +89,8 @@ fn apply_one_transform(
     // ── UO compound rule ──────────────────────────────────────────────────────
     // Only within the base slice that was present when this mark was typed.
     let triggers_compound = is_compound_trigger(mark, opts);
-    let has_later_compound = remaining.iter()
+    let has_later_compound = remaining
+        .iter()
         .any(|t| t.key.to_ascii_lowercase() == mark_lc && is_compound_trigger(t.key, opts));
 
     if triggers_compound && !has_later_compound {
@@ -88,12 +100,12 @@ fn apply_one_transform(
             let u_ch = chars[pos];
             let o_ch = chars[pos + 1];
             let u_is_base = normalize_vowel(u_ch) == 'u' && !is_u_horn(u_ch);
-            let o_is_base = normalize_vowel(o_ch) == 'o'
-                && !matches!(normalize_vowel(o_ch), 'ơ' | 'ô');
+            let o_is_base =
+                normalize_vowel(o_ch) == 'o' && !matches!(normalize_vowel(o_ch), 'ơ' | 'ô');
             if u_is_base && o_is_base {
                 let has_following = pos + 2 < chars.len();
                 if has_following {
-                    chars[pos]     = preserve_case(u_ch, 'ư');
+                    chars[pos] = preserve_case(u_ch, 'ư');
                     chars[pos + 1] = preserve_case(o_ch, 'ơ');
                 } else {
                     chars[pos + 1] = preserve_case(o_ch, 'ơ');
@@ -134,7 +146,7 @@ fn apply_one_transform(
 
         // Sub-case 2: Forward scan for a vowel + mark 2-char rule.
         for i in 0..chars.len() {
-            let ch    = chars[i];
+            let ch = chars[i];
             let ch_lc = normalize_vowel(ch);
             if let Some(&new_char) = opts.pair_rules.get(&(ch_lc, mark_lc)) {
                 chars[i] = preserve_case(ch, new_char);
@@ -153,7 +165,7 @@ fn apply_one_transform(
     let mut first_candidate: Option<String> = None;
 
     for i in (0..search_end).rev() {
-        let ch    = chars[i];
+        let ch = chars[i];
         let ch_lc = normalize_vowel(ch); // base vowel (strips tone diacritics)
 
         if let Some(&new_char) = opts.pair_rules.get(&(ch_lc, mark_lc)) {
@@ -245,12 +257,8 @@ fn is_compound_trigger(mark: char, opts: &ComposeOpts) -> bool {
 /// Find the char index of "uo" in a lowercase string.
 fn find_uo_pos(lower: &str) -> Option<usize> {
     let chars: Vec<char> = lower.chars().collect();
-    for i in 0..chars.len().saturating_sub(1) {
-        if normalize_vowel(chars[i]) == 'u' && normalize_vowel(chars[i + 1]) == 'o' {
-            return Some(i);
-        }
-    }
-    None
+    (0..chars.len().saturating_sub(1))
+        .find(|&i| normalize_vowel(chars[i]) == 'u' && normalize_vowel(chars[i + 1]) == 'o')
 }
 
 /// True when `ch` is 'ư' (already has the u-horn diacritic).
@@ -272,7 +280,7 @@ fn preserve_case(original: char, new_char: char) -> char {
 
 #[cfg(test)]
 mod tests {
-    use crate::compose::{ComposeOpts, segment::TransformMark};
+    use crate::compose::{segment::TransformMark, ComposeOpts};
     use crate::pipeline::config::{PipelineConfig, ToneMark};
 
     fn telex_opts() -> ComposeOpts {
@@ -289,7 +297,12 @@ mod tests {
     }
 
     fn tm(key: char, base_len: usize) -> TransformMark {
-        TransformMark { key, base_len_at_typing: base_len, raw_pos: base_len, non_adjacent: false }
+        TransformMark {
+            key,
+            base_len_at_typing: base_len,
+            raw_pos: base_len,
+            non_adjacent: false,
+        }
     }
 
     /// Test-only convenience: most tests here only care about the resulting

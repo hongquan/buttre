@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 use crate::compose::{compose, compose_closed, ComposeOpts, ComposeResult, Pref};
-use crate::pipeline::config::{PipelineConfig, ToneMark, ToneStyle};
+use crate::pipeline::config::{PipelineConfig, ToneMark};
 use crate::pipeline::validation::{bit_index, decompose_ids};
 
 fn telex_opts() -> ComposeOpts {
@@ -45,7 +45,9 @@ fn vni_opts() -> ComposeOpts {
     ComposeOpts::from_config(&cfg)
 }
 
-fn raw(s: &str) -> Vec<char> { s.chars().collect() }
+fn raw(s: &str) -> Vec<char> {
+    s.chars().collect()
+}
 
 // ── Telex basic ───────────────────────────────────────────────────────────────
 
@@ -200,13 +202,16 @@ fn telex_af_yields_a_grave() {
 
 #[test]
 fn empty_raw() {
-    assert_eq!(compose(&[], &telex_opts()), ComposeResult {
-        text: String::new(),
-        temp_english: false,
-        applied_marks: Vec::new(),
-        consumed_tone: None,
-        demoted: false,
-    });
+    assert_eq!(
+        compose(&[], &telex_opts()),
+        ComposeResult {
+            text: String::new(),
+            temp_english: false,
+            applied_marks: Vec::new(),
+            consumed_tone: None,
+            demoted: false,
+        }
+    );
 }
 
 #[test]
@@ -228,14 +233,20 @@ fn telex_thuees_yields_thue_acute() {
 
 #[test]
 fn telex_luuw_yields_luu_horn() {
-    assert_eq!(compose(&raw("luuw"), &telex_opts()).text, "lưu",
-        "Telex luuw must produce lưu");
+    assert_eq!(
+        compose(&raw("luuw"), &telex_opts()).text,
+        "lưu",
+        "Telex luuw must produce lưu"
+    );
 }
 
 #[test]
 fn vni_luu7_yields_luu_horn() {
-    assert_eq!(compose(&raw("luu7"), &vni_opts()).text, "lưu",
-        "VNI luu7 must produce lưu");
+    assert_eq!(
+        compose(&raw("luu7"), &vni_opts()).text,
+        "lưu",
+        "VNI luu7 must produce lưu"
+    );
 }
 
 // ── Regression: tone-before-transform ordering (bug: mieng16/mieng26 VNI) ────
@@ -246,21 +257,30 @@ fn vni_luu7_yields_luu_horn() {
 
 #[test]
 fn vni_mieng16_yields_mieng_acute() {
-    assert_eq!(compose(&raw("mieng16"), &vni_opts()).text, "miếng",
-        "VNI mieng16 (tone before transform) must produce miếng");
+    assert_eq!(
+        compose(&raw("mieng16"), &vni_opts()).text,
+        "miếng",
+        "VNI mieng16 (tone before transform) must produce miếng"
+    );
 }
 
 #[test]
 fn vni_mieng26_yields_mieng_grave() {
-    assert_eq!(compose(&raw("mieng26"), &vni_opts()).text, "miềng",
-        "VNI mieng26 must produce miềng");
+    assert_eq!(
+        compose(&raw("mieng26"), &vni_opts()).text,
+        "miềng",
+        "VNI mieng26 must produce miềng"
+    );
 }
 
 #[test]
 fn vni_mieng61_still_works() {
     // Transform before tone: already worked before the fix; guard the regression.
-    assert_eq!(compose(&raw("mieng61"), &vni_opts()).text, "miếng",
-        "VNI mieng61 (transform before tone) must still produce miếng");
+    assert_eq!(
+        compose(&raw("mieng61"), &vni_opts()).text,
+        "miếng",
+        "VNI mieng61 (transform before tone) must still produce miếng"
+    );
 }
 
 // ── Regression: fast-typing onset 'd' before doubling key (Telex) ─────────────
@@ -270,14 +290,20 @@ fn vni_mieng61_still_works() {
 
 #[test]
 fn telex_dodong_yields_dong() {
-    assert_eq!(compose(&raw("dodong"), &telex_opts()).text, "đông",
-        "Telex dodong (fast-type, no tone) must produce đông");
+    assert_eq!(
+        compose(&raw("dodong"), &telex_opts()).text,
+        "đông",
+        "Telex dodong (fast-type, no tone) must produce đông"
+    );
 }
 
 #[test]
 fn telex_dodongf_yields_dong_grave() {
-    assert_eq!(compose(&raw("dodongf"), &telex_opts()).text, "đồng",
-        "Telex dodongf (fast-type onset slip) must produce đồng");
+    assert_eq!(
+        compose(&raw("dodongf"), &telex_opts()).text,
+        "đồng",
+        "Telex dodongf (fast-type onset slip) must produce đồng"
+    );
 }
 
 // ── Phase 2: attestation gate on non-adjacent transforms ─────────────────────
@@ -288,13 +314,19 @@ fn critical_data_stays_literal() {
     // The flagship bug: "data" — non-adjacent 'a' would produce unattested
     // "dât" — must demote to the literal keystrokes.
     let r = compose(&raw("data"), &telex_opts());
-    assert_eq!(r.text, "data", "unattested 'dât' must demote to literal 'data'");
+    assert_eq!(
+        r.text, "data",
+        "unattested 'dât' must demote to literal 'data'"
+    );
 }
 
 #[test]
 fn critical_vietej_fires_attested() {
-    assert_eq!(compose(&raw("vietej"), &telex_opts()).text, "việt",
-        "flexible non-adjacent typing must still produce attested 'việt'");
+    assert_eq!(
+        compose(&raw("vietej"), &telex_opts()).text,
+        "việt",
+        "flexible non-adjacent typing must still produce attested 'việt'"
+    );
 }
 
 #[test]
@@ -303,7 +335,10 @@ fn critical_nasa_stays_literal() {
     // unattested — must demote to literal, not leak a spurious diacritic
     // through the elongation fallback either (see `try_elongation_fallback`).
     let r = compose(&raw("nasa"), &telex_opts());
-    assert_eq!(r.text, "nasa", "unattested 'nấ' must demote to literal 'nasa'");
+    assert_eq!(
+        r.text, "nasa",
+        "unattested 'nấ' must demote to literal 'nasa'"
+    );
 }
 
 #[test]
@@ -319,8 +354,11 @@ fn critical_vni_nhat61_shape_attested_no_flicker() {
     // intermediate "nhât" (no tone yet) is not itself attested, but its
     // SHAPE is (nhất exists) — no literal flicker before '1' arrives.
     assert_eq!(compose(&raw("nhat61"), &vni_opts()).text, "nhất");
-    assert_eq!(compose(&raw("nhat6"), &vni_opts()).text, "nhât",
-        "mid-typing 'nhât' must not flicker to literal before the tone key");
+    assert_eq!(
+        compose(&raw("nhat6"), &vni_opts()).text,
+        "nhât",
+        "mid-typing 'nhât' must not flicker to literal before the tone key"
+    );
 }
 
 #[test]
@@ -335,7 +373,10 @@ fn high_reset_accepted_attested_collision() {
 fn high_data_class_words_stay_literal() {
     for word in ["meme", "photo", "papa"] {
         let r = compose(&raw(word), &telex_opts());
-        assert_eq!(r.text, word, "'{word}' must stay literal (unattested non-adjacent result)");
+        assert_eq!(
+            r.text, word,
+            "'{word}' must stay literal (unattested non-adjacent result)"
+        );
     }
 }
 
@@ -352,7 +393,10 @@ fn high_data_class_words_stay_literal() {
 fn high_fallback_implement_class_words_stay_literal() {
     for word in ["fallback", "implement", "impleme", "salsa"] {
         let r = compose(&raw(word), &telex_opts());
-        assert_eq!(r.text, word, "'{word}' must stay literal via the attestation gate (unattested non-adjacent result)");
+        assert_eq!(
+            r.text, word,
+            "'{word}' must stay literal via the attestation gate (unattested non-adjacent result)"
+        );
     }
 }
 
@@ -419,11 +463,20 @@ fn medium_hmong_config_gate_off() {
     let mut cfg = PipelineConfig::new("hmong-test");
     cfg.add_transform("aa", "â");
     cfg.add_tone('s', ToneMark::Acute);
-    cfg.validation = Some(ValidationSettings { syllable_structure: "hmong".to_string(), allow_invalid: true });
+    cfg.validation = Some(ValidationSettings {
+        syllable_structure: "hmong".to_string(),
+        allow_invalid: true,
+    });
     let opts = ComposeOpts::from_config(&cfg);
-    assert!(!opts.attest_non_adjacent, "Hmong validator must not enable the attestation gate");
-    assert_eq!(compose(&raw("nasa"), &opts).text, "nấ",
-        "gate-off: the non-adjacent mark fires ungated, unaffected by attestation");
+    assert!(
+        !opts.attest_non_adjacent,
+        "Hmong validator must not enable the attestation gate"
+    );
+    assert_eq!(
+        compose(&raw("nasa"), &opts).text,
+        "nấ",
+        "gate-off: the non-adjacent mark fires ungated, unaffected by attestation"
+    );
 }
 
 // ── Fallback bypass regression (red-team C2) ──────────────────────────────────
@@ -434,7 +487,10 @@ fn medium_hmong_config_gate_off() {
 fn c2_dataeee_no_bypass() {
     let r = compose(&raw("dataeee"), &telex_opts());
     assert_eq!(r.text, "dataee");
-    assert!(!r.text.contains(['â', 'ê']), "no diacritic must leak through the transform-toggle bypass");
+    assert!(
+        !r.text.contains(['â', 'ê']),
+        "no diacritic must leak through the transform-toggle bypass"
+    );
 }
 
 #[test]
@@ -442,14 +498,20 @@ fn c2_vietess_no_bypass() {
     // "viet" + demoted literal 'e' + literal 's' suffix = "vietes".
     let r = compose(&raw("vietess"), &telex_opts());
     assert_eq!(r.text, "vietes");
-    assert!(!r.text.contains(['â', 'ê']), "no diacritic must leak through the tone-toggle bypass");
+    assert!(
+        !r.text.contains(['â', 'ê']),
+        "no diacritic must leak through the tone-toggle bypass"
+    );
 }
 
 #[test]
 fn c2_databaaa_no_bypass() {
     let r = compose(&raw("databaaa"), &telex_opts());
     assert_eq!(r.text, "databaa");
-    assert!(!r.text.contains(['â', 'ê']), "no diacritic must leak through the transform-toggle bypass");
+    assert!(
+        !r.text.contains(['â', 'ê']),
+        "no diacritic must leak through the transform-toggle bypass"
+    );
 }
 
 // ── Recursion bound: demote pass cannot itself demote ─────────────────────────
@@ -463,7 +525,11 @@ fn demote_pass_cannot_recurse_twice() {
     // marks by combining an unattested đ with an unattested vowel double.
     let r = compose(&raw("dedeng"), &telex_opts());
     // Must not panic/loop; result must be a plain literal (no stray marks).
-    assert!(!r.text.contains(['â', 'ê', 'đ']), "demoted output must carry no leftover diacritics: {}", r.text);
+    assert!(
+        !r.text.contains(['â', 'ê', 'đ']),
+        "demoted output must carry no leftover diacritics: {}",
+        r.text
+    );
 }
 
 // ── Phase 4: non-adjacent transform undo ─────────────────────────────────────
@@ -509,7 +575,10 @@ fn critical_cana_a_undoes_to_literal_latched() {
     // this escape hatch targets.
     assert_eq!(compose(&raw("cana"), &telex_opts()).text, "cân");
     let r = compose(&raw("canaa"), &telex_opts());
-    assert_eq!(r.text, "cana", "retyping 'a' must undo the non-adjacent â mark");
+    assert_eq!(
+        r.text, "cana",
+        "retyping 'a' must undo the non-adjacent â mark"
+    );
     assert!(r.temp_english, "undo must latch English passthrough");
     assert!(r.applied_marks.is_empty(), "undo result carries no marks");
 }
@@ -524,7 +593,10 @@ fn critical_dataa_no_double_strip() {
     // path then handles the full 5-key raw buffer untouched: no keystroke is
     // dropped ("no double-strip").
     let r = compose(&raw("dataa"), &telex_opts());
-    assert_eq!(r.text, "dataa", "no keystroke may be dropped when the prefix's mark was already gate-demoted");
+    assert_eq!(
+        r.text, "dataa",
+        "no keystroke may be dropped when the prefix's mark was already gate-demoted"
+    );
     assert!(r.applied_marks.is_empty());
 }
 
@@ -549,7 +621,10 @@ fn critical_vieteje_immediacy_violated_no_undo() {
     // path (independent of Phase 4), yielding the full literal 7-key buffer.
     let r = compose(&raw("vieteje"), &telex_opts());
     assert_eq!(r.text, "vieteje");
-    assert!(!r.text.contains(['ệ', 'ê']), "no undo-related diacritic must leak");
+    assert!(
+        !r.text.contains(['ệ', 'ê']),
+        "no undo-related diacritic must leak"
+    );
 }
 
 #[test]
@@ -557,10 +632,16 @@ fn high_vni_can6_digit_parity_undoes_to_literal_latched() {
     // Method parity (S8): the VNI digit-triggered equivalent of "cana"+"a".
     // See module-level deviation note for why '6' (not '7') is the correct
     // trigger digit for â in this codebase's VNI table.
-    assert_eq!(compose(&raw("can6"), &vni_opts()).text, "cân",
-        "can6 must be the VNI attested collision analogous to Telex cana");
+    assert_eq!(
+        compose(&raw("can6"), &vni_opts()).text,
+        "cân",
+        "can6 must be the VNI attested collision analogous to Telex cana"
+    );
     let r = compose(&raw("can66"), &vni_opts());
-    assert_eq!(r.text, "can6", "retyping the VNI digit trigger must undo exactly like Telex");
+    assert_eq!(
+        r.text, "can6",
+        "retyping the VNI digit trigger must undo exactly like Telex"
+    );
     assert!(r.temp_english);
 }
 
@@ -568,7 +649,10 @@ fn high_vni_can6_digit_parity_undoes_to_literal_latched() {
 fn high_cana_uppercase_trigger_case_insensitive() {
     // Retyping the trigger in the OPPOSITE case must still undo.
     let r = compose(&raw("canaA"), &telex_opts());
-    assert_eq!(r.text, "cana", "uppercase retype of the trigger key must still undo");
+    assert_eq!(
+        r.text, "cana",
+        "uppercase retype of the trigger key must still undo"
+    );
     assert!(r.temp_english);
 }
 
@@ -581,7 +665,10 @@ fn high_cana_latch_survives_recompute_no_reentry() {
     // Phase 4 owns; display-level trimming to "canan" is a caller concern.
     let r = compose(&raw("canaan"), &telex_opts());
     assert_eq!(r.text, "canaan");
-    assert!(!r.text.contains(['â']), "the undone â mark must never re-fire on further typing");
+    assert!(
+        !r.text.contains(['â']),
+        "the undone â mark must never re-fire on further typing"
+    );
 }
 
 #[test]
@@ -590,10 +677,16 @@ fn high_dand_d_consonant_undo_equivalence_note() {
     // note): "dand" fires the backward-referring đ mark on its OWN final raw
     // key (base_ends_with_coda("dan") makes it a "committed syllable"), so
     // retyping 'd' immediately after DOES satisfy immediacy.
-    assert_eq!(compose(&raw("dand"), &telex_opts()).text, "đan",
-        "dand must be an attested đ collision (đan = to knit/weave)");
+    assert_eq!(
+        compose(&raw("dand"), &telex_opts()).text,
+        "đan",
+        "dand must be an attested đ collision (đan = to knit/weave)"
+    );
     let r = compose(&raw("dandd"), &telex_opts());
-    assert_eq!(r.text, "dand", "retyping 'd' right after dand must undo the đ mark");
+    assert_eq!(
+        r.text, "dand",
+        "retyping 'd' right after dand must undo the đ mark"
+    );
     assert!(r.temp_english);
 }
 
@@ -616,7 +709,11 @@ fn medium_latched_then_more_keys_no_reentry() {
     // Once undone, further identical keystrokes must not oscillate back into
     // firing the mark again.
     let r = compose(&raw("canaaa"), &telex_opts());
-    assert!(!r.text.contains('â'), "repeated retypes must never resurrect the diacritic: {}", r.text);
+    assert!(
+        !r.text.contains('â'),
+        "repeated retypes must never resurrect the diacritic: {}",
+        r.text
+    );
 }
 
 // ── Phase 6: coda "k" (Đắk Lắk class) ─────────────────────────────────────────
@@ -626,15 +723,21 @@ fn p6_telex_ddawks_yields_dak_acute() {
     // dd→đ, aw→ă (both adjacent, ungated), literal 'k' coda, s→sắc tone.
     // "đắk" is now attested (P6 re-embed) and structurally valid (per-nucleus
     // coda-k row for "ă") — no English revert.
-    assert_eq!(compose(&raw("ddawks"), &telex_opts()).text, "đắk",
-        "ddawks (đ + ă + k + sắc) must compose to đắk");
+    assert_eq!(
+        compose(&raw("ddawks"), &telex_opts()).text,
+        "đắk",
+        "ddawks (đ + ă + k + sắc) must compose to đắk"
+    );
 }
 
 #[test]
 fn p6_vni_dak_acute_via_digits() {
     // VNI equivalent: d9 -> đ, a8 -> ă, literal 'k', '1' -> sắc.
-    assert_eq!(compose(&raw("d9a8k1"), &vni_opts()).text, "đắk",
-        "VNI d9a8k1 must compose to đắk exactly like Telex ddawks");
+    assert_eq!(
+        compose(&raw("d9a8k1"), &vni_opts()).text,
+        "đắk",
+        "VNI d9a8k1 must compose to đắk exactly like Telex ddawks"
+    );
 }
 
 // ── Phase 6: gate hardening — trigger classification (digit vs. everything else) ──
@@ -663,8 +766,14 @@ fn p6_gate_hardening_punctuation_trigger_gets_exact_check() {
     // trigger must get the EXACT check and demote to literal.
     let opts = punctuation_trigger_opts();
     let r = compose(&raw("nhat'"), &opts);
-    assert_eq!(r.text, "nhat'", "punctuation trigger must get the EXACT check, not shape-relaxed");
-    assert!(!r.text.contains('â'), "no diacritic may leak through a punctuation trigger's shape-relaxation");
+    assert_eq!(
+        r.text, "nhat'",
+        "punctuation trigger must get the EXACT check, not shape-relaxed"
+    );
+    assert!(
+        !r.text.contains('â'),
+        "no diacritic may leak through a punctuation trigger's shape-relaxation"
+    );
 }
 
 #[test]
@@ -678,8 +787,15 @@ fn p6_coda_k_invalid_nucleus_reverts_to_literal() {
     // exists in the structural table).
     for word in ["ddik", "ddok"] {
         let r = compose(&raw(word), &telex_opts());
-        assert_eq!(r.text, word, "'{word}' must revert to literal — coda 'k' invalid for this nucleus");
-        assert!(!r.text.contains('đ'), "no partial đ transform may leak through: {}", r.text);
+        assert_eq!(
+            r.text, word,
+            "'{word}' must revert to literal — coda 'k' invalid for this nucleus"
+        );
+        assert!(
+            !r.text.contains('đ'),
+            "no partial đ transform may leak through: {}",
+            r.text
+        );
     }
 }
 
@@ -694,10 +810,20 @@ fn critical_vni_nhat6_closed_restores_literal() {
     // (closed=true), the SAME shape-only form must demote to literal raw —
     // "nhât" is not itself a word.
     let opts = vni_opts();
-    assert_eq!(compose(&raw("nhat6"), &opts).text, "nhât", "open projection unaffected (regression guard)");
+    assert_eq!(
+        compose(&raw("nhat6"), &opts).text,
+        "nhât",
+        "open projection unaffected (regression guard)"
+    );
     let r = compose_closed(&raw("nhat6"), &opts);
-    assert_eq!(r.text, "nhat6", "closed projection must restore the literal raw");
-    assert!(r.applied_marks.is_empty(), "the demoted digit mark carries no applied mark");
+    assert_eq!(
+        r.text, "nhat6",
+        "closed projection must restore the literal raw"
+    );
+    assert!(
+        r.applied_marks.is_empty(),
+        "the demoted digit mark carries no applied mark"
+    );
 }
 
 #[test]
@@ -711,7 +837,11 @@ fn critical_vni_toned_shape_attested_survives_closed_boundary() {
     // order "d9e6ch5" (marks unflagged, gate never consulted) committed
     // "đệch" — commit results must not depend on key order.
     let opts = vni_opts();
-    assert_eq!(compose(&raw("d9ech56"), &opts).text, "đệch", "open projection");
+    assert_eq!(
+        compose(&raw("d9ech56"), &opts).text,
+        "đệch",
+        "open projection"
+    );
     assert_eq!(
         compose_closed(&raw("d9ech56"), &opts).text,
         "đệch",
@@ -745,7 +875,11 @@ fn slang_supplement_composes_and_survives_boundary_telex() {
         ("laayf", "lầy"),
     ] {
         assert_eq!(compose(&raw(input), &opts).text, expected, "open: {input}");
-        assert_eq!(compose_closed(&raw(input), &opts).text, expected, "closed: {input}");
+        assert_eq!(
+            compose_closed(&raw(input), &opts).text,
+            expected,
+            "closed: {input}"
+        );
     }
 }
 
@@ -760,7 +894,11 @@ fn slang_supplement_composes_and_survives_boundary_vni() {
         ("dza6y5", "dzậy"),
     ] {
         assert_eq!(compose(&raw(input), &opts).text, expected, "open: {input}");
-        assert_eq!(compose_closed(&raw(input), &opts).text, expected, "closed: {input}");
+        assert_eq!(
+            compose_closed(&raw(input), &opts).text,
+            expected,
+            "closed: {input}"
+        );
     }
 }
 
@@ -772,7 +910,10 @@ fn critical_vni_nhat61_closed_untouched_exact_attested() {
     let open = compose(&raw("nhat61"), &opts);
     let closed = compose_closed(&raw("nhat61"), &opts);
     assert_eq!(open.text, "nhất");
-    assert_eq!(closed.text, "nhất", "exact-attested word must be untouched by the closed projection");
+    assert_eq!(
+        closed.text, "nhất",
+        "exact-attested word must be untouched by the closed projection"
+    );
 }
 
 #[test]
@@ -858,10 +999,16 @@ fn p5_overlay_or_check_rescues_unattested_non_adjacent_mark() {
     let (o, n, c, t) = decompose_ids("dât").expect("'dât' must be a decomposable shape");
     let mut overlay = HashSet::new();
     overlay.insert(bit_index(o, n, c, t) as u32);
-    let opts = ComposeOpts { user_attested: Some(Arc::new(overlay)), ..telex_opts() };
+    let opts = ComposeOpts {
+        user_attested: Some(Arc::new(overlay)),
+        ..telex_opts()
+    };
 
     let r = compose(&raw("data"), &opts);
-    assert_eq!(r.text, "dât", "an overlay-attested syllable must survive the non-adjacent gate");
+    assert_eq!(
+        r.text, "dât",
+        "an overlay-attested syllable must survive the non-adjacent gate"
+    );
     assert!(!r.demoted, "a gate PASS is not a demote");
     assert!(!r.temp_english);
 
@@ -878,10 +1025,16 @@ fn p5_pref_literal_short_circuits_before_fallback() {
     // fallback/segment/transform/tone ever run.
     let mut prefs = HashMap::new();
     prefs.insert("reset".to_string(), Pref::Literal);
-    let opts = ComposeOpts { raw_prefs: Some(Arc::new(prefs)), ..telex_opts() };
+    let opts = ComposeOpts {
+        raw_prefs: Some(Arc::new(prefs)),
+        ..telex_opts()
+    };
 
     let r = compose(&raw("reset"), &opts);
-    assert_eq!(r.text, "reset", "a literal pref must short-circuit compose entirely");
+    assert_eq!(
+        r.text, "reset",
+        "a literal pref must short-circuit compose entirely"
+    );
 
     // Unaffected: a DIFFERENT raw sequence still composes normally.
     assert_eq!(compose(&raw("viet"), &opts).text, "viet");
@@ -895,7 +1048,10 @@ fn p5_pref_composed_short_circuits_undo_detection() {
     // the plain segment->transform->tone pipeline: 'a' + tone 's' -> "á".
     let mut prefs = HashMap::new();
     prefs.insert("ass".to_string(), Pref::Composed);
-    let opts = ComposeOpts { raw_prefs: Some(Arc::new(prefs)), ..telex_opts() };
+    let opts = ComposeOpts {
+        raw_prefs: Some(Arc::new(prefs)),
+        ..telex_opts()
+    };
 
     let r = compose(&raw("ass"), &opts);
     assert_eq!(r.text, "á", "a composed pref must bypass undo detection");
@@ -922,9 +1078,11 @@ fn p5_pref_lookup_is_exact_full_raw_never_prefix() {
     // (telex_ddaaa_preserves_dstroke in `compose::fallback`'s own tests).
     let mut prefs = HashMap::new();
     prefs.insert("dd".to_string(), Pref::Literal);
-    let opts = ComposeOpts { raw_prefs: Some(Arc::new(prefs)), ..telex_opts() };
+    let opts = ComposeOpts {
+        raw_prefs: Some(Arc::new(prefs)),
+        ..telex_opts()
+    };
 
     let r = compose(&raw("ddaaa"), &opts);
     assert_eq!(r.text, "đaa", "a pref stored for a raw PREFIX must never leak into a longer raw's compose, nor into fallback's own prefix reconstruction");
 }
-

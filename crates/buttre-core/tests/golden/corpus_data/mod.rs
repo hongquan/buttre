@@ -39,9 +39,9 @@ impl Tag {
     pub fn as_str(self) -> &'static str {
         match self {
             Tag::VietnameseValid => "VietnameseValid",
-            Tag::FlexibleTyping  => "FlexibleTyping",
-            Tag::EnglishWord     => "EnglishWord",
-            Tag::UndoToggle      => "UndoToggle",
+            Tag::FlexibleTyping => "FlexibleTyping",
+            Tag::EnglishWord => "EnglishWord",
+            Tag::UndoToggle => "UndoToggle",
         }
     }
 }
@@ -60,11 +60,17 @@ pub fn vn_to_telex_keys(syllable: &str) -> String {
     let mut tone_key: Option<char> = None;
     for ch in syllable.chars() {
         let (base, extra, tone) = decompose_telex(ch);
-        if let Some(t) = tone { tone_key = Some(telex_tone_key(t)); }
+        if let Some(t) = tone {
+            tone_key = Some(telex_tone_key(t));
+        }
         out.push(base);
-        if let Some(e) = extra { out.push(e); }
+        if let Some(e) = extra {
+            out.push(e);
+        }
     }
-    if let Some(t) = tone_key { out.push(t); }
+    if let Some(t) = tone_key {
+        out.push(t);
+    }
     out
 }
 
@@ -77,11 +83,17 @@ pub fn vn_to_vni_keys(syllable: &str) -> String {
     let mut tone_key: Option<char> = None;
     for ch in syllable.chars() {
         let (base, extra, tone) = decompose_vni(ch);
-        if let Some(t) = tone { tone_key = Some(vni_tone_key(t)); }
+        if let Some(t) = tone {
+            tone_key = Some(vni_tone_key(t));
+        }
         out.push(base);
-        if let Some(e) = extra { out.push(e); }
+        if let Some(e) = extra {
+            out.push(e);
+        }
     }
-    if let Some(t) = tone_key { out.push(t); }
+    if let Some(t) = tone_key {
+        out.push(t);
+    }
     out
 }
 
@@ -112,14 +124,18 @@ fn vni_permute_tone_before_coda(keys: &str) -> Option<String> {
 fn permute_tone(keys: &str, tone_keys: &[char]) -> Option<String> {
     let chars: Vec<char> = keys.chars().collect();
     let last = *chars.last()?;
-    if !tone_keys.contains(&last) { return None; }
+    if !tone_keys.contains(&last) {
+        return None;
+    }
     let body = &chars[..chars.len() - 1];
     let coda_start = body
         .iter()
         .rposition(|c| !CODA_LETTERS.contains(c))
         .map(|i| i + 1)
         .unwrap_or(0);
-    if coda_start >= body.len() { return None; }
+    if coda_start >= body.len() {
+        return None;
+    }
     let mut result: Vec<char> = body[..coda_start].to_vec();
     result.push(last);
     result.extend_from_slice(&body[coda_start..]);
@@ -140,16 +156,24 @@ pub fn telex_corpus() -> Vec<(String, Tag)> {
     let mut v = Vec::new();
     for &s in SYLLABLES {
         let k = vn_to_telex_keys(s);
-        if !k.is_empty() { v.push((k, Tag::VietnameseValid)); }
+        if !k.is_empty() {
+            v.push((k, Tag::VietnameseValid));
+        }
     }
     for &s in SYLLABLES {
         let k = vn_to_telex_keys(s);
         if let Some(p) = telex_permute_tone_before_coda(&k) {
-            if p != k { v.push((p, Tag::FlexibleTyping)); }
+            if p != k {
+                v.push((p, Tag::FlexibleTyping));
+            }
         }
     }
-    for &w in ENGLISH_WORDS { v.push((w.to_string(), Tag::EnglishWord)); }
-    for &u in TELEX_UNDO_TOGGLE { v.push((u.to_string(), Tag::UndoToggle)); }
+    for &w in ENGLISH_WORDS {
+        v.push((w.to_string(), Tag::EnglishWord));
+    }
+    for &u in TELEX_UNDO_TOGGLE {
+        v.push((u.to_string(), Tag::UndoToggle));
+    }
     v
 }
 
@@ -158,16 +182,24 @@ pub fn vni_corpus() -> Vec<(String, Tag)> {
     let mut v = Vec::new();
     for &s in SYLLABLES {
         let k = vn_to_vni_keys(s);
-        if !k.is_empty() { v.push((k, Tag::VietnameseValid)); }
+        if !k.is_empty() {
+            v.push((k, Tag::VietnameseValid));
+        }
     }
     for &s in SYLLABLES {
         let k = vn_to_vni_keys(s);
         if let Some(p) = vni_permute_tone_before_coda(&k) {
-            if p != k { v.push((p, Tag::FlexibleTyping)); }
+            if p != k {
+                v.push((p, Tag::FlexibleTyping));
+            }
         }
     }
-    for &w in ENGLISH_WORDS { v.push((w.to_string(), Tag::EnglishWord)); }
-    for &u in VNI_UNDO_TOGGLE { v.push((u.to_string(), Tag::UndoToggle)); }
+    for &w in ENGLISH_WORDS {
+        v.push((w.to_string(), Tag::EnglishWord));
+    }
+    for &u in VNI_UNDO_TOGGLE {
+        v.push((u.to_string(), Tag::UndoToggle));
+    }
     v
 }
 
@@ -178,7 +210,9 @@ pub fn nom_corpus() -> Vec<(String, Tag)> {
     let mut v = Vec::new();
     for &s in SYLLABLES {
         let k = vn_to_telex_keys(s);
-        if !k.is_empty() { v.push((k, Tag::VietnameseValid)); }
+        if !k.is_empty() {
+            v.push((k, Tag::VietnameseValid));
+        }
     }
     v
 }
@@ -219,13 +253,21 @@ mod tests {
     #[test]
     fn telex_corpus_has_enough() {
         let cases = telex_corpus();
-        assert!(cases.len() >= 800, "Telex corpus too small: {} cases", cases.len());
+        assert!(
+            cases.len() >= 800,
+            "Telex corpus too small: {} cases",
+            cases.len()
+        );
     }
 
     #[test]
     fn vni_corpus_has_enough() {
         let cases = vni_corpus();
-        assert!(cases.len() >= 800, "VNI corpus too small: {} cases", cases.len());
+        assert!(
+            cases.len() >= 800,
+            "VNI corpus too small: {} cases",
+            cases.len()
+        );
     }
 
     #[test]

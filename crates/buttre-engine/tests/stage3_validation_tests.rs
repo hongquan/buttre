@@ -1,5 +1,5 @@
-use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 use buttre_engine::pipeline::stages::stage3_validation::ValidationStage;
+use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 
 #[test]
 fn test_alphabetic_input() {
@@ -19,7 +19,7 @@ fn test_non_alphabetic_passthrough() {
     // Non-alphabetic should pass through (update: numbers allowed for VNI)
     let result = stage.process(&mut ctx, '1');
     assert_eq!(result, StageResult::Continue);
-    
+
     // Punctuation should still pass through
     assert_eq!(stage.process(&mut ctx, '.'), StageResult::PassThrough);
 }
@@ -122,7 +122,7 @@ fn test_strict_mode_valid_syllable() {
     // Type "ban" - valid Vietnamese syllable
     ctx.syllable_buffer = "b".to_string();
     assert_eq!(stage.process(&mut ctx, 'a'), StageResult::Continue);
-    
+
     ctx.syllable_buffer = "ba".to_string();
     assert_eq!(stage.process(&mut ctx, 'n'), StageResult::Continue);
 }
@@ -135,7 +135,7 @@ fn test_strict_mode_invalid_syllable() {
     // Type "xyz" - invalid Vietnamese syllable
     ctx.syllable_buffer = "x".to_string();
     assert_eq!(stage.process(&mut ctx, 'y'), StageResult::Continue); // "xy" might be valid start
-    
+
     ctx.syllable_buffer = "xy".to_string();
     // "xyz" is invalid (z is not a valid coda)
     assert_eq!(stage.process(&mut ctx, 'z'), StageResult::PassThrough);
@@ -176,10 +176,10 @@ fn test_permissive_vs_strict() {
 
     // Invalid syllable "xyz"
     ctx.syllable_buffer = "xy".to_string();
-    
+
     // Permissive: allows it
     assert_eq!(permissive.process(&mut ctx, 'z'), StageResult::Continue);
-    
+
     // Strict: blocks it
     assert_eq!(strict.process(&mut ctx, 'z'), StageResult::PassThrough);
 }
@@ -215,13 +215,19 @@ fn test_vni_mixed_with_letters() {
 #[test]
 fn test_valid_single_char_onsets() {
     let stage = ValidationStage::new();
-    
+
     // All valid 1-char onsets
-    for &onset in &["b", "c", "d", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t", "v", "x"] {
+    for &onset in &[
+        "b", "c", "d", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t", "v", "x",
+    ] {
         let syllable = format!("{}a", onset);
-        assert!(stage.is_valid_syllable(&syllable), "Syllable '{}' should be valid", syllable);
+        assert!(
+            stage.is_valid_syllable(&syllable),
+            "Syllable '{}' should be valid",
+            syllable
+        );
     }
-    
+
     // Vietnamese đ
     assert!(stage.is_valid_syllable("đa"));
 }
@@ -229,18 +235,22 @@ fn test_valid_single_char_onsets() {
 #[test]
 fn test_valid_double_char_onsets() {
     let stage = ValidationStage::new();
-    
+
     // All valid 2-char onsets
     for &onset in &["ch", "gh", "gi", "kh", "ng", "nh", "ph", "qu", "th", "tr"] {
         let syllable = format!("{}a", onset);
-        assert!(stage.is_valid_syllable(&syllable), "Syllable '{}' should be valid", syllable);
+        assert!(
+            stage.is_valid_syllable(&syllable),
+            "Syllable '{}' should be valid",
+            syllable
+        );
     }
 }
 
 #[test]
 fn test_ngh_onset() {
     let stage = ValidationStage::new();
-    
+
     // 3-char onset
     assert!(stage.is_valid_syllable("ngha"));
     assert!(stage.is_valid_syllable("nghệ"));
@@ -250,7 +260,7 @@ fn test_ngh_onset() {
 #[test]
 fn test_invalid_onsets() {
     let stage = ValidationStage::new();
-    
+
     // Invalid onset combinations
     assert!(!stage.is_valid_syllable("zxa"));
     assert!(!stage.is_valid_syllable("qa")); // 'q' alone invalid (needs 'qu')
@@ -262,17 +272,21 @@ fn test_invalid_onsets() {
 #[test]
 fn test_single_vowel_nuclei() {
     let stage = ValidationStage::new();
-    
+
     // All basic vowels
     for &vowel in &["a", "ă", "â", "e", "ê", "i", "o", "ô", "ơ", "u", "ư", "y"] {
-        assert!(stage.is_valid_syllable(vowel), "Vowel '{}' should be valid nucleus", vowel);
+        assert!(
+            stage.is_valid_syllable(vowel),
+            "Vowel '{}' should be valid nucleus",
+            vowel
+        );
     }
 }
 
 #[test]
 fn test_diphthong_nuclei() {
     let stage = ValidationStage::new();
-    
+
     // Common diphthongs
     assert!(stage.is_valid_syllable("ai"));
     assert!(stage.is_valid_syllable("ao"));
@@ -287,7 +301,7 @@ fn test_diphthong_nuclei() {
 #[test]
 fn test_special_diphthongs() {
     let stage = ValidationStage::new();
-    
+
     // Vietnamese-specific diphthongs
     assert!(stage.is_valid_syllable("âu"));
     assert!(stage.is_valid_syllable("ây"));
@@ -304,7 +318,7 @@ fn test_special_diphthongs() {
 #[test]
 fn test_triphthong_nuclei() {
     let stage = ValidationStage::new();
-    
+
     // Complex triphthongs
     assert!(stage.is_valid_syllable("iêu"));
     assert!(stage.is_valid_syllable("oai"));
@@ -319,7 +333,7 @@ fn test_triphthong_nuclei() {
 #[test]
 fn test_empty_nucleus_invalid() {
     let stage = ValidationStage::new();
-    
+
     // Syllables with no vowels are invalid
     // "bng" parses as onset="b", nucleus="", coda="ng" (invalid)
     assert!(!stage.is_valid_syllable("bng"));
@@ -331,18 +345,22 @@ fn test_empty_nucleus_invalid() {
 #[test]
 fn test_valid_single_char_codas() {
     let stage = ValidationStage::new();
-    
+
     // All valid 1-char codas
     for &coda in &["c", "m", "n", "p", "t"] {
         let syllable = format!("a{}", coda);
-        assert!(stage.is_valid_syllable(&syllable), "Syllable '{}' should be valid", syllable);
+        assert!(
+            stage.is_valid_syllable(&syllable),
+            "Syllable '{}' should be valid",
+            syllable
+        );
     }
 }
 
 #[test]
 fn test_valid_double_char_codas() {
     let stage = ValidationStage::new();
-    
+
     // All valid 2-char codas
     assert!(stage.is_valid_syllable("ach"));
     assert!(stage.is_valid_syllable("ang"));
@@ -352,7 +370,7 @@ fn test_valid_double_char_codas() {
 #[test]
 fn test_invalid_codas() {
     let stage = ValidationStage::new();
-    
+
     // Invalid final consonants
     assert!(!stage.is_valid_syllable("ab")); // 'b' is not valid coda
     assert!(!stage.is_valid_syllable("ad")); // 'd' is not valid coda
@@ -365,7 +383,7 @@ fn test_invalid_codas() {
 #[test]
 fn test_valid_onset_nucleus_coda() {
     let stage = ValidationStage::new();
-    
+
     // Complete valid syllables
     assert!(stage.is_valid_syllable("ban"));
     assert!(stage.is_valid_syllable("cham"));
@@ -396,7 +414,7 @@ fn test_invalid_nucleus_coda_combination() {
 #[test]
 fn test_real_common_words() {
     let stage = ValidationStage::new();
-    
+
     // Common Vietnamese words
     assert!(stage.is_valid_syllable("việt"));
     assert!(stage.is_valid_syllable("nam"));
@@ -414,7 +432,7 @@ fn test_real_common_words() {
 #[test]
 fn test_real_complex_words() {
     let stage = ValidationStage::new();
-    
+
     // Complex Vietnamese syllables (using words validated in validation.rs tests)
     assert!(stage.is_valid_syllable("thường"));
     assert!(stage.is_valid_syllable("trường"));
@@ -427,7 +445,7 @@ fn test_real_complex_words() {
 #[test]
 fn test_real_place_names() {
     let stage = ValidationStage::new();
-    
+
     // Vietnamese place names
     assert!(stage.is_valid_syllable("hà")); // Hà Nội
     assert!(stage.is_valid_syllable("nội"));
@@ -449,7 +467,7 @@ fn test_strict_mode_typing_valid_word() {
     // Start with empty buffer and type 'a'
     ctx.syllable_buffer = String::new();
     assert_eq!(stage.process(&mut ctx, 'a'), StageResult::Continue);
-    
+
     // Buffer now has "a", type 'i' to form "ai" diphthong
     ctx.syllable_buffer = "a".to_string();
     assert_eq!(stage.process(&mut ctx, 'i'), StageResult::Continue);
@@ -478,7 +496,7 @@ fn test_strict_mode_blocks_invalid_combination() {
 #[test]
 fn test_empty_buffer() {
     let stage = ValidationStage::new();
-    
+
     // Empty syllable is valid (start of new syllable)
     assert!(stage.is_valid_syllable(""));
 }
@@ -486,7 +504,7 @@ fn test_empty_buffer() {
 #[test]
 fn test_single_consonant() {
     let stage = ValidationStage::new();
-    
+
     // Single consonant has no nucleus, should be invalid
     assert!(!stage.is_valid_syllable("b"));
     assert!(!stage.is_valid_syllable("ch"));
@@ -496,7 +514,7 @@ fn test_single_consonant() {
 #[test]
 fn test_uppercase_handling() {
     let stage = ValidationStage::new();
-    
+
     // Should handle uppercase (normalized to lowercase)
     assert!(stage.is_valid_syllable("Ban"));
     assert!(stage.is_valid_syllable("THƯỜNG"));
@@ -506,7 +524,7 @@ fn test_uppercase_handling() {
 #[test]
 fn test_tone_marks_normalized() {
     let stage = ValidationStage::new();
-    
+
     // Tones should be normalized during validation
     assert!(stage.is_valid_syllable("bán")); // á → a
     assert!(stage.is_valid_syllable("bàn")); // à → a
@@ -538,10 +556,10 @@ fn test_permissive_allows_invalid_english() {
 #[test]
 fn test_reset_no_effect() {
     let mut stage = ValidationStage::new();
-    
+
     // Reset should not fail (no internal state)
     stage.reset();
-    
+
     // Should still work normally
     let mut ctx = TypingContext::new();
     assert_eq!(stage.process(&mut ctx, 'a'), StageResult::Continue);
@@ -550,7 +568,7 @@ fn test_reset_no_effect() {
 #[test]
 fn test_reset_strict_mode_preserved() {
     let mut stage = ValidationStage::with_strict_mode(true);
-    
+
     // Reset should preserve strict mode setting
     stage.reset();
     assert!(stage.strict_mode);

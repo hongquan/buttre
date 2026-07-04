@@ -36,10 +36,10 @@ use crate::pipeline::config::ToneMark;
 pub struct SyllableStructure {
     /// Initial consonant(s): "", "b", "tr", "ngh"
     pub onset: String,
-    
+
     /// Vowel nucleus: "a", "oa", "uye"
     pub nucleus: String,
-    
+
     /// Final consonant: "", "n", "ng", "ch"
     pub coda: String,
 }
@@ -77,7 +77,7 @@ impl SyllableStructure {
             coda: coda.to_string(),
         }
     }
-    
+
     /// Check if this syllable structure is valid Vietnamese
     ///
     /// ## Algorithm
@@ -89,46 +89,6 @@ impl SyllableStructure {
     /// 4. Onset-Nucleus-Coda combination is valid
     pub fn is_valid(&self) -> bool {
         parts_are_valid(&self.onset, &self.nucleus, &self.coda)
-    }
-    
-    /// Check if the onset-nucleus-coda combination is valid Vietnamese.
-    ///
-    /// ## Source
-    ///
-    /// Ported from Unikey `ukengine` `VCPairList` (the exhaustive vowel×coda
-    /// table) plus the `isValidCVC` onset exceptions.  Three layers:
-    ///
-    /// 1. **Open syllable** (empty coda) → always valid.
-    /// 2. **Onset exceptions** — an onset that rescues an otherwise-invalid VC:
-    ///    `qu` + `y` + `n`/`nh` (quýnh, quynh); `gi` + `e`/`ê` + `n`/`ng`
-    ///    (giếng — the `gi` onset absorbs the `i`).
-    /// 3. **Per-nucleus allowed-coda set** — every nucleus that can take a coda
-    ///    lists exactly which codas are legal; nuclei ending in a glide
-    ///    (`i`/`o`/`u`/`y`) or otherwise open-only fall through to `false`.
-    ///
-    /// This makes invalid forms like `ưin`, `ưan`, `ơc`, `oem` correctly invalid
-    /// while keeping `việt`, `tiếp`, `biếc`, `thường`, `quýnh`, `giếng` valid.
-    ///
-    /// ## Coda "k" (P6 — Đắk Lắk class place names)
-    ///
-    /// Coda `k` is legal ONLY for nuclei `u` and `ă` — derived from the 9
-    /// previously-unembeddable dict entries (`búk`, `úk`; `lăk`, `lắk`, `măk`,
-    /// `ăk`, `đăk`, `đắk`, `ắk` — see `data/attested-syllables.txt`'s header).
-    /// This is deliberately NOT a blanket "k" allowance for every nucleus:
-    /// `đik`/`đok` must stay invalid (no dict evidence for those shapes), so
-    /// each nucleus arm below either includes `"k"` or does not, per the data.
-    /// The structural coda TABLE (`VALID_CODAS`) accepts `k` unconditionally —
-    /// this per-nucleus combination check is the only gate that limits it, and
-    /// it is the reason attestation-lookup (`is_attested`/`decompose_ids`,
-    /// which do not consult this function) can still embed `búk`/`đắk` while
-    /// `could_be_vietnamese` (which DOES consult this function) keeps rejecting
-    /// unattested k-coda shapes. Known accepted trade-off (red-team M1): the
-    /// adjacent Telex `aw`→`ă` / tone-`r`→hook-on-`u` paths are deliberately
-    /// ungated (same as `how`→`hơ`), so English `hawk`/`gawk`/`murk` now also
-    /// pass this check (`hăk`/`găk`/`mủk`) — pinned as known behavior in
-    /// `buttre-core`'s golden corpus, not fixed here.
-    fn is_valid_combination(&self) -> bool {
-        combination_is_valid(&self.onset, &self.nucleus, &self.coda)
     }
 }
 
@@ -143,9 +103,42 @@ pub(crate) fn parts_are_valid(onset: &str, nucleus: &str, coda: &str) -> bool {
         && combination_is_valid(onset, nucleus, coda)
 }
 
-/// Slice-based body of [`SyllableStructure::is_valid_combination`] — see that
-/// method's doc for the full Unikey `VCPairList` provenance and the coda-"k"
-/// rules.
+/// Check if the onset-nucleus-coda combination is valid Vietnamese.
+///
+/// ## Source
+///
+/// Ported from Unikey `ukengine` `VCPairList` (the exhaustive vowel×coda
+/// table) plus the `isValidCVC` onset exceptions.  Three layers:
+///
+/// 1. **Open syllable** (empty coda) → always valid.
+/// 2. **Onset exceptions** — an onset that rescues an otherwise-invalid VC:
+///    `qu` + `y` + `n`/`nh` (quýnh, quynh); `gi` + `e`/`ê` + `n`/`ng`
+///    (giếng — the `gi` onset absorbs the `i`).
+/// 3. **Per-nucleus allowed-coda set** — every nucleus that can take a coda
+///    lists exactly which codas are legal; nuclei ending in a glide
+///    (`i`/`o`/`u`/`y`) or otherwise open-only fall through to `false`.
+///
+/// This makes invalid forms like `ưin`, `ưan`, `ơc`, `oem` correctly invalid
+/// while keeping `việt`, `tiếp`, `biếc`, `thường`, `quýnh`, `giếng` valid.
+///
+/// ## Coda "k" (P6 — Đắk Lắk class place names)
+///
+/// Coda `k` is legal ONLY for nuclei `u` and `ă` — derived from the 9
+/// previously-unembeddable dict entries (`búk`, `úk`; `lăk`, `lắk`, `măk`,
+/// `ăk`, `đăk`, `đắk`, `ắk` — see `data/attested-syllables.txt`'s header).
+/// This is deliberately NOT a blanket "k" allowance for every nucleus:
+/// `đik`/`đok` must stay invalid (no dict evidence for those shapes), so
+/// each nucleus arm below either includes `"k"` or does not, per the data.
+/// The structural coda TABLE (`VALID_CODAS`) accepts `k` unconditionally —
+/// this per-nucleus combination check is the only gate that limits it, and
+/// it is the reason attestation-lookup (`is_attested`/`decompose_ids`,
+/// which do not consult this function) can still embed `búk`/`đắk` while
+/// `could_be_vietnamese` (which DOES consult this function) keeps rejecting
+/// unattested k-coda shapes. Known accepted trade-off (red-team M1): the
+/// adjacent Telex `aw`→`ă` / tone-`r`→hook-on-`u` paths are deliberately
+/// ungated (same as `how`→`hơ`), so English `hawk`/`gawk`/`murk` now also
+/// pass this check (`hăk`/`găk`/`mủk`) — pinned as known behavior in
+/// `buttre-core`'s golden corpus, not fixed here.
 fn combination_is_valid(onset: &str, n: &str, c: &str) -> bool {
     {
         // Layer 1: open syllable is always structurally valid.
@@ -217,35 +210,35 @@ pub fn normalize_vietnamese(text: &str) -> String {
 /// preserved — only the five tone marks are removed).
 fn strip_tone_char(c: char) -> char {
     match c {
-            // a variants
-            'á' | 'à' | 'ả' | 'ã' | 'ạ' => 'a',
-            'ắ' | 'ằ' | 'ẳ' | 'ẵ' | 'ặ' => 'ă',
-            'ấ' | 'ầ' | 'ẩ' | 'ẫ' | 'ậ' => 'â',
-            
-            // e variants
-            'é' | 'è' | 'ẻ' | 'ẽ' | 'ẹ' => 'e',
-            'ế' | 'ề' | 'ể' | 'ễ' | 'ệ' => 'ê',
-            
-            // i variants
-            'í' | 'ì' | 'ỉ' | 'ĩ' | 'ị' => 'i',
-            
-            // o variants
-            'ó' | 'ò' | 'ỏ' | 'õ' | 'ọ' => 'o',
-            'ố' | 'ồ' | 'ổ' | 'ỗ' | 'ộ' => 'ô',
-            'ớ' | 'ờ' | 'ở' | 'ỡ' | 'ợ' => 'ơ',
-            
-            // u variants
-            'ú' | 'ù' | 'ủ' | 'ũ' | 'ụ' => 'u',
-            'ứ' | 'ừ' | 'ử' | 'ữ' | 'ự' => 'ư',
-            
-            // y variants
-            'ý' | 'ỳ' | 'ỷ' | 'ỹ' | 'ỵ' => 'y',
-            
-            // đ
-            'đ' => 'đ',
+        // a variants
+        'á' | 'à' | 'ả' | 'ã' | 'ạ' => 'a',
+        'ắ' | 'ằ' | 'ẳ' | 'ẵ' | 'ặ' => 'ă',
+        'ấ' | 'ầ' | 'ẩ' | 'ẫ' | 'ậ' => 'â',
 
-            // Keep everything else
-            other => other,
+        // e variants
+        'é' | 'è' | 'ẻ' | 'ẽ' | 'ẹ' => 'e',
+        'ế' | 'ề' | 'ể' | 'ễ' | 'ệ' => 'ê',
+
+        // i variants
+        'í' | 'ì' | 'ỉ' | 'ĩ' | 'ị' => 'i',
+
+        // o variants
+        'ó' | 'ò' | 'ỏ' | 'õ' | 'ọ' => 'o',
+        'ố' | 'ồ' | 'ổ' | 'ỗ' | 'ộ' => 'ô',
+        'ớ' | 'ờ' | 'ở' | 'ỡ' | 'ợ' => 'ơ',
+
+        // u variants
+        'ú' | 'ù' | 'ủ' | 'ũ' | 'ụ' => 'u',
+        'ứ' | 'ừ' | 'ử' | 'ữ' | 'ự' => 'ư',
+
+        // y variants
+        'ý' | 'ỳ' | 'ỷ' | 'ỹ' | 'ỵ' => 'y',
+
+        // đ
+        'đ' => 'đ',
+
+        // Keep everything else
+        other => other,
     }
 }
 
@@ -311,7 +304,7 @@ pub fn extract_onset(syllable: &str) -> &str {
             return onset;
         }
     }
-    
+
     // Try 2-char onsets
     for &onset in VALID_ONSETS_2CHAR {
         if let Some(after) = syllable.strip_prefix(onset) {
@@ -328,14 +321,14 @@ pub fn extract_onset(syllable: &str) -> &str {
             return onset;
         }
     }
-    
+
     // Try 1-char onsets
     for &onset in VALID_ONSETS_1CHAR {
         if syllable.starts_with(onset) {
             return onset;
         }
     }
-    
+
     // No onset (vowel-initial syllable)
     ""
 }
@@ -353,14 +346,14 @@ pub fn extract_coda(remaining: &str) -> &str {
             return coda;
         }
     }
-    
+
     // Try 1-char codas
     for &coda in VALID_CODAS_1CHAR {
         if remaining.ends_with(coda) {
             return coda;
         }
     }
-    
+
     // No coda (open syllable)
     ""
 }
@@ -390,15 +383,12 @@ const VALID_ONSETS: &[&str] = &[
     // 1-char
     "b", "c", "d", "đ", "g", "h", "k", "l", "m", "n", "p", "r", "s", "t", "v", "x", "z",
     // 2-char
-    "ch", "gh", "gi", "kh", "ng", "nh", "ph", "qu", "th", "tr", "dz",
-    // 3-char
+    "ch", "gh", "gi", "kh", "ng", "nh", "ph", "qu", "th", "tr", "dz", // 3-char
     "ngh",
 ];
 
 /// Valid 2-character codas
-const VALID_CODAS_2CHAR: &[&str] = &[
-    "ch", "ng", "nh",
-];
+const VALID_CODAS_2CHAR: &[&str] = &["ch", "ng", "nh"];
 
 /// Valid 1-character codas.
 ///
@@ -408,16 +398,13 @@ const VALID_CODAS_2CHAR: &[&str] = &[
 /// `is_valid_combination` (per-nucleus rows: `u`/`ă` only), so accepting `k`
 /// unconditionally HERE only affects `extract_coda`/attestation-lookup id
 /// decomposition, never the structural plausibility check.
-const VALID_CODAS_1CHAR: &[&str] = &[
-    "c", "m", "n", "p", "t", "k",
-];
+const VALID_CODAS_1CHAR: &[&str] = &["c", "m", "n", "p", "t", "k"];
 
 /// All valid codas (including empty)
 const VALID_CODAS: &[&str] = &[
     "", // Empty coda (open syllable)
     // 1-char
-    "c", "m", "n", "p", "t", "k",
-    // 2-char
+    "c", "m", "n", "p", "t", "k", // 2-char
     "ch", "ng", "nh",
 ];
 
@@ -432,24 +419,15 @@ const VALID_CODAS: &[&str] = &[
 /// forms (`uo`, `ưo`, …) so partially-typed buffers are not rejected mid-compose.
 const VALID_NUCLEI: &[&str] = &[
     // Monophthongs
-    "a", "ă", "â", "e", "ê", "i", "o", "ô", "ơ", "u", "ư", "y",
-    // Loanword monophthong
-    "oo",
-    // Diphthongs (2 letters)
-    "ai", "ao", "au", "ay", "âu", "ây",
-    "eo", "êu",
-    "ia", "ie", "iê", "iu",
-    "oa", "oă", "oe", "oi", "ôi", "ơi",
-    "ua", "uâ", "ue", "uê", "ui", "uo", "uô", "uơ", "uy",
-    "ưa", "ưi", "ưo", "ươ", "ưu",
+    "a", "ă", "â", "e", "ê", "i", "o", "ô", "ơ", "u", "ư", "y",  // Loanword monophthong
+    "oo", // Diphthongs (2 letters)
+    "ai", "ao", "au", "ay", "âu", "ây", "eo", "êu", "ia", "ie", "iê", "iu", "oa", "oă", "oe", "oi",
+    "ôi", "ơi", "ua", "uâ", "ue", "uê", "ui", "uo", "uô", "uơ", "uy", "ưa", "ưi", "ưo", "ươ", "ưu",
     "ye", "yê",
     // Triphthongs (3 letters) — including diacritic-incomplete bare transients
     // (ieu→iêu, uoi→uôi/ươi, yeu→yêu) so partial typing is not rejected.
-    "iêu", "ieu",
-    "oai", "oao", "oay", "oeo",
-    "uao", "uây", "uôi", "uoi", "uou", "uơi", "uya", "uye", "uyê", "uyu",
-    "ươi", "ươu",
-    "yêu", "yeu",
+    "iêu", "ieu", "oai", "oao", "oay", "oeo", "uao", "uây", "uôi", "uoi", "uou", "uơi", "uya",
+    "uye", "uyê", "uyu", "ươi", "ươu", "yêu", "yeu",
 ];
 
 // ── Attested-syllable id decomposition (shared: accessors + generator) ────────
@@ -519,7 +497,12 @@ pub const fn tone_id(tone: ToneMark) -> usize {
 /// Shared by the generator (which sets bits) and `attested_data::is_set`
 /// (which reads them), so the two can never encode/decode with different
 /// layouts.
-pub const fn bit_index(onset_id: usize, nucleus_id: usize, coda_id: usize, tone_id: usize) -> usize {
+pub const fn bit_index(
+    onset_id: usize,
+    nucleus_id: usize,
+    coda_id: usize,
+    tone_id: usize,
+) -> usize {
     ((onset_id * NUM_NUCLEI + nucleus_id) * NUM_CODAS + coda_id) * NUM_TONES + tone_id
 }
 
@@ -677,4 +660,3 @@ pub fn is_attested_overlay(syllable: &str, overlay: Option<&HashSet<u32>>) -> bo
         None => false,
     }
 }
-

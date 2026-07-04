@@ -1,5 +1,7 @@
-use buttre_engine::pipeline::permutation::{extract_base_and_marks, apply_marks_permutation, MarkOp, is_mark_key, apply_tone_to_vowel};
 use buttre_engine::pipeline::config::ToneConfig;
+use buttre_engine::pipeline::permutation::{
+    apply_marks_permutation, apply_tone_to_vowel, extract_base_and_marks, is_mark_key, MarkOp,
+};
 use buttre_engine::vowel::VowelSeqTable;
 
 fn test_config() -> ToneConfig {
@@ -7,7 +9,7 @@ fn test_config() -> ToneConfig {
         free_marking: false,
         allow_permutation: true,
         max_modify_length: 6,  // Unikey default
-        auto_correct_uo: true,  // Enable auto-correction
+        auto_correct_uo: true, // Enable auto-correction
         vowel_sequences: VowelSeqTable::empty(),
         positioning_mode: buttre_engine::vowel::TonePositioningMode::Phonology,
     }
@@ -67,7 +69,7 @@ fn test_apply_marks_permutation_simple() {
     let config = test_config();
     let marks = vec![MarkOp::Transform('w'), MarkOp::Tone('f')];
     let result = apply_marks_permutation("truong", &marks, &config);
-    
+
     // Should transform o → ơ, then add tone → ờ
     // Result: trường (but current implementation may differ)
     assert!(result.is_some());

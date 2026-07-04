@@ -17,7 +17,7 @@ use std::collections::HashMap;
 /// - "dd" → "đ"
 pub fn get_rules() -> HashMap<String, String> {
     let mut rules = HashMap::new();
-    
+
     // Basic transformations
     rules.insert("aa".to_string(), "â".to_string());
     rules.insert("aw".to_string(), "ă".to_string());
@@ -49,13 +49,12 @@ pub fn get_rules() -> HashMap<String, String> {
     rules.insert("Ow".to_string(), "Ơ".to_string());
     rules.insert("UW".to_string(), "Ư".to_string());
     rules.insert("Uw".to_string(), "Ư".to_string());
-    
+
     // NOTE: "uow" → "ươ" rules are intentionally REMOVED
     // Stage 6 handles uo+w contextually:
     // - thuowr → thuở (uơ, only hook o when at end of word)
     // - tuowng → tương (ươ, hook both when followed by consonant)
     // Keeping this HashMap rule would override the Stage 4 skip logic.
-    
+
     rules
 }
-

@@ -45,21 +45,10 @@
 //! bus.publish(AppEvent::info("Application started"));
 //! ```
 
-mod types;
 mod bus;
+mod types;
 
 // Re-export all public types
-pub use types::{
-    AppEvent,
-    HotkeyAction,
-    MethodInfo,
-    MethodSource,
-    LogLevel,
-};
+pub use types::{AppEvent, HotkeyAction, LogLevel, MethodInfo, MethodSource};
 
-pub use bus::{
-    EventBus,
-    SharedEventBus,
-    EventHandler,
-    create_event_bus,
-};
+pub use bus::{create_event_bus, EventBus, EventHandler, SharedEventBus};

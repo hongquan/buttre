@@ -22,7 +22,7 @@
 //! ## Example:
 //! ```rust
 //! use buttre_engine::pipeline::rules::{ContextRule, RuleMatcher, RuleAction};
-//! 
+//!
 //! // Custom rule example
 //! let rule = ContextRule {
 //!     name: "my_rule".to_string(),
@@ -67,50 +67,50 @@ use std::fmt;
 pub enum RuleMatcher {
     /// Always match
     Always,
-    
+
     /// Never match (disabled rule)
     Never,
-    
+
     /// Match if syllable buffer matches pattern
     /// Example: Pattern("ươ") matches if buffer contains "ươ"
     Pattern(String),
-    
+
     /// Match if syllable buffer ends with pattern
     /// Example: EndsWith("ư") matches "trư", "cư", etc.
     EndsWith(String),
-    
+
     /// Match if syllable buffer starts with pattern
     /// Example: StartsWith("qu") matches "qua", "quê", etc.
     StartsWith(String),
-    
+
     /// Match if last input character equals this
     /// Example: LastChar('w') matches if user just typed 'w'
     LastChar(char),
-    
+
     /// Match if last transform key equals this
     /// Example: LastTransformKey('w') matches if last transform used 'w'
     LastTransformKey(char),
-    
+
     /// Match if buffer length equals this
     /// Example: Length(3) matches "abc" but not "ab"
     Length(usize),
-    
+
     /// Match if buffer length is in range (min, max)
     /// Example: LengthRange(2, 5) matches "ab", "abc", "abcd", "abcde"
     LengthRange(usize, usize),
-    
+
     /// Combine matchers with AND logic
     /// Example: And(vec![EndsWith("ư"), LastChar('w')])
     And(Vec<RuleMatcher>),
-    
+
     /// Combine matchers with OR logic
     /// Example: Or(vec![Pattern("oa"), Pattern("oe")])
     Or(Vec<RuleMatcher>),
-    
+
     /// Negate a matcher
     /// Example: Not(Box::new(Pattern("ươ")))
     Not(Box<RuleMatcher>),
-    
+
     /// Custom closure for complex logic
     /// Example: Custom(Box::new(|ctx| ctx.syllable_buffer.chars().count() > 3))
     Custom(Box<dyn Fn(&TypingContext) -> bool + Send + Sync>),
@@ -175,26 +175,26 @@ pub enum RuleAction {
     /// Skip this transformation (no-op)
     /// Example: Used for blocking unwanted transforms
     Skip,
-    
+
     /// Replace syllable buffer with this string
     /// Example: Replace("ươ") sets buffer to "ươ"
     Replace(String),
-    
+
     /// Append to syllable buffer
     /// Example: Append("ng") adds "ng" to end
     Append(String),
-    
+
     /// Set a context flag
     /// Example: SetFlag("w_converted", true)
     SetFlag(String, bool),
-    
+
     /// Set last transform key
     /// Example: SetTransformKey('w')
     SetTransformKey(char),
-    
+
     /// Clear syllable buffer
     Clear,
-    
+
     /// Custom closure for complex actions
     /// Example: Custom(Box::new(|ctx| { ctx.tone_position = Some(2); }))
     Custom(Box<dyn Fn(&mut TypingContext) + Send + Sync>),
@@ -268,7 +268,7 @@ impl RuleAction {
 /// ## Example:
 /// ```rust
 /// use buttre_engine::pipeline::{ContextRule, RuleMatcher, RuleAction};
-/// 
+///
 /// // Block transformation in specific pattern
 /// let rule = ContextRule {
 ///     name: "my_block_rule".to_string(),
@@ -283,10 +283,10 @@ impl RuleAction {
 pub struct ContextRule {
     /// Rule name (for debugging)
     pub name: String,
-    
+
     /// When to apply this rule
     pub matcher: RuleMatcher,
-    
+
     /// What to do when rule matches
     pub action: RuleAction,
 }
@@ -300,12 +300,12 @@ impl ContextRule {
             action,
         }
     }
-    
+
     /// Check if this rule applies to the current context
     pub fn matches(&self, ctx: &TypingContext) -> bool {
         self.matcher.matches(ctx)
     }
-    
+
     /// Execute this rule's action
     ///
     /// ## Returns:
@@ -325,7 +325,7 @@ impl ContextRule {
 /// ## Example:
 /// ```rust
 /// use buttre_engine::pipeline::{ConditionalRule, RuleMatcher};
-/// 
+///
 /// let rule = ConditionalRule {
 ///     from: "aa".to_string(),
 ///     to: "â".to_string(),
@@ -338,10 +338,10 @@ impl ContextRule {
 pub struct ConditionalRule {
     /// Source pattern
     pub from: String,
-    
+
     /// Target result
     pub to: String,
-    
+
     /// Optional condition (None = always apply)
     pub condition: Option<RuleMatcher>,
 }
@@ -355,7 +355,7 @@ impl ConditionalRule {
             condition: None,
         }
     }
-    
+
     /// Create a conditional rule with a condition
     pub fn with_condition(
         from: impl Into<String>,
@@ -368,7 +368,7 @@ impl ConditionalRule {
             condition: Some(condition),
         }
     }
-    
+
     /// Check if this rule should apply
     pub fn should_apply(&self, ctx: &TypingContext) -> bool {
         if let Some(ref condition) = self.condition {
@@ -405,10 +405,10 @@ mod tests {
     fn test_matcher_pattern() {
         let mut ctx = TypingContext::new();
         ctx.set_syllable("hello".to_string());
-        
+
         let matcher = RuleMatcher::Pattern("ell".to_string());
         assert!(matcher.matches(&ctx));
-        
+
         let matcher = RuleMatcher::Pattern("xyz".to_string());
         assert!(!matcher.matches(&ctx));
     }
@@ -417,7 +417,7 @@ mod tests {
     fn test_matcher_ends_with() {
         let mut ctx = TypingContext::new();
         ctx.set_syllable("trư".to_string());
-        
+
         let matcher = RuleMatcher::EndsWith("ư".to_string());
         assert!(matcher.matches(&ctx));
     }
@@ -427,7 +427,7 @@ mod tests {
         let mut ctx = TypingContext::new();
         ctx.set_syllable("trư".to_string());
         ctx.last_char = Some('w');
-        
+
         let matcher = RuleMatcher::And(vec![
             RuleMatcher::EndsWith("ư".to_string()),
             RuleMatcher::LastChar('w'),
@@ -456,7 +456,7 @@ mod tests {
         ctx.set_syllable("trư".to_string());
         ctx.last_char = Some('w');
         ctx.last_transform_key = Some('w');
-        
+
         let rule = ContextRule::new(
             "test_rule",
             RuleMatcher::And(vec![
@@ -465,7 +465,7 @@ mod tests {
             ]),
             RuleAction::Skip,
         );
-        
+
         assert!(rule.matches(&ctx));
         assert!(rule.execute(&mut ctx)); // Should skip
     }
@@ -474,15 +474,15 @@ mod tests {
     fn test_conditional_rule() {
         let mut ctx = TypingContext::new();
         ctx.set_syllable("aa".to_string());
-        
+
         let rule = ConditionalRule::with_condition(
             "aa",
             "â",
             RuleMatcher::Not(Box::new(RuleMatcher::StartsWith("q".to_string()))),
         );
-        
+
         assert!(rule.should_apply(&ctx));
-        
+
         ctx.set_syllable("qaa".to_string());
         assert!(!rule.should_apply(&ctx));
     }

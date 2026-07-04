@@ -12,13 +12,13 @@ fn test_new_app_state() {
 #[test]
 fn test_set_method() {
     let mut state = AppState::with_settings(Settings::default());
-    
+
     // Switch to Telex
     state.set_method("telex").unwrap();
     assert!(state.is_enabled());
     assert_eq!(state.current_method(), "telex");
     assert_eq!(state.settings().input_method, "telex");
-    
+
     // Switch to English
     state.set_method("english").unwrap();
     assert!(!state.is_enabled());
@@ -28,18 +28,18 @@ fn test_set_method() {
 #[test]
 fn test_toggle() {
     let mut state = AppState::with_settings(Settings::default());
-    
+
     // Start with English, toggle should switch to Telex (default)
     assert_eq!(state.current_method(), "english");
     state.toggle().unwrap();
     assert_eq!(state.current_method(), "telex");
     assert!(state.is_enabled());
-    
+
     // Toggle back to English
     state.toggle().unwrap();
     assert_eq!(state.current_method(), "english");
     assert!(!state.is_enabled());
-    
+
     // Set to VNI, then toggle to English, then toggle back should restore VNI
     state.set_method("vni").unwrap();
     state.toggle().unwrap(); // -> English
@@ -50,9 +50,11 @@ fn test_toggle() {
 
 #[test]
 fn test_app_state_with_custom_settings() {
-    let mut settings = Settings::default();
-    settings.input_method = "vni".to_string();
-    
+    let settings = Settings {
+        input_method: "vni".to_string(),
+        ..Settings::default()
+    };
+
     let state = AppState::with_settings(settings);
     assert!(state.is_enabled());
     assert_eq!(state.current_method(), "vni");

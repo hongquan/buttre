@@ -19,11 +19,8 @@
 #[path = "golden/mod.rs"]
 mod golden;
 
-#[path = "golden/corpus_data/mod.rs"]
-mod corpus_data;
-
 use buttre_core::keyboard::{telex, vni};
-use buttre_engine::compose::{compose, ComposeOpts, ComposeResult};
+use buttre_engine::compose::{compose, ComposeOpts};
 use buttre_engine::pipeline::PipelineConfig;
 
 use std::path::PathBuf;
@@ -31,9 +28,9 @@ use std::path::PathBuf;
 // ── Snapshot loader ───────────────────────────────────────────────────────────
 
 struct SnapCase {
-    keys:     String,
+    keys: String,
     expected: String,
-    tag:      String,
+    tag: String,
 }
 
 fn snap_path(method: &str) -> PathBuf {
@@ -46,9 +43,7 @@ fn snap_path(method: &str) -> PathBuf {
 fn load_snap(method: &str) -> Vec<SnapCase> {
     let path = snap_path(method);
     if !path.exists() {
-        panic!(
-            "{method}.snap not found — run: cargo run -p buttre-core --example gen_golden"
-        );
+        panic!("{method}.snap not found — run: cargo run -p buttre-core --example gen_golden");
     }
     let content = std::fs::read_to_string(&path)
         .unwrap_or_else(|e| panic!("Cannot read {}: {e}", path.display()));
@@ -59,9 +54,9 @@ fn load_snap(method: &str) -> Vec<SnapCase> {
             let parts: Vec<&str> = line.splitn(3, '\t').collect();
             assert!(parts.len() == 3, "Malformed snap line: {:?}", line);
             SnapCase {
-                keys:     parts[0].to_string(),
+                keys: parts[0].to_string(),
                 expected: parts[1].to_string(),
-                tag:      parts[2].to_string(),
+                tag: parts[2].to_string(),
             }
         })
         .collect()
@@ -187,7 +182,7 @@ fn vni_dangling_mark_bug(keys: &str, expected: &str, actual: &str) -> bool {
 
 #[derive(Default)]
 struct TagStats {
-    total:   usize,
+    total: usize,
     matched: usize,
     english_validation_first: usize,
     current_bug_fixed: usize,
@@ -197,11 +192,11 @@ struct TagStats {
 // ── Report writer ─────────────────────────────────────────────────────────────
 
 struct DivRecord {
-    keys:     String,
+    keys: String,
     expected: String,
-    actual:   String,
-    tag:      String,
-    class:    DivClass,
+    actual: String,
+    tag: String,
+    class: DivClass,
 }
 
 fn write_report(method: &str, records: &[DivRecord]) {
@@ -242,7 +237,10 @@ fn write_report(method: &str, records: &[DivRecord]) {
 
     let content = lines.join("\n");
     if let Err(e) = std::fs::write(&path, content) {
-        eprintln!("[compose_isolation] Cannot write report {}: {e}", path.display());
+        eprintln!(
+            "[compose_isolation] Cannot write report {}: {e}",
+            path.display()
+        );
     } else {
         println!("[compose_isolation] Report written: {}", path.display());
     }
@@ -254,7 +252,8 @@ fn run_isolation(method: &str, config: PipelineConfig) {
     let cases = load_snap(method);
     assert!(!cases.is_empty(), "{method}.snap is empty");
 
-    let mut stats_by_tag: std::collections::HashMap<String, TagStats> = std::collections::HashMap::new();
+    let mut stats_by_tag: std::collections::HashMap<String, TagStats> =
+        std::collections::HashMap::new();
     let mut divergences: Vec<DivRecord> = Vec::new();
     let mut regression_count = 0usize;
 
@@ -269,17 +268,17 @@ fn run_isolation(method: &str, config: PipelineConfig) {
             let class = classify_divergence(&case.keys, &case.expected, &actual, &case.tag);
             match &class {
                 DivClass::EnglishValidationFirst => tag_stats.english_validation_first += 1,
-                DivClass::CurrentBugFixed { .. }  => tag_stats.current_bug_fixed += 1,
-                DivClass::Regression              => {
+                DivClass::CurrentBugFixed { .. } => tag_stats.current_bug_fixed += 1,
+                DivClass::Regression => {
                     tag_stats.regressions += 1;
                     regression_count += 1;
                 }
             }
             divergences.push(DivRecord {
-                keys:     case.keys.clone(),
+                keys: case.keys.clone(),
                 expected: case.expected.clone(),
                 actual,
-                tag:      case.tag.clone(),
+                tag: case.tag.clone(),
                 class,
             });
         }
@@ -287,13 +286,23 @@ fn run_isolation(method: &str, config: PipelineConfig) {
 
     // Print per-tag match rates.
     println!("\n[compose_isolation] {method} results:");
-    let tag_order = ["VietnameseValid", "FlexibleTyping", "UndoToggle", "EnglishWord"];
+    let tag_order = [
+        "VietnameseValid",
+        "FlexibleTyping",
+        "UndoToggle",
+        "EnglishWord",
+    ];
     for tag in tag_order {
         if let Some(s) = stats_by_tag.get(tag) {
             println!(
                 "  {tag}: {}/{} matched ({:.1}%) | eng-val-first={} bug-fixed={} REGRESSION={}",
-                s.matched, s.total,
-                if s.total > 0 { 100.0 * s.matched as f64 / s.total as f64 } else { 100.0 },
+                s.matched,
+                s.total,
+                if s.total > 0 {
+                    100.0 * s.matched as f64 / s.total as f64
+                } else {
+                    100.0
+                },
                 s.english_validation_first,
                 s.current_bug_fixed,
                 s.regressions,
@@ -304,14 +313,21 @@ fn run_isolation(method: &str, config: PipelineConfig) {
     write_report(method, &divergences);
 
     // Collect regression details for the assertion message.
-    let regression_details: Vec<String> = divergences.iter()
+    let regression_details: Vec<String> = divergences
+        .iter()
         .filter(|r| matches!(r.class, DivClass::Regression))
         .take(20)
-        .map(|r| format!("  keys={} expected='{}' got='{}' [{}]", r.keys, r.expected, r.actual, r.tag))
+        .map(|r| {
+            format!(
+                "  keys={} expected='{}' got='{}' [{}]",
+                r.keys, r.expected, r.actual, r.tag
+            )
+        })
         .collect();
 
     assert_eq!(
-        regression_count, 0,
+        regression_count,
+        0,
         "\n{method} compose isolation: {regression_count} unresolved REGRESSION(s):\n{}",
         regression_details.join("\n")
     );

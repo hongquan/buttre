@@ -22,9 +22,9 @@ language = "vietnamese"
 [rules]
 tone_position = "modern"
 "#;
-    
+
     // Test with old way converted to new way
-    let config = Config::from_str(toml).unwrap();
+    let config = Config::from_toml_str(toml).unwrap();
     let pipeline_config = config.to_pipeline_config();
     let keyboard = Keyboard::new(pipeline_config);
     assert!(keyboard.is_ok());
@@ -33,11 +33,11 @@ tone_position = "modern"
 #[test]
 fn test_thuowr_via_keyboard() {
     let mut keyboard = KeyboardBuilder::telex().unwrap();
-    
+
     for ch in "thuowr".chars() {
         keyboard.process(ch).unwrap();
     }
-    
+
     assert_eq!(keyboard.buffer(), "thuở", "thuowr should produce thuở");
 }
 
@@ -56,13 +56,20 @@ fn test_backspace_deletes_grapheme_keeps_tone() {
     assert_eq!(kb.buffer(), "việt");
 
     match kb.backspace().unwrap() {
-        Action::Replace { backspace_count, text } => {
+        Action::Replace {
+            backspace_count,
+            text,
+        } => {
             assert_eq!(backspace_count, 1, "exactly one displayed char deleted");
             assert_eq!(text, "");
         }
         other => panic!("expected Replace{{1,\"\"}}, got {other:?}"),
     }
-    assert_eq!(kb.buffer(), "việ", "tone preserved; only final consonant removed");
+    assert_eq!(
+        kb.buffer(),
+        "việ",
+        "tone preserved; only final consonant removed"
+    );
 
     // Composition stays alive: a tone key now re-tones the edited word.
     kb.process('s').unwrap();
@@ -79,9 +86,21 @@ fn test_backspace_no_desync_then_fresh_word() {
     assert_eq!(kb.buffer(), "ngày");
     // Each backspace deletes exactly one displayed grapheme — no over-deletion
     // reaching into a previous word.
-    assert!(matches!(kb.backspace().unwrap(), Action::Replace { backspace_count: 1, .. }));
+    assert!(matches!(
+        kb.backspace().unwrap(),
+        Action::Replace {
+            backspace_count: 1,
+            ..
+        }
+    ));
     assert_eq!(kb.buffer(), "ngà");
-    assert!(matches!(kb.backspace().unwrap(), Action::Replace { backspace_count: 1, .. }));
+    assert!(matches!(
+        kb.backspace().unwrap(),
+        Action::Replace {
+            backspace_count: 1,
+            ..
+        }
+    ));
     assert_eq!(kb.buffer(), "ng");
 }
 
@@ -101,7 +120,11 @@ fn test_multiword_retone_previous_word() {
     assert_eq!(kb.buffer(), "ban");
     // The previous word is still composable: apply a tone to it.
     kb.process('f').unwrap();
-    assert_eq!(kb.buffer(), "bàn", "must re-tone the previous word after backspace");
+    assert_eq!(
+        kb.buffer(),
+        "bàn",
+        "must re-tone the previous word after backspace"
+    );
 }
 
 #[test]
@@ -195,42 +218,66 @@ fn type_str(kb: &mut Keyboard, s: &str) {
 fn boundary_repair_vni_nhat6_space_restores_literal() {
     let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
     type_str(&mut kb, "nhat6 ");
-    assert_eq!(kb.buffer(), "nhat6 ", "shape-only inferred mark must repair to literal raw at the boundary");
+    assert_eq!(
+        kb.buffer(),
+        "nhat6 ",
+        "shape-only inferred mark must repair to literal raw at the boundary"
+    );
 }
 
 #[test]
 fn boundary_repair_vni_nhat61_space_untouched_exact_attested() {
     let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
     type_str(&mut kb, "nhat61 ");
-    assert_eq!(kb.buffer(), "nhất ", "exact-attested word must be untouched");
+    assert_eq!(
+        kb.buffer(),
+        "nhất ",
+        "exact-attested word must be untouched"
+    );
 }
 
 #[test]
 fn boundary_repair_telex_vietej_space_untouched_exact_path() {
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     type_str(&mut kb, "vietej ");
-    assert_eq!(kb.buffer(), "việt ", "Telex's exact-attestation path is already correct");
+    assert_eq!(
+        kb.buffer(),
+        "việt ",
+        "Telex's exact-attestation path is already correct"
+    );
 }
 
 #[test]
 fn boundary_repair_data_space_no_double_repair() {
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     type_str(&mut kb, "data ");
-    assert_eq!(kb.buffer(), "data ", "already-literal word must not be touched again");
+    assert_eq!(
+        kb.buffer(),
+        "data ",
+        "already-literal word must not be touched again"
+    );
 }
 
 #[test]
 fn boundary_repair_reset_space_accepted_collision_untouched() {
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     type_str(&mut kb, "reset ");
-    assert_eq!(kb.buffer(), "rết ", "exact-attested collision must not be repaired");
+    assert_eq!(
+        kb.buffer(),
+        "rết ",
+        "exact-attested collision must not be repaired"
+    );
 }
 
 #[test]
 fn boundary_repair_adjacent_vieet_space_never_repaired() {
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     type_str(&mut kb, "vieet ");
-    assert_eq!(kb.buffer(), "viêt ", "direct/adjacent typing carries no inferred mark, never repaired");
+    assert_eq!(
+        kb.buffer(),
+        "viêt ",
+        "direct/adjacent typing carries no inferred mark, never repaired"
+    );
 }
 
 #[test]
@@ -240,7 +287,11 @@ fn boundary_repair_case_masked_diff_vieejt_space() {
     // also serves as a case-preservation regression guard for the no-op path.
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     type_str(&mut kb, "Vieejt ");
-    assert_eq!(kb.buffer(), "Việt ", "case must survive the boundary-repair probe");
+    assert_eq!(
+        kb.buffer(),
+        "Việt ",
+        "case must survive the boundary-repair probe"
+    );
 }
 
 #[test]
@@ -252,7 +303,11 @@ fn boundary_repair_disabled_flag_keeps_old_behavior() {
         .build()
         .expect("vni keyboard with boundary_repair disabled");
     type_str(&mut kb, "nhat6 ");
-    assert_eq!(kb.buffer(), "nhât ", "boundary_repair=false must reproduce the old shape-attested-only behavior exactly");
+    assert_eq!(
+        kb.buffer(),
+        "nhât ",
+        "boundary_repair=false must reproduce the old shape-attested-only behavior exactly"
+    );
 }
 
 #[test]
@@ -263,7 +318,11 @@ fn boundary_repair_multiword_reopens_on_backspace_over_separator() {
     // window recompute simply sees `closed = false` for it again).
     let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
     type_str(&mut kb, "nhat6 xin");
-    assert_eq!(kb.buffer(), "nhat6 xin", "word closed by the separator is repaired while composing the rest");
+    assert_eq!(
+        kb.buffer(),
+        "nhat6 xin",
+        "word closed by the separator is repaired while composing the rest"
+    );
 
     // Backspace "xin" away, then backspace over the separator itself.
     kb.backspace().unwrap(); // "nhat6 xi"
@@ -271,7 +330,11 @@ fn boundary_repair_multiword_reopens_on_backspace_over_separator() {
     kb.backspace().unwrap(); // "nhat6 "
     assert_eq!(kb.buffer(), "nhat6 ");
     kb.backspace().unwrap(); // removes the separator — word re-opens
-    assert_eq!(kb.buffer(), "nhât", "re-opened word must show the live per-keystroke (open) projection again");
+    assert_eq!(
+        kb.buffer(),
+        "nhât",
+        "re-opened word must show the live per-keystroke (open) projection again"
+    );
 }
 
 #[test]
@@ -284,7 +347,11 @@ fn boundary_repair_noop_after_p2_unlatch_single_word() {
     type_str(&mut kb, "vietj");
     // Still mid-word: "vietj" alone has not unlatched yet.
     type_str(&mut kb, "e ");
-    assert_eq!(kb.buffer(), "việt ", "P2 un-latch result must survive the boundary-repair probe untouched");
+    assert_eq!(
+        kb.buffer(),
+        "việt ",
+        "P2 un-latch result must survive the boundary-repair probe untouched"
+    );
 }
 
 // ── Phase 4: bidirectional word toggle + raw-space backspace ────────────────
@@ -296,15 +363,31 @@ fn toggle_last_word_is_bidirectional_and_repeatable() {
     // hotkey again → `rết`.
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     type_str(&mut kb, "reset");
-    assert_eq!(kb.buffer(), "rết", "reset composes to the attested collision rết");
+    assert_eq!(
+        kb.buffer(),
+        "rết",
+        "reset composes to the attested collision rết"
+    );
 
-    let action = kb.toggle_last_word().expect("toggle must act on the open trailing word");
+    let action = kb
+        .toggle_last_word()
+        .expect("toggle must act on the open trailing word");
     assert!(matches!(action, buttre_core::Action::Replace { .. }));
-    assert_eq!(kb.buffer(), "reset", "first toggle renders literal(raw), case-preserved");
+    assert_eq!(
+        kb.buffer(),
+        "reset",
+        "first toggle renders literal(raw), case-preserved"
+    );
 
-    let action = kb.toggle_last_word().expect("second toggle must still find the same word");
+    let action = kb
+        .toggle_last_word()
+        .expect("second toggle must still find the same word");
     assert!(matches!(action, buttre_core::Action::Replace { .. }));
-    assert_eq!(kb.buffer(), "rết", "second toggle flips back to compose(raw) — bidirectional, not one-shot");
+    assert_eq!(
+        kb.buffer(),
+        "rết",
+        "second toggle flips back to compose(raw) — bidirectional, not one-shot"
+    );
 
     // A third toggle proves it's genuinely repeatable, not just a 2-state latch.
     kb.toggle_last_word().expect("third toggle must still act");
@@ -338,21 +421,42 @@ fn toggle_word_survives_scroll_out_into_committed_prefix() {
     // its toggled form; the map shifts (re-anchors) rather than losing state.
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     type_str(&mut kb, "xin reset");
-    assert_eq!(kb.buffer(), "xin rết", "pre-toggle: reset composes normally");
+    assert_eq!(
+        kb.buffer(),
+        "xin rết",
+        "pre-toggle: reset composes normally"
+    );
 
-    kb.toggle_last_word().expect("toggle acts on the open trailing word ('reset')");
-    assert_eq!(kb.buffer(), "xin reset", "toggled word renders as raw literal");
+    kb.toggle_last_word()
+        .expect("toggle acts on the open trailing word ('reset')");
+    assert_eq!(
+        kb.buffer(),
+        "xin reset",
+        "toggled word renders as raw literal"
+    );
 
     // Push enough further words that "xin" scrolls into the frozen prefix
     // while "reset" (toggled) is still live in the window — index shift.
     type_str(&mut kb, " kim nam");
-    assert!(kb.buffer().contains("reset"), "toggle must survive the first scroll, re-anchored not lost");
-    assert!(!kb.buffer().contains("rết"), "must not have silently reverted to compose after the shift");
+    assert!(
+        kb.buffer().contains("reset"),
+        "toggle must survive the first scroll, re-anchored not lost"
+    );
+    assert!(
+        !kb.buffer().contains("rết"),
+        "must not have silently reverted to compose after the shift"
+    );
 
     // Push further still so "reset" itself scrolls into `committed`.
     type_str(&mut kb, " lan van");
-    assert!(kb.buffer().contains("reset"), "toggled word must be committed in its toggled (literal) form");
-    assert!(!kb.buffer().contains("rết"), "scrolled-out toggled word must not silently revert to composed form");
+    assert!(
+        kb.buffer().contains("reset"),
+        "toggled word must be committed in its toggled (literal) form"
+    );
+    assert!(
+        !kb.buffer().contains("rết"),
+        "scrolled-out toggled word must not silently revert to composed form"
+    );
 }
 
 #[test]
@@ -380,7 +484,11 @@ fn raw_backspace_pops_last_keystroke_not_last_grapheme() {
     kb.set_backspace_mode(BackspaceMode::Raw);
     type_str(&mut kb, "vietj");
     kb.backspace().expect("raw backspace must not error");
-    assert_eq!(kb.buffer(), "viet", "raw mode pops the last KEYSTROKE ('j'), not a display grapheme");
+    assert_eq!(
+        kb.buffer(),
+        "viet",
+        "raw mode pops the last KEYSTROKE ('j'), not a display grapheme"
+    );
 }
 
 #[test]
@@ -394,8 +502,14 @@ fn grapheme_backspace_mode_is_default_and_byte_identical_to_pre_phase() {
     type_str(&mut kb, "vieetj");
     assert_eq!(kb.buffer(), "việt");
     match kb.backspace().unwrap() {
-        buttre_core::Action::Replace { backspace_count, text } => {
-            assert_eq!(backspace_count, 1, "default mode deletes exactly one displayed grapheme");
+        buttre_core::Action::Replace {
+            backspace_count,
+            text,
+        } => {
+            assert_eq!(
+                backspace_count, 1,
+                "default mode deletes exactly one displayed grapheme"
+            );
             assert_eq!(text, "");
         }
         other => panic!("expected Replace{{1,\"\"}}, got {other:?}"),
@@ -417,7 +531,11 @@ fn raw_backspace_precisely_prunes_only_the_popped_boundary() {
     type_str(&mut kb, " h");
     assert_eq!(kb.buffer(), "reset h");
     kb.backspace().expect("raw backspace must not error"); // pops 'h'
-    assert_eq!(kb.buffer(), "reset ", "word 1's toggle survives a raw-mode edit entirely inside word 2");
+    assert_eq!(
+        kb.buffer(),
+        "reset ",
+        "word 1's toggle survives a raw-mode edit entirely inside word 2"
+    );
 }
 
 #[test]
@@ -435,7 +553,11 @@ fn toggle_map_conservatively_cleared_by_any_backspace_even_in_a_different_word()
     assert_eq!(kb.buffer(), "reset");
 
     type_str(&mut kb, " hai");
-    assert_eq!(kb.buffer(), "reset hai", "toggle survives pure-append typing of a new word");
+    assert_eq!(
+        kb.buffer(),
+        "reset hai",
+        "toggle survives pure-append typing of a new word"
+    );
 
     kb.backspace().expect("backspace must not error"); // edits word 2 only ("hai" -> "ha")
     assert_eq!(
@@ -580,7 +702,11 @@ fn undo_shaped_commit_records_literal_pref_recalled_by_new_keyboard_sharing_the_
 
     type_str(&mut kb, "ress b c d"); // forces "ress" through a real commit
     assert_eq!(
-        store.lock().unwrap().prefs_snapshot_for_method("telex").get("ress"),
+        store
+            .lock()
+            .unwrap()
+            .prefs_snapshot_for_method("telex")
+            .get("ress"),
         Some(&Pref::Literal),
         "an undo-shaped word-commit must record a literal preference for its exact raw"
     );
@@ -605,12 +731,21 @@ fn toggle_commit_records_pref_recalled_by_new_keyboard_sharing_the_store() {
     kb.set_learning(store.clone(), tx.clone());
 
     type_str(&mut kb, "reset");
-    kb.toggle_last_word().expect("toggle must act on the open trailing word");
-    assert_eq!(kb.buffer(), "reset", "toggle renders literal(raw), case-preserved, and freezes the word");
+    kb.toggle_last_word()
+        .expect("toggle must act on the open trailing word");
+    assert_eq!(
+        kb.buffer(),
+        "reset",
+        "toggle renders literal(raw), case-preserved, and freezes the word"
+    );
 
     type_str(&mut kb, " b c d"); // forces the toggled, frozen word through a real commit
     assert_eq!(
-        store.lock().unwrap().prefs_snapshot_for_method("telex").get("reset"),
+        store
+            .lock()
+            .unwrap()
+            .prefs_snapshot_for_method("telex")
+            .get("reset"),
         Some(&Pref::Literal),
         "a toggle-to-literal must record a literal preference once the word commits"
     );
@@ -618,7 +753,11 @@ fn toggle_commit_records_pref_recalled_by_new_keyboard_sharing_the_store() {
     let mut kb2 = KeyboardBuilder::telex().expect("telex keyboard");
     kb2.set_learning(store, tx);
     type_str(&mut kb2, "reset");
-    assert_eq!(kb2.buffer(), "reset", "toggled preference recalled by a fresh Keyboard sharing the store");
+    assert_eq!(
+        kb2.buffer(),
+        "reset",
+        "toggled preference recalled by a fresh Keyboard sharing the store"
+    );
 }
 
 #[test]
@@ -631,12 +770,17 @@ fn toggle_against_a_stored_pref_overwrites_it_self_correction() {
 
     type_str(&mut kb, "reset");
     kb.toggle_last_word().expect("first toggle: literal"); // reset
-    kb.toggle_last_word().expect("second toggle: back to composed"); // rết
+    kb.toggle_last_word()
+        .expect("second toggle: back to composed"); // rết
     assert_eq!(kb.buffer(), "rết");
 
     type_str(&mut kb, " b c d"); // commit the word in its FINAL (composed) toggle state
     assert_eq!(
-        store.lock().unwrap().prefs_snapshot_for_method("telex").get("reset"),
+        store
+            .lock()
+            .unwrap()
+            .prefs_snapshot_for_method("telex")
+            .get("reset"),
         Some(&Pref::Composed),
         "acting against the (never yet persisted) literal direction must record the LATEST choice"
     );
@@ -661,14 +805,21 @@ fn toggle_to_composed_overrides_an_already_active_literal_pref() {
     // Seed an ACTIVE literal pref for "reset" (5 chars, Telex 's' tone trigger →
     // passes the min-specificity floor), then wire it to a FRESH kb.
     assert!(
-        store.lock().unwrap().record_pref("telex", "reset", PreferKind::Literal, true),
+        store
+            .lock()
+            .unwrap()
+            .record_pref("telex", "reset", PreferKind::Literal, true),
         "seed pref must pass the min-specificity floor (len>=4 + trigger key)"
     );
     let mut kb = KeyboardBuilder::telex().expect("telex keyboard");
     kb.set_learning(store.clone(), tx);
 
     type_str(&mut kb, "reset");
-    assert_eq!(kb.buffer(), "reset", "the active Pref::Literal renders literal");
+    assert_eq!(
+        kb.buffer(),
+        "reset",
+        "the active Pref::Literal renders literal"
+    );
 
     kb.toggle_last_word().expect("first toggle acts"); // no entry -> literal (no visible change)
     assert_eq!(kb.buffer(), "reset", "first toggle: still literal");
@@ -692,16 +843,28 @@ fn collection_fires_once_at_commit_not_per_keystroke() {
     // Mid-word: composing the undo shape "ress" as the OPEN trailing word —
     // not yet committed, so the store must stay untouched.
     type_str(&mut kb, "res");
-    assert!(store.lock().unwrap().prefs_snapshot_for_method("telex").is_empty());
+    assert!(store
+        .lock()
+        .unwrap()
+        .prefs_snapshot_for_method("telex")
+        .is_empty());
     kb.process('s').expect("process must not error"); // completes "ress", still open
     assert!(
-        store.lock().unwrap().prefs_snapshot_for_method("telex").is_empty(),
+        store
+            .lock()
+            .unwrap()
+            .prefs_snapshot_for_method("telex")
+            .is_empty(),
         "still the open trailing word — no commit yet, no collection"
     );
 
     type_str(&mut kb, " b c d"); // force the word boundary
     assert!(
-        store.lock().unwrap().prefs_snapshot_for_method("telex").contains_key("ress"),
+        store
+            .lock()
+            .unwrap()
+            .prefs_snapshot_for_method("telex")
+            .contains_key("ress"),
         "collection fires exactly once the word crosses the boundary"
     );
 }
@@ -749,11 +912,16 @@ fn toggle_literal_survives_separator_commit_untouched_by_boundary_repair() {
     type_str(&mut kb, "reset");
     assert_eq!(kb.buffer(), "rết", "pre-toggle: reset composes normally");
 
-    kb.toggle_last_word().expect("toggle must act on the open trailing word");
+    kb.toggle_last_word()
+        .expect("toggle must act on the open trailing word");
     assert_eq!(kb.buffer(), "reset", "toggle renders literal(raw)");
 
     type_str(&mut kb, " "); // separator: would normally close+consider-repairing the word
-    assert_eq!(kb.buffer(), "reset ", "toggled literal must survive the boundary commit untouched by repair");
+    assert_eq!(
+        kb.buffer(),
+        "reset ",
+        "toggled literal must survive the boundary commit untouched by repair"
+    );
 }
 
 #[test]
@@ -772,10 +940,17 @@ fn learning_pref_composed_overrides_boundary_repair_shape_only_demote() {
     // the pref is consulted by `compose_closed`/`boundary_repair` too, not
     // just the open per-keystroke path.
     let (store, tx) = fresh_learning();
-    store.lock().unwrap().record_pref("vni", "nhat6", PreferKind::Composed, true);
+    store
+        .lock()
+        .unwrap()
+        .record_pref("vni", "nhat6", PreferKind::Composed, true);
     let mut kb = KeyboardBuilder::vni().expect("vni keyboard");
     kb.set_learning(store, tx);
 
     type_str(&mut kb, "nhat6 ");
-    assert_eq!(kb.buffer(), "nhât ", "a stored Composed pref must survive boundary repair's closed-gate demote");
+    assert_eq!(
+        kb.buffer(),
+        "nhât ",
+        "a stored Composed pref must survive boundary repair's closed-gate demote"
+    );
 }

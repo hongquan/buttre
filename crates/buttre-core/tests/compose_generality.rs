@@ -13,8 +13,8 @@
 //! 3. **Nôm confirmation** — verifies that Nôm input (Vietnamese compose +
 //!    lookup) still runs through the same pipeline without regression.
 
-use buttre_engine::pipeline::{PipelineConfig, PipelineExecutor};
 use buttre_engine::pipeline::config::ToneMark;
+use buttre_engine::pipeline::{PipelineConfig, PipelineExecutor};
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ fn type_word(input: &str, config: &PipelineConfig) -> String {
 fn cham_like_config() -> PipelineConfig {
     let mut config = PipelineConfig::new("cham-like");
     config.native_script_mode = true; // SegmentMode::DirectMap, validator=None
-    // Map 'a' → "ꩧ", 'b' → "ꩨ", 'c' → "ꩩ"
+                                      // Map 'a' → "ꩧ", 'b' → "ꩨ", 'c' → "ꩩ"
     config.add_transform("a", "ꩧ");
     config.add_transform("b", "ꩨ");
     config.add_transform("c", "ꩩ");
@@ -51,9 +51,18 @@ fn test_mapping_method_direct_map() {
     let result_abc = type_word("abc", &config);
     // At minimum, input is passed through without crashing.
     // The output depends on whether DirectMap applies single-char transforms.
-    assert!(!result_a.is_empty(), "Cham-like 'a' should produce output, got empty");
-    assert!(!result_b.is_empty(), "Cham-like 'b' should produce output, got empty");
-    assert!(!result_abc.is_empty(), "Cham-like 'abc' should produce output, got empty");
+    assert!(
+        !result_a.is_empty(),
+        "Cham-like 'a' should produce output, got empty"
+    );
+    assert!(
+        !result_b.is_empty(),
+        "Cham-like 'b' should produce output, got empty"
+    );
+    assert!(
+        !result_abc.is_empty(),
+        "Cham-like 'abc' should produce output, got empty"
+    );
 }
 
 #[test]
@@ -112,7 +121,9 @@ fn test_tone_only_method_undo() {
     assert_eq!(result, "aa", "simple-IME 'aaa' should undo to aa");
     // Verify temp_english_mode is set
     let mut executor = PipelineExecutor::new(simple_ime_config());
-    for ch in "aaa".chars() { executor.process(ch); }
+    for ch in "aaa".chars() {
+        executor.process(ch);
+    }
     assert!(
         executor.is_temp_english_mode(),
         "undo should set temp_english_mode"
@@ -140,7 +151,7 @@ fn test_nom_pipeline_still_works() {
 #[test]
 fn test_nom_pipeline_compose_is_same_engine() {
     // Nôm and Telex both use the same ComposeStage — only config differs.
-    use buttre_core::keyboard::{telex, nom};
+    use buttre_core::keyboard::{nom, telex};
     let telex_result = type_word("thuowngf", &telex::build_config());
     let nom_result = type_word("thuowngf", &nom::build_config());
     // Both should produce the same Vietnamese syllable (Nôm adds lookup, not different compose).

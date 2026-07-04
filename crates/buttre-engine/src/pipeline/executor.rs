@@ -18,13 +18,13 @@
 
 use std::sync::{Arc, RwLock};
 
-use crate::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig};
-use crate::pipeline::stages::*;
-use crate::pipeline::stages::compose_stage::apply_case_mask;
-use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
 use crate::compose::{compose_closed, ComposeOpts, LearningSnapshot, Validator};
+use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
+use crate::pipeline::stages::compose_stage::apply_case_mask;
+use crate::pipeline::stages::*;
+use crate::pipeline::{PipelineConfig, PipelineStage, StageResult, TypingContext};
 use crate::types::Action;
-use tracing::{instrument, debug, trace, warn};
+use tracing::{debug, instrument, trace, warn};
 
 /// Pipeline Executor
 ///
@@ -201,8 +201,10 @@ impl PipelineExecutor {
             .compose_live_opts
             .as_ref()
             .and_then(|h| h.write().ok().and_then(|mut g| g.raw_prefs.take()));
-        let saved_boundary_prefs =
-            self.boundary_repair_opts.as_mut().and_then(|o| o.raw_prefs.take());
+        let saved_boundary_prefs = self
+            .boundary_repair_opts
+            .as_mut()
+            .and_then(|o| o.raw_prefs.take());
 
         self.reset();
         for &c in word {
@@ -296,7 +298,10 @@ impl PipelineExecutor {
             match result {
                 StageResult::Continue => {}
                 StageResult::PassThrough => {
-                    debug!("Stage '{}' returned PassThrough — confirming and resetting", stage.name());
+                    debug!(
+                        "Stage '{}' returned PassThrough — confirming and resetting",
+                        stage.name()
+                    );
 
                     let mut actions = Vec::new();
 

@@ -1,5 +1,5 @@
 //! buttre Hotkey Module
-//! 
+//!
 //! Provides global hotkey management for buttre using the global-hotkey crate.
 
 mod error;

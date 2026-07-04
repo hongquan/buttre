@@ -17,21 +17,27 @@ fn test_ddaaad_sequence() {
     // Build up step by step so we can verify intermediate states.
     executor.process('d');
     executor.process('d');
-    assert_eq!(executor.context().syllable_buffer, "đ",
-               "dd → đ");
+    assert_eq!(executor.context().syllable_buffer, "đ", "dd → đ");
 
     executor.process('a');
     executor.process('a');
-    assert_eq!(executor.context().syllable_buffer, "đâ",
-               "ddaa → đâ");
+    assert_eq!(executor.context().syllable_buffer, "đâ", "ddaa → đâ");
 
     executor.process('a');
-    assert_eq!(executor.context().syllable_buffer, "đaa",
-               "ddaaa → đaa: undo of â reverts to aa; đ (from dd) is preserved");
-    assert!(executor.context().temp_english_mode,
-            "temp_english_mode must be set after transform undo");
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "đaa",
+        "ddaaa → đaa: undo of â reverts to aa; đ (from dd) is preserved"
+    );
+    assert!(
+        executor.context().temp_english_mode,
+        "temp_english_mode must be set after transform undo"
+    );
 
     executor.process('d');
-    assert_eq!(executor.context().syllable_buffer, "đaad",
-               "ddaaad → đaad: d is literal in temp_english_mode");
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "đaad",
+        "ddaaad → đaad: d is literal in temp_english_mode"
+    );
 }

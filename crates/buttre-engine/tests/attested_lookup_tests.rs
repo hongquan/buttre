@@ -27,8 +27,14 @@ fn shape_attested_ignores_tone() {
     // "nhât" itself carries no tone, but "nhất" (nh + â + t + sắc) is
     // attested — the shape (onset nh, nucleus â, coda t) must match under
     // ANY tone.
-    assert!(is_shape_attested("nhât"), "nhât shape should be attested via nhất");
-    assert!(is_shape_attested("nhất"), "nhất itself must also match its own shape");
+    assert!(
+        is_shape_attested("nhât"),
+        "nhât shape should be attested via nhất"
+    );
+    assert!(
+        is_shape_attested("nhất"),
+        "nhất itself must also match its own shape"
+    );
 }
 
 #[test]
@@ -51,10 +57,17 @@ fn attested_handles_nfd_and_uppercase() {
 
     let nfc = "việt";
     let nfd: String = nfc.nfd().collect();
-    assert_ne!(nfc.as_bytes(), nfd.as_bytes(), "test fixture must actually be NFD-decomposed");
+    assert_ne!(
+        nfc.as_bytes(),
+        nfd.as_bytes(),
+        "test fixture must actually be NFD-decomposed"
+    );
 
     assert!(is_attested(nfc));
-    assert!(is_attested(&nfd), "NFD input must decompose the same as NFC");
+    assert!(
+        is_attested(&nfd),
+        "NFD input must decompose the same as NFC"
+    );
     assert!(is_attested("VIỆT"), "uppercase input must be handled");
     assert!(is_attested("Việt"), "title-case input must be handled");
 }
@@ -82,7 +95,10 @@ fn attested_true_for_reembedded_k_coda_place_names() {
     // header) is resolved — these 9 dict entries now decompose and are
     // embedded in the bitset, same as any other attested syllable.
     for w in ["đắk", "đăk", "lắk", "lăk", "măk", "ắk", "ăk", "búk", "úk"] {
-        assert!(is_attested(w), "{w} should now be attested (P6 coda-k re-embed)");
+        assert!(
+            is_attested(w),
+            "{w} should now be attested (P6 coda-k re-embed)"
+        );
     }
 }
 
@@ -93,7 +109,10 @@ fn attested_false_for_unattested_k_coda_shapes() {
     // check; a blanket "k" coda allowance would wrongly relax this.
     for w in ["đik", "đok", "đek"] {
         assert!(!is_attested(w), "{w} should NOT be attested");
-        assert!(!is_shape_attested(w), "{w} should NOT be shape-attested either");
+        assert!(
+            !is_shape_attested(w),
+            "{w} should NOT be shape-attested either"
+        );
     }
 }
 
@@ -102,7 +121,11 @@ fn attested_false_for_unattested_k_coda_shapes() {
 #[test]
 fn overlay_none_is_byte_identical_to_is_attested() {
     for w in ["việt", "dât", "mêm", "fâllb", ""] {
-        assert_eq!(is_attested_overlay(w, None), is_attested(w), "{w}: None overlay must match is_attested exactly");
+        assert_eq!(
+            is_attested_overlay(w, None),
+            is_attested(w),
+            "{w}: None overlay must match is_attested exactly"
+        );
     }
 }
 
@@ -110,7 +133,11 @@ fn overlay_none_is_byte_identical_to_is_attested() {
 fn overlay_empty_set_is_byte_identical_to_is_attested() {
     let empty = HashSet::new();
     for w in ["việt", "dât", "mêm", "fâllb"] {
-        assert_eq!(is_attested_overlay(w, Some(&empty)), is_attested(w), "{w}: an empty overlay must match is_attested exactly");
+        assert_eq!(
+            is_attested_overlay(w, Some(&empty)),
+            is_attested(w),
+            "{w}: an empty overlay must match is_attested exactly"
+        );
     }
 }
 
@@ -126,8 +153,14 @@ fn overlay_rescues_an_unattested_but_decomposable_syllable() {
     let mut overlay = HashSet::new();
     overlay.insert(bit_index(o, n, c, t) as u32);
 
-    assert!(is_attested_overlay("dât", Some(&overlay)), "overlay bit must rescue an unattested-but-learned syllable");
-    assert!(!is_attested("dât"), "the static table itself must be unaffected by the overlay");
+    assert!(
+        is_attested_overlay("dât", Some(&overlay)),
+        "overlay bit must rescue an unattested-but-learned syllable"
+    );
+    assert!(
+        !is_attested("dât"),
+        "the static table itself must be unaffected by the overlay"
+    );
 }
 
 #[test]
@@ -139,7 +172,10 @@ fn overlay_does_not_rescue_an_unrelated_syllable() {
     overlay.insert(bit_index(o, n, c, t) as u32);
 
     assert!(!is_attested("mêm"));
-    assert!(!is_attested_overlay("mêm", Some(&overlay)), "an unrelated overlay bit must not rescue a different syllable");
+    assert!(
+        !is_attested_overlay("mêm", Some(&overlay)),
+        "an unrelated overlay bit must not rescue a different syllable"
+    );
 }
 
 #[test]

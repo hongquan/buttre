@@ -18,8 +18,8 @@
 //! 3. **Apply Marks**: Apply marks to appropriate vowels in cluster
 //! 4. **Validate**: Check if result is valid Vietnamese
 
-use crate::vowel::{find_vowel_clusters, VowelCluster, normalize_vowel};
 use crate::pipeline::config::ToneConfig;
+use crate::vowel::{find_vowel_clusters, normalize_vowel, VowelCluster};
 
 /// Mark Operation
 ///
@@ -28,7 +28,7 @@ use crate::pipeline::config::ToneConfig;
 pub enum MarkOp {
     /// Transform mark (Telex: w, VNI: 6, 7, 8)
     Transform(char),
-    
+
     /// Tone mark (Telex: s, f, r, x, j, VNI: 1-5)
     Tone(char),
 }
@@ -54,7 +54,7 @@ pub enum MarkOp {
 ///
 /// ```rust,ignore
 /// // Telex
-/// extract_base_and_marks("truongwf", false) 
+/// extract_base_and_marks("truongwf", false)
 ///   → ("truong", [Transform('w'), Tone('f')])
 ///
 /// // VNI
@@ -64,7 +64,7 @@ pub enum MarkOp {
 pub fn extract_base_and_marks(input: &str, is_vni: bool) -> (String, Vec<MarkOp>) {
     let mut base = String::new();
     let mut marks = Vec::new();
-    
+
     for ch in input.chars() {
         if is_mark_key(ch, is_vni) {
             // This is a mark - determine type
@@ -79,7 +79,7 @@ pub fn extract_base_and_marks(input: &str, is_vni: bool) -> (String, Vec<MarkOp>
             base.push(ch);
         }
     }
-    
+
     (base, marks)
 }
 
@@ -87,10 +87,13 @@ pub fn extract_base_and_marks(input: &str, is_vni: bool) -> (String, Vec<MarkOp>
 pub fn is_mark_key(ch: char, is_vni: bool) -> bool {
     if is_vni {
         // VNI: Numbers 0-9 are marks
-        matches!(ch, '0'..='9')
+        ch.is_ascii_digit()
     } else {
         // Telex: w, s, f, r, x, j, z are marks
-        matches!(ch, 'w' | 'W' | 's' | 'S' | 'f' | 'F' | 'r' | 'R' | 'x' | 'X' | 'j' | 'J' | 'z' | 'Z')
+        matches!(
+            ch,
+            'w' | 'W' | 's' | 'S' | 'f' | 'F' | 'r' | 'R' | 'x' | 'X' | 'j' | 'J' | 'z' | 'Z'
+        )
     }
 }
 
@@ -128,8 +131,8 @@ pub fn is_transform_mark(ch: char, is_vni: bool) -> bool {
 /// ## Example
 ///
 /// ```rust,ignore
-/// apply_marks_permutation("truong", 
-///                        [Transform('w'), Tone('f')], 
+/// apply_marks_permutation("truong",
+///                        [Transform('w'), Tone('f')],
 ///                        &config)
 ///   → Some("trường")
 /// ```
@@ -143,13 +146,13 @@ pub fn apply_marks_permutation(
     if clusters.is_empty() {
         return None;
     }
-    
+
     // For now, work with the last cluster (most common case)
     let cluster = clusters.last()?;
-    
+
     // Build result by applying marks
     let mut result = base.to_string();
-    
+
     for mark in marks {
         match mark {
             MarkOp::Transform(ch) => {
@@ -162,7 +165,7 @@ pub fn apply_marks_permutation(
             }
         }
     }
-    
+
     Some(result)
 }
 
@@ -183,10 +186,10 @@ pub fn apply_transform_to_cluster(
     _config: &ToneConfig,
 ) -> Option<String> {
     let mut chars: Vec<char> = base.chars().collect();
-    
+
     // Determine which vowel in cluster to transform
     // For now, simple heuristic: transform based on vowel type
-    
+
     if mark == 'w' || mark == 'W' {
         // Telex w: Look for o → ơ, u → ư, a → ă/â, e → ê
         for i in cluster.start_pos..cluster.end_pos {
@@ -263,7 +266,7 @@ pub fn apply_transform_to_cluster(
             }
         }
     }
-    
+
     None
 }
 
@@ -277,14 +280,15 @@ pub fn apply_tone_to_cluster(
     config: &ToneConfig,
 ) -> Option<String> {
     let mut chars: Vec<char> = base.chars().collect();
-    
+
     // Find which vowel should receive the tone
     // Use vowel sequence table if available
     let tone_pos = if !config.vowel_sequences.is_empty() {
         // Look up in table
         let cluster_str: String = cluster.vowels.iter().collect();
         if let Some(seq_info) = config.vowel_sequences.find(&cluster_str) {
-            seq_info.primary_tone_position()
+            seq_info
+                .primary_tone_position()
                 .map(|pos| cluster.start_pos + pos)
         } else {
             // Fallback: first vowel
@@ -294,12 +298,12 @@ pub fn apply_tone_to_cluster(
         // No table: use first vowel
         Some(cluster.start_pos)
     }?;
-    
+
     // Apply tone to the vowel at tone_pos
     let vowel = chars[tone_pos];
     let toned_vowel = apply_tone_to_vowel(vowel, tone_key)?;
     chars[tone_pos] = toned_vowel;
-    
+
     Some(chars.iter().collect())
 }
 
@@ -321,7 +325,7 @@ pub fn apply_tone_to_cluster(
 pub fn apply_tone_to_vowel(vowel: char, tone_key: char) -> Option<char> {
     let base = normalize_vowel(vowel);
     let is_upper = vowel.is_uppercase();
-    
+
     let toned = match (base, tone_key) {
         // a family + Telex
         ('a', 's') | ('a', '1') => 'á',
@@ -329,85 +333,84 @@ pub fn apply_tone_to_vowel(vowel: char, tone_key: char) -> Option<char> {
         ('a', 'r') | ('a', '3') => 'ả',
         ('a', 'x') | ('a', '4') => 'ã',
         ('a', 'j') | ('a', '5') => 'ạ',
-        
+
         ('ă', 's') | ('ă', '1') => 'ắ',
         ('ă', 'f') | ('ă', '2') => 'ằ',
         ('ă', 'r') | ('ă', '3') => 'ẳ',
         ('ă', 'x') | ('ă', '4') => 'ẵ',
         ('ă', 'j') | ('ă', '5') => 'ặ',
-        
+
         ('â', 's') | ('â', '1') => 'ấ',
         ('â', 'f') | ('â', '2') => 'ầ',
         ('â', 'r') | ('â', '3') => 'ẩ',
         ('â', 'x') | ('â', '4') => 'ẫ',
         ('â', 'j') | ('â', '5') => 'ậ',
-        
+
         // e family
         ('e', 's') | ('e', '1') => 'é',
         ('e', 'f') | ('e', '2') => 'è',
         ('e', 'r') | ('e', '3') => 'ẻ',
         ('e', 'x') | ('e', '4') => 'ẽ',
         ('e', 'j') | ('e', '5') => 'ẹ',
-        
+
         ('ê', 's') | ('ê', '1') => 'ế',
         ('ê', 'f') | ('ê', '2') => 'ề',
         ('ê', 'r') | ('ê', '3') => 'ể',
         ('ê', 'x') | ('ê', '4') => 'ễ',
         ('ê', 'j') | ('ê', '5') => 'ệ',
-        
+
         // i
         ('i', 's') | ('i', '1') => 'í',
         ('i', 'f') | ('i', '2') => 'ì',
         ('i', 'r') | ('i', '3') => 'ỉ',
         ('i', 'x') | ('i', '4') => 'ĩ',
         ('i', 'j') | ('i', '5') => 'ị',
-        
+
         // o family
         ('o', 's') | ('o', '1') => 'ó',
         ('o', 'f') | ('o', '2') => 'ò',
         ('o', 'r') | ('o', '3') => 'ỏ',
         ('o', 'x') | ('o', '4') => 'õ',
         ('o', 'j') | ('o', '5') => 'ọ',
-        
+
         ('ô', 's') | ('ô', '1') => 'ố',
         ('ô', 'f') | ('ô', '2') => 'ồ',
         ('ô', 'r') | ('ô', '3') => 'ổ',
         ('ô', 'x') | ('ô', '4') => 'ỗ',
         ('ô', 'j') | ('ô', '5') => 'ộ',
-        
+
         ('ơ', 's') | ('ơ', '1') => 'ớ',
         ('ơ', 'f') | ('ơ', '2') => 'ờ',
         ('ơ', 'r') | ('ơ', '3') => 'ở',
         ('ơ', 'x') | ('ơ', '4') => 'ỡ',
         ('ơ', 'j') | ('ơ', '5') => 'ợ',
-        
+
         // u family
         ('u', 's') | ('u', '1') => 'ú',
         ('u', 'f') | ('u', '2') => 'ù',
         ('u', 'r') | ('u', '3') => 'ủ',
         ('u', 'x') | ('u', '4') => 'ũ',
         ('u', 'j') | ('u', '5') => 'ụ',
-        
+
         ('ư', 's') | ('ư', '1') => 'ứ',
         ('ư', 'f') | ('ư', '2') => 'ừ',
         ('ư', 'r') | ('ư', '3') => 'ử',
         ('ư', 'x') | ('ư', '4') => 'ữ',
         ('ư', 'j') | ('ư', '5') => 'ự',
-        
+
         // y
         ('y', 's') | ('y', '1') => 'ý',
         ('y', 'f') | ('y', '2') => 'ỳ',
         ('y', 'r') | ('y', '3') => 'ỷ',
         ('y', 'x') | ('y', '4') => 'ỹ',
         ('y', 'j') | ('y', '5') => 'ỵ',
-        
+
         _ => return None,
     };
-    
-    Some(if is_upper { 
-        toned.to_uppercase().next().unwrap_or(toned) 
-    } else { 
-        toned 
+
+    Some(if is_upper {
+        toned.to_uppercase().next().unwrap_or(toned)
+    } else {
+        toned
     })
 }
-

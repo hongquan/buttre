@@ -1,4 +1,4 @@
-use buttre_engine::pipeline::validation::{SyllableStructure, extract_onset, extract_coda};
+use buttre_engine::pipeline::validation::{extract_coda, extract_onset, SyllableStructure};
 
 #[test]
 fn test_parse_simple() {
@@ -96,15 +96,26 @@ fn test_is_valid_invalid_combination() {
 fn test_iep_iec_are_valid() {
     // Regression: the old table wrongly rejected "iê"+"p"/"c". These are real
     // Vietnamese words — tiếp, hiếp (iếp) and biếc, tiếc (iếc).
-    assert!(SyllableStructure::parse("tiếp").is_valid(), "tiếp must be valid");
-    assert!(SyllableStructure::parse("biếc").is_valid(), "biếc must be valid");
+    assert!(
+        SyllableStructure::parse("tiếp").is_valid(),
+        "tiếp must be valid"
+    );
+    assert!(
+        SyllableStructure::parse("biếc").is_valid(),
+        "biếc must be valid"
+    );
 }
 
 #[test]
 fn test_upgraded_combination_constraints() {
     // Valid forms across the expanded nucleus set.
-    for w in ["thuê", "yên", "yêu", "quýnh", "giếng", "boong", "xoong", "tuần", "khuê"] {
-        assert!(SyllableStructure::parse(w).is_valid(), "{w} should be valid");
+    for w in [
+        "thuê", "yên", "yêu", "quýnh", "giếng", "boong", "xoong", "tuần", "khuê",
+    ] {
+        assert!(
+            SyllableStructure::parse(w).is_valid(),
+            "{w} should be valid"
+        );
     }
     // Invalid nucleus+coda pairs that the thin table used to let through.
     for (nucleus, coda) in [("ư", "p"), ("ơ", "c"), ("oe", "m"), ("ăm", "")] {
@@ -234,7 +245,10 @@ fn test_invalid_english_words() {
 fn test_duoc_variants() {
     // được (with ươ) should be valid
     let duoc_correct = SyllableStructure::parse("được");
-    println!("được: onset='{}', nucleus='{}', coda='{}'", duoc_correct.onset, duoc_correct.nucleus, duoc_correct.coda);
+    println!(
+        "được: onset='{}', nucleus='{}', coda='{}'",
+        duoc_correct.onset, duoc_correct.nucleus, duoc_correct.coda
+    );
     assert_eq!(duoc_correct.onset, "đ");
     assert_eq!(duoc_correct.nucleus, "ươ");
     assert_eq!(duoc_correct.coda, "c");
@@ -242,11 +256,17 @@ fn test_duoc_variants() {
 
     // đuợc (with uơ) should be INVALID due to uơ+coda rule
     let duoc_incorrect = SyllableStructure::parse("đuợc");
-    println!("đuợc: onset='{}', nucleus='{}', coda='{}'", duoc_incorrect.onset, duoc_incorrect.nucleus, duoc_incorrect.coda);
+    println!(
+        "đuợc: onset='{}', nucleus='{}', coda='{}'",
+        duoc_incorrect.onset, duoc_incorrect.nucleus, duoc_incorrect.coda
+    );
     assert_eq!(duoc_incorrect.onset, "đ");
     assert_eq!(duoc_incorrect.nucleus, "uơ");
     assert_eq!(duoc_incorrect.coda, "c");
-    assert!(!duoc_incorrect.is_valid(), "đuợc should be INVALID (uơ + coda)");
+    assert!(
+        !duoc_incorrect.is_valid(),
+        "đuợc should be INVALID (uơ + coda)"
+    );
 }
 
 // ── P6: coda "k" — per-nucleus rows only (u, ă), not a blanket allowance ────
@@ -259,7 +279,10 @@ fn coda_k_valid_for_ak_and_uk_nuclei() {
     for w in ["đắk", "đăk", "lắk", "lăk", "măk", "ắk", "ăk", "búk", "úk"] {
         let s = SyllableStructure::parse(w);
         assert_eq!(s.coda, "k", "{w}: coda should extract as 'k'");
-        assert!(s.is_valid(), "{w} should be structurally valid with coda 'k'");
+        assert!(
+            s.is_valid(),
+            "{w} should be structurally valid with coda 'k'"
+        );
     }
 }
 
@@ -271,7 +294,14 @@ fn coda_k_still_invalid_for_other_nuclei() {
     // English words like "book"/"desk"-shaped input into Vietnamese).
     for w in ["đik", "đok", "đek", "đêk", "đơk"] {
         let s = SyllableStructure::parse(w);
-        assert_eq!(s.coda, "k", "{w}: 'k' still extracts as a coda structurally");
-        assert!(!s.is_valid(), "{w} must stay invalid — coda 'k' is not allowed for nucleus '{}'", s.nucleus);
+        assert_eq!(
+            s.coda, "k",
+            "{w}: 'k' still extracts as a coda structurally"
+        );
+        assert!(
+            !s.is_valid(),
+            "{w} must stay invalid — coda 'k' is not allowed for nucleus '{}'",
+            s.nucleus
+        );
     }
 }

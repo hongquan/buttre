@@ -6,11 +6,11 @@ use buttre_core::keyboard::KeyboardBuilder;
 
 fn test_telex_keyboard(input: &str) -> String {
     let mut keyboard = KeyboardBuilder::telex().expect("Failed to create telex keyboard");
-    
+
     for ch in input.chars() {
         let _ = keyboard.process(ch);
     }
-    
+
     keyboard.buffer().to_string()
 }
 
@@ -60,12 +60,15 @@ fn test_uyen_with_tone() {
 
 #[test]
 fn test_nguoif_should_be_nguoi_grave() {
-    // nguoif: ng-u-o-i-f 
+    // nguoif: ng-u-o-i-f
     // Vowels: u-o-i (3 vowels)
     // By VIETNAMESE_ACCENT.md Priority 2: With 3 vowels, tone goes on MIDDLE vowel
     // Middle vowel is 'o', so result should have tone on 'o' → 'ò'
     let result = test_telex_keyboard("nguoif");
     println!("nguoif -> '{}'", result);
     // Priority 2: 3 vowels → middle vowel gets tone → nguòi
-    assert_eq!(result, "nguòi", "Tone should be on middle vowel 'o' (Priority 2)");
+    assert_eq!(
+        result, "nguòi",
+        "Tone should be on middle vowel 'o' (Priority 2)"
+    );
 }

@@ -93,12 +93,56 @@ pub fn generate(dict_text: &str) -> Result<GenerationResult, String> {
     }
 
     Ok(GenerationResult {
-        source: render_source(&bits, popcount),
+        source: format_with_rustfmt(&render_source(&bits, popcount))?,
         popcount,
         total_lines,
         gi_family_fixed,
         skipped,
     })
+}
+
+/// Pipe `source` through `rustfmt` (stdin → stdout) so the checked-in
+/// `attested_data.rs` always matches `cargo fmt --all -- --check` — the raw
+/// packed-integer array this module hand-formats (6 hex literals per line,
+/// see `render_source`) does not match rustfmt's own array-wrapping width,
+/// and this file is too large for a per-item `#[rustfmt::skip]` to be
+/// practical. Both the generator (`examples/gen_attested_syllables.rs`) and
+/// the reproducibility test call `generate()`, so they always compare
+/// rustfmt-normalized output against rustfmt-normalized output — never
+/// raw-vs-formatted.
+fn format_with_rustfmt(source: &str) -> Result<String, String> {
+    use std::io::Write;
+    use std::process::{Command, Stdio};
+
+    let mut child = Command::new("rustfmt")
+        .args(["--emit", "stdout", "--edition", "2021"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| {
+            format!(
+                "failed to spawn rustfmt (is it installed? `rustup component add rustfmt`): {e}"
+            )
+        })?;
+
+    child
+        .stdin
+        .take()
+        .expect("piped stdin")
+        .write_all(source.as_bytes())
+        .map_err(|e| format!("failed to write to rustfmt stdin: {e}"))?;
+
+    let output = child
+        .wait_with_output()
+        .map_err(|e| format!("failed to wait for rustfmt: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "rustfmt failed on generated source: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    String::from_utf8(output.stdout).map_err(|e| format!("rustfmt produced non-UTF-8 output: {e}"))
 }
 
 /// Categorize a decompose failure using the same structural signal a human
@@ -130,11 +174,17 @@ fn render_source(bits: &[u64], popcount: usize) -> String {
     out.push_str("//! Source: `data/attested-syllables.txt`. Regenerate with:\n");
     out.push_str("//!     cargo run -p buttre-engine --example `gen_attested_syllables`\n");
     out.push_str("//!\n");
-    out.push_str("//! Bitset over (`onset_id`, `nucleus_id`, `coda_id`, `tone_id`). Dimensions and\n");
-    out.push_str("//! ids come from `pipeline::validation` (`NUM_ONSETS`/`NUM_NUCLEI`/`NUM_CODAS`/\n");
+    out.push_str(
+        "//! Bitset over (`onset_id`, `nucleus_id`, `coda_id`, `tone_id`). Dimensions and\n",
+    );
+    out.push_str(
+        "//! ids come from `pipeline::validation` (`NUM_ONSETS`/`NUM_NUCLEI`/`NUM_CODAS`/\n",
+    );
     out.push_str("//! `NUM_TONES`, `onset_id`/`nucleus_id`/`coda_id`/`tone_id`) — imported, not\n");
     out.push_str("//! re-declared, so this file can never drift out of sync with those tables\n");
-    out.push_str("//! without regenerating. `tests/attested_repro_test.rs` enforces that this file\n");
+    out.push_str(
+        "//! without regenerating. `tests/attested_repro_test.rs` enforces that this file\n",
+    );
     out.push_str("//! matches a fresh run.\n\n");
     // This module is declared `mod attested_data;` (private) in `pipeline/mod.rs`,
     // so plain `pub` items here are already crate-limited by the module wrapper —

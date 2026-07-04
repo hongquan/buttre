@@ -39,13 +39,13 @@
 pub struct VowelCluster {
     /// Start position in the buffer (inclusive)
     pub start_pos: usize,
-    
+
     /// End position in the buffer (exclusive)
     pub end_pos: usize,
-    
+
     /// Vowel characters in the cluster
     pub vowels: Vec<char>,
-    
+
     /// Type of cluster
     pub cluster_type: ClusterType,
 }
@@ -57,19 +57,19 @@ pub struct VowelCluster {
 pub enum ClusterType {
     /// Single vowel (a, e, i, o, u, y, ă, â, ê, ô, ơ, ư)
     Single,
-    
+
     /// Double vowel (ai, ao, oa, oe, etc.)
     Double,
-    
+
     /// Triple vowel (oai, uôi, ươi, etc.)
     Triple,
-    
+
     /// Compound uo/ươ (special handling needed)
     CompoundUO,
-    
+
     /// Double with oa/oe pattern
     DoubleOA,
-    
+
     /// Invalid (shouldn't happen in valid Vietnamese)
     Invalid,
 }
@@ -79,20 +79,21 @@ impl VowelCluster {
     pub fn len(&self) -> usize {
         self.vowels.len()
     }
-    
+
     /// Check if the cluster is empty
     pub fn is_empty(&self) -> bool {
         self.vowels.is_empty()
     }
-    
+
     /// Check if a position is within this cluster
     pub fn contains_position(&self, pos: usize) -> bool {
         pos >= self.start_pos && pos < self.end_pos
     }
-    
-    /// Get the cluster as a string
-    pub fn to_string(&self) -> String {
-        self.vowels.iter().collect()
+}
+
+impl std::fmt::Display for VowelCluster {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.vowels.iter().collect::<String>().fmt(f)
     }
 }
 
@@ -162,26 +163,26 @@ pub fn normalize_vowel(ch: char) -> char {
         'á' | 'à' | 'ả' | 'ã' | 'ạ' | 'Á' | 'À' | 'Ả' | 'Ã' | 'Ạ' => 'a',
         'ắ' | 'ằ' | 'ẳ' | 'ẵ' | 'ặ' | 'Ắ' | 'Ằ' | 'Ẳ' | 'Ẵ' | 'Ặ' => 'ă',
         'ấ' | 'ầ' | 'ẩ' | 'ẫ' | 'ậ' | 'Ấ' | 'Ầ' | 'Ẩ' | 'Ẫ' | 'Ậ' => 'â',
-        
+
         // e family
         'é' | 'è' | 'ẻ' | 'ẽ' | 'ẹ' | 'É' | 'È' | 'Ẻ' | 'Ẽ' | 'Ẹ' => 'e',
         'ế' | 'ề' | 'ể' | 'ễ' | 'ệ' | 'Ế' | 'Ề' | 'Ể' | 'Ễ' | 'Ệ' => 'ê',
-        
+
         // i family
         'í' | 'ì' | 'ỉ' | 'ĩ' | 'ị' | 'Í' | 'Ì' | 'Ỉ' | 'Ĩ' | 'Ị' => 'i',
-        
+
         // o family
         'ó' | 'ò' | 'ỏ' | 'õ' | 'ọ' | 'Ó' | 'Ò' | 'Ỏ' | 'Õ' | 'Ọ' => 'o',
         'ố' | 'ồ' | 'ổ' | 'ỗ' | 'ộ' | 'Ố' | 'Ồ' | 'Ổ' | 'Ỗ' | 'Ộ' => 'ô',
         'ớ' | 'ờ' | 'ở' | 'ỡ' | 'ợ' | 'Ớ' | 'Ờ' | 'Ở' | 'Ỡ' | 'Ợ' => 'ơ',
-        
+
         // u family
         'ú' | 'ù' | 'ủ' | 'ũ' | 'ụ' | 'Ú' | 'Ù' | 'Ủ' | 'Ũ' | 'Ụ' => 'u',
         'ứ' | 'ừ' | 'ử' | 'ữ' | 'ự' | 'Ứ' | 'Ừ' | 'Ử' | 'Ữ' | 'Ự' => 'ư',
-        
+
         // y family
         'ý' | 'ỳ' | 'ỷ' | 'ỹ' | 'ỵ' | 'Ý' | 'Ỳ' | 'Ỷ' | 'Ỹ' | 'Ỵ' => 'y',
-        
+
         // Already base form or uppercase
         c => c.to_lowercase().next().unwrap_or(c),
     }
@@ -215,22 +216,22 @@ pub fn find_vowel_clusters(buffer: &str) -> Vec<VowelCluster> {
     let chars: Vec<char> = buffer.chars().collect();
     let mut clusters = Vec::new();
     let mut i = 0;
-    
+
     while i < chars.len() {
         if is_vowel(chars[i]) {
             // Start a new cluster
             let start_pos = i;
             let mut vowels = Vec::new();
-            
+
             // Collect consecutive vowels (normalize to base form)
             while i < chars.len() && is_vowel(chars[i]) {
                 vowels.push(normalize_vowel(chars[i]));
                 i += 1;
             }
-            
+
             let end_pos = i;
             let cluster_type = classify_cluster(&vowels);
-            
+
             clusters.push(VowelCluster {
                 start_pos,
                 end_pos,
@@ -241,7 +242,7 @@ pub fn find_vowel_clusters(buffer: &str) -> Vec<VowelCluster> {
             i += 1;
         }
     }
-    
+
     clusters
 }
 
@@ -268,16 +269,18 @@ pub fn classify_cluster(vowels: &[char]) -> ClusterType {
         1 => ClusterType::Single,
         2 => {
             // Check for special patterns
-            if matches!((vowels[0], vowels[1]), ('u', 'o') | ('u', 'ơ') | ('ư', 'o') | ('ư', 'ơ')) {
+            if matches!(
+                (vowels[0], vowels[1]),
+                ('u', 'o') | ('u', 'ơ') | ('ư', 'o') | ('ư', 'ơ')
+            ) {
                 ClusterType::CompoundUO
             } else if matches!((vowels[0], vowels[1]), ('o', 'a') | ('o', 'e')) {
                 ClusterType::DoubleOA
             } else {
                 ClusterType::Double
             }
-        },
+        }
         3 => ClusterType::Triple,
         _ => ClusterType::Invalid,
     }
 }
-

@@ -14,7 +14,7 @@
 //! is appended literally, giving `âw`.  This is correct compose behavior; the
 //! old result was an incremental-tracking artifact.
 
-use buttre_engine::pipeline::{PipelineExecutor, PipelineConfig};
+use buttre_engine::pipeline::{PipelineConfig, PipelineExecutor};
 
 fn create_telex_config() -> PipelineConfig {
     buttre_engine::pipeline::telex_config()
@@ -35,10 +35,15 @@ fn test_undo_transformation_aa_to_a() {
     // "aaa" → compose detects undo pattern → "aa", temp_english=true.
     let config = create_telex_config();
     let executor = process_sequence(&config, "aaa");
-    assert_eq!(executor.context().syllable_buffer, "aa",
-               "aaa should undo to 'aa'");
-    assert!(executor.context().temp_english_mode,
-            "temp_english_mode should be true after undo");
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "aa",
+        "aaa should undo to 'aa'"
+    );
+    assert!(
+        executor.context().temp_english_mode,
+        "temp_english_mode should be true after undo"
+    );
 }
 
 #[test]
@@ -48,8 +53,11 @@ fn test_undo_transformation_aw_to_a() {
     assert_eq!(executor1.context().syllable_buffer, "ă");
 
     let executor2 = process_sequence(&config, "aww");
-    assert_eq!(executor2.context().syllable_buffer, "aw",
-               "'aww' should undo to 'aw'");
+    assert_eq!(
+        executor2.context().syllable_buffer,
+        "aw",
+        "'aww' should undo to 'aw'"
+    );
     assert!(executor2.context().temp_english_mode);
 }
 
@@ -60,8 +68,11 @@ fn test_undo_transformation_dd_to_d() {
     assert_eq!(executor1.context().syllable_buffer, "đ");
 
     let executor2 = process_sequence(&config, "ddd");
-    assert_eq!(executor2.context().syllable_buffer, "dd",
-               "'ddd' should undo to 'dd'");
+    assert_eq!(
+        executor2.context().syllable_buffer,
+        "dd",
+        "'ddd' should undo to 'dd'"
+    );
     assert!(executor2.context().temp_english_mode);
 }
 
@@ -69,14 +80,22 @@ fn test_undo_transformation_dd_to_d() {
 fn test_undo_tone_application() {
     let config = create_telex_config();
     let executor1 = process_sequence(&config, "as");
-    assert_eq!(executor1.context().syllable_buffer, "á",
-               "'as' should give á");
+    assert_eq!(
+        executor1.context().syllable_buffer,
+        "á",
+        "'as' should give á"
+    );
 
     let executor2 = process_sequence(&config, "ass");
-    assert_eq!(executor2.context().syllable_buffer, "as",
-               "'ass' should undo tone to 'as'");
-    assert!(executor2.context().temp_english_mode,
-            "temp_english_mode should be enabled after tone undo");
+    assert_eq!(
+        executor2.context().syllable_buffer,
+        "as",
+        "'ass' should undo tone to 'as'"
+    );
+    assert!(
+        executor2.context().temp_english_mode,
+        "temp_english_mode should be enabled after tone undo"
+    );
 }
 
 #[test]
@@ -86,8 +105,11 @@ fn test_undo_complex_word() {
     // to a non-Vietnamese base, so the whole sequence is English passthrough.
     let config = create_telex_config();
     let executor3 = process_sequence(&config, "vietff");
-    assert_eq!(executor3.context().syllable_buffer, "vietff",
-               "'vietff' is not Vietnamese (viet≠việt) → English passthrough");
+    assert_eq!(
+        executor3.context().syllable_buffer,
+        "vietff",
+        "'vietff' is not Vietnamese (viet≠việt) → English passthrough"
+    );
     assert!(executor3.context().temp_english_mode);
 }
 
@@ -99,10 +121,15 @@ fn test_no_undo_different_key() {
     // literal keystrokes and latches English passthrough.
     let config = create_telex_config();
     let executor = process_sequence(&config, "aaw");
-    assert_eq!(executor.context().syllable_buffer, "aaw",
-               "aaw → âw is invalid Vietnamese → literal English passthrough");
-    assert!(executor.context().temp_english_mode,
-            "temp_english_mode latches on the invalid-syllable fallback");
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "aaw",
+        "aaw → âw is invalid Vietnamese → literal English passthrough"
+    );
+    assert!(
+        executor.context().temp_english_mode,
+        "temp_english_mode latches on the invalid-syllable fallback"
+    );
 }
 
 #[test]
@@ -129,10 +156,12 @@ fn test_transform_history_tracking() {
     // Behavioral: aa → â. Compose doesn't populate transform_history field.
     let config = create_telex_config();
     let executor = process_sequence(&config, "aa");
-    assert_eq!(executor.context().syllable_buffer, "â",
-               "aa should produce â");
-    assert!(!executor.context().temp_english_mode,
-            "no undo on aa");
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "â",
+        "aa should produce â"
+    );
+    assert!(!executor.context().temp_english_mode, "no undo on aa");
 }
 
 #[test]
@@ -140,8 +169,11 @@ fn test_tone_history_tracking() {
     // Behavioral: as → á. Compose doesn't populate transform_history field.
     let config = create_telex_config();
     let executor = process_sequence(&config, "as");
-    assert_eq!(executor.context().syllable_buffer, "á",
-               "as should produce á");
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "á",
+        "as should produce á"
+    );
 }
 
 #[test]
@@ -150,8 +182,10 @@ fn test_multiple_transformations_history() {
     let config = create_telex_config();
     let executor = process_sequence(&config, "thuow");
     // t+h+u+ow → th+uo+w; uo+w → ươ; result: thươ
-    assert!(!executor.context().syllable_buffer.is_empty(),
-            "thuow should produce output");
+    assert!(
+        !executor.context().syllable_buffer.is_empty(),
+        "thuow should produce output"
+    );
 }
 
 #[test]
@@ -159,8 +193,11 @@ fn test_undo_clears_history_entry() {
     // "aaa" → undo detected → "aa", temp_english=true.
     let config = create_telex_config();
     let executor2 = process_sequence(&config, "aaa");
-    assert_eq!(executor2.context().syllable_buffer, "aa",
-               "aaa should undo to aa");
+    assert_eq!(
+        executor2.context().syllable_buffer,
+        "aa",
+        "aaa should undo to aa"
+    );
     assert!(executor2.context().temp_english_mode);
 }
 
@@ -168,8 +205,10 @@ fn test_undo_clears_history_entry() {
 fn test_case_sensitive_undo() {
     let config = create_telex_config();
     let executor2 = process_sequence(&config, "AAA");
-    assert!(executor2.context().temp_english_mode,
-            "AAA should trigger undo and set temp_english_mode");
+    assert!(
+        executor2.context().temp_english_mode,
+        "AAA should trigger undo and set temp_english_mode"
+    );
 }
 
 #[test]
@@ -177,8 +216,10 @@ fn test_real_word_vietnamese_with_undo() {
     // 'm' is not a transformation key → no undo triggered.
     let config = create_telex_config();
     let executor = process_sequence(&config, "vietnamm");
-    assert!(!executor.context().temp_english_mode,
-            "vietnamm: no undo expected (m is not a transform key)");
+    assert!(
+        !executor.context().temp_english_mode,
+        "vietnamm: no undo expected (m is not a transform key)"
+    );
 }
 
 #[test]
@@ -194,7 +235,10 @@ fn test_sequential_undos() {
     // Matches all four reference IMEs: undoing one transform must NOT revert
     // unrelated earlier completed transforms.
     let executor2 = process_sequence(&config, "ddaaa");
-    assert_eq!(executor2.context().syllable_buffer, "đaa",
-               "ddaaa: undo of aaa tail; prefix dd re-composed to đ (transform-preserving undo)");
+    assert_eq!(
+        executor2.context().syllable_buffer,
+        "đaa",
+        "ddaaa: undo of aaa tail; prefix dd re-composed to đ (transform-preserving undo)"
+    );
     assert!(executor2.context().temp_english_mode);
 }

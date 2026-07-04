@@ -72,16 +72,15 @@ const EXPECTED_BOOL_FIELD_COUNT: usize = 3;
 /// HashMap<String, bool>` field — can never contaminate the count.
 fn struct_body<'a>(src: &'a str, struct_name: &str) -> &'a str {
     let marker = format!("pub struct {struct_name} {{");
-    let start = src
-        .find(&marker)
-        .unwrap_or_else(|| panic!("`pub struct {struct_name}` not found in context.rs — has it been renamed or moved?"))
-        + marker.len();
+    let start = src.find(&marker).unwrap_or_else(|| {
+        panic!("`pub struct {struct_name}` not found in context.rs — has it been renamed or moved?")
+    }) + marker.len();
     let rest = &src[start..];
     // Every struct in this file is formatted with its closing brace alone
     // on a line at column 0 — safe to scan for the first such occurrence.
-    let end = rest
-        .find("\n}")
-        .unwrap_or_else(|| panic!("no closing brace found for `struct {struct_name}` — malformed source?"));
+    let end = rest.find("\n}").unwrap_or_else(|| {
+        panic!("no closing brace found for `struct {struct_name}` — malformed source?")
+    });
     &rest[..end]
 }
 
@@ -100,10 +99,7 @@ fn count_bool_fields(body: &str) -> usize {
     body.lines()
         .filter(|line| {
             let trimmed = line.trim();
-            if trimmed.is_empty()
-                || trimmed.starts_with("//")
-                || trimmed.starts_with("#[")
-            {
+            if trimmed.is_empty() || trimmed.starts_with("//") || trimmed.starts_with("#[") {
                 return false;
             }
             let Some((_name, ty)) = trimmed.split_once(':') else {
@@ -167,6 +163,9 @@ pub struct Sample {
 #[test]
 fn typing_context_struct_body_is_actually_found() {
     let body = struct_body(CONTEXT_SRC, "TypingContext");
-    assert!(body.contains("temp_english_mode"), "extracted body must contain the struct's real fields");
+    assert!(
+        body.contains("temp_english_mode"),
+        "extracted body must contain the struct's real fields"
+    );
     assert!(count_bool_fields(body) > 0, "must find at least one bool field — a 0 result means the parser broke, not that purity was achieved");
 }

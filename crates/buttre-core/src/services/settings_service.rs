@@ -5,8 +5,8 @@
 //! This service wraps the Settings struct and integrates it with the event bus,
 //! automatically publishing events when settings change.
 
+use crate::events::{AppEvent, SharedEventBus};
 use crate::state::Settings;
-use crate::events::{SharedEventBus, AppEvent};
 use anyhow::Result;
 
 /// Settings Service - Manages application settings with event bus integration
@@ -34,7 +34,7 @@ use anyhow::Result;
 pub struct SettingsService {
     /// Current settings
     settings: Settings,
-    
+
     /// Event bus for publishing events
     event_bus: SharedEventBus,
 }
@@ -49,13 +49,13 @@ impl SettingsService {
     /// * `event_bus` - Shared event bus for publishing events
     pub fn new(event_bus: SharedEventBus) -> Self {
         let settings = Settings::load();
-        
+
         Self {
             settings,
             event_bus,
         }
     }
-    
+
     /// Create a SettingsService with custom settings
     ///
     /// # Arguments
@@ -68,12 +68,12 @@ impl SettingsService {
             event_bus,
         }
     }
-    
+
     /// Get a reference to the current settings
     pub fn get(&self) -> &Settings {
         &self.settings
     }
-    
+
     /// Update settings using a closure
     ///
     /// This will apply the changes and publish a SettingsChanged event.
@@ -97,13 +97,14 @@ impl SettingsService {
     {
         // Apply changes
         f(&mut self.settings);
-        
+
         // Publish event
-        self.event_bus.publish(AppEvent::SettingsChanged(self.settings.clone()));
-        
+        self.event_bus
+            .publish(AppEvent::SettingsChanged(self.settings.clone()));
+
         Ok(())
     }
-    
+
     /// Save settings to disk
     ///
     /// # Returns
@@ -113,16 +114,17 @@ impl SettingsService {
         self.settings.save()?;
         Ok(())
     }
-    
+
     /// Load settings from disk
     ///
     /// This will reload settings from disk and publish a SettingsChanged event.
     pub fn load(&mut self) -> Result<()> {
         self.settings = Settings::load();
-        self.event_bus.publish(AppEvent::SettingsChanged(self.settings.clone()));
+        self.event_bus
+            .publish(AppEvent::SettingsChanged(self.settings.clone()));
         Ok(())
     }
-    
+
     /// Set the input method
     ///
     /// This is a convenience method that updates the input_method field
@@ -134,34 +136,35 @@ impl SettingsService {
     pub fn set_input_method(&mut self, method: impl Into<String>) -> Result<()> {
         let method = method.into();
         let enabled = method != "english";
-        
+
         self.settings.input_method = method.clone();
-        
+
         // Publish both events
-        self.event_bus.publish(AppEvent::SettingsChanged(self.settings.clone()));
-        self.event_bus.publish(AppEvent::method_changed(method, enabled));
-        
+        self.event_bus
+            .publish(AppEvent::SettingsChanged(self.settings.clone()));
+        self.event_bus
+            .publish(AppEvent::method_changed(method, enabled));
+
         Ok(())
     }
-    
+
     /// Get the current input method
     pub fn input_method(&self) -> &str {
         &self.settings.input_method
     }
-    
+
     /// Check if auto-correct is enabled
     pub fn auto_correct(&self) -> bool {
         self.settings.auto_correct
     }
-    
+
     /// Check if shorthand is enabled
     pub fn shorthand(&self) -> bool {
         self.settings.shorthand
     }
-    
+
     /// Check if startup is enabled
     pub fn startup(&self) -> bool {
         self.settings.startup
     }
 }
-

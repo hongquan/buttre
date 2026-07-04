@@ -48,4 +48,3 @@ pub fn sanitize_filename(name: &str) -> String {
         })
         .collect()
 }
-

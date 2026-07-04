@@ -20,8 +20,8 @@
 //! - NFC (Canonical Composition): "â" as single codepoint
 //! - NFD (Canonical Decomposition): "a" + "^" as separate codepoints
 
-use crate::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig};
 use crate::pipeline::config::{ToneStyle, UnicodeForm};
+use crate::pipeline::{PipelineConfig, PipelineStage, StageResult, TypingContext};
 
 /// Stage 9: Orthography
 ///
@@ -61,7 +61,7 @@ use crate::pipeline::config::{ToneStyle, UnicodeForm};
 pub struct OrthographyStage {
     /// Tone style (old vs new)
     pub tone_style: ToneStyle,
-    
+
     /// Unicode normalization form
     pub unicode_form: UnicodeForm,
 }
@@ -88,17 +88,17 @@ impl OrthographyStage {
     /// ## Algorithm
     ///
     /// Converts text to the specified Unicode normalization form (NFC or NFD).
-    /// 
+    ///
     /// - **NFC (Canonical Composition)**: Combines characters into single codepoints
     ///   - Example: "a" + "^" + "`" → "ầ" (single codepoint U+1EA7)
     ///   - Preferred for most systems and applications
-    /// 
+    ///
     /// - **NFD (Canonical Decomposition)**: Separates into base + combining marks
     ///   - Example: "ầ" → "a" + "^" + "`" (3 codepoints)
     ///   - Useful for text processing and analysis
     pub fn normalize_unicode(&self, text: &str) -> String {
         use unicode_normalization::UnicodeNormalization;
-        
+
         match self.unicode_form {
             UnicodeForm::NFC => {
                 // Convert to NFC (Canonical Composition)
@@ -116,18 +116,18 @@ impl OrthographyStage {
     /// ## Algorithm
     ///
     /// Applies Vietnamese orthography rules for tone placement:
-    /// 
+    ///
     /// **Old Style (Traditional)**:
     /// - "hoà" (tone on 'o')
     /// - "toà" (tone on 'o')
     /// - Generally places tone on first vowel in diphthongs
-    /// 
+    ///
     /// **New Style (Modern)**:
     /// - "hòa" (tone on 'a')
     /// - "tòa" (tone on 'a')
     /// - Follows modern Vietnamese orthography rules
     /// - Places tone on main vowel nucleus
-    /// 
+    ///
     /// For now, we don't modify tone position as the input from Stage 5
     /// already has correct tone placement. This stage is reserved for
     /// future enhancements like old/new style conversion.
@@ -135,11 +135,11 @@ impl OrthographyStage {
         // Algorithm:
         // The tone position is already correct from Stage 5 (Tone Processing)
         // which uses the same tone placement rules.
-        // 
+        //
         // Future enhancement: Implement old/new style conversion
         // by parsing the syllable, extracting tone, and re-applying
         // with different style settings.
-        
+
         match self.tone_style {
             ToneStyle::New => {
                 // Modern orthography is already applied in Stage 5
@@ -158,7 +158,7 @@ impl OrthographyStage {
     /// ## Algorithm
     ///
     /// Applies uppercase from case_mask to the output text.
-    /// 
+    ///
     /// **Case Mapping Strategy**:
     /// - If case_mask.len() == output.len(): direct 1:1 mapping
     /// - If case_mask.len() > output.len(): chars merged (e.g., aa→â)
@@ -167,7 +167,7 @@ impl OrthographyStage {
     ///   → use last known case, default to lowercase
     ///
     /// ## Examples
-    /// 
+    ///
     /// - Input: "NGUOI", mask: [T,T,T,T,T] → Output: "NGƯỜI"
     /// - Input: "Nguoi", mask: [T,F,F,F,F] → Output: "Người"
     /// - Input: "Aa" (→"â"), mask: [T,F] → Output: "Â" (follow first char case)
@@ -184,16 +184,16 @@ impl OrthographyStage {
 
         for (i, ch) in chars.iter().enumerate() {
             // Map output index to mask index
-            // 
+            //
             // KEY FIX: When mask_len > output_len (chars were merged, e.g. "DD" → "Đ")
-            // 
+            //
             // OLD (buggy): proportional mapping (i * mask_len) / output_len
             //   mask=[T,T,F] output="Đa" → i=0 maps to 0, i=1 maps to 1 → 'a' gets mask[1]=T (wrong!)
-            // 
+            //
             // NEW: Use first char's case for the merged portion, then direct mapping for rest
             //   - First output char gets mask[0] (for merged chars, follow first)
             //   - Remaining output chars get their corresponding mask entries from the END
-            //   
+            //
             // Example: "DDa" → "Đa", mask=[T,T,F]
             //   - i=0 ('Đ'): merged from DD, use mask[0] = T → 'Đ' ✓
             //   - i=1 ('a'): not merged, use mask[mask_len - (output_len - i)] = mask[3-1] = mask[2] = F → 'a' ✓
@@ -278,4 +278,3 @@ impl PipelineStage for OrthographyStage {
         // No internal state to reset
     }
 }
-

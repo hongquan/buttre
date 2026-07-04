@@ -1,5 +1,5 @@
-use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 use buttre_engine::pipeline::stages::stage12_output::OutputStage;
+use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 use buttre_engine::types::Action;
 
 #[test]
@@ -51,7 +51,10 @@ fn test_replacement() {
         StageResult::Output(actions) => {
             assert_eq!(actions.len(), 1);
             match &actions[0] {
-                Action::Replace { backspace_count, text } => {
+                Action::Replace {
+                    backspace_count,
+                    text,
+                } => {
                     assert_eq!(*backspace_count, 1);
                     assert_eq!(text, "ú");
                 }
@@ -110,7 +113,10 @@ fn test_generate_action_replace() {
     let stage = OutputStage::new(false);
     let action = stage.generate_action("thu", "thú");
     match action {
-        Action::Replace { backspace_count, text } => {
+        Action::Replace {
+            backspace_count,
+            text,
+        } => {
             assert_eq!(backspace_count, 1);
             assert_eq!(text, "ú");
         }
@@ -262,7 +268,10 @@ fn test_multiple_char_replacement() {
         StageResult::Output(actions) => {
             assert_eq!(actions.len(), 1);
             match &actions[0] {
-                Action::Replace { backspace_count, text } => {
+                Action::Replace {
+                    backspace_count,
+                    text,
+                } => {
                     assert_eq!(*backspace_count, 2);
                     assert_eq!(text, "â");
                 }

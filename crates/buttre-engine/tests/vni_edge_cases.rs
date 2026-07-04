@@ -1,13 +1,13 @@
-use buttre_engine::pipeline::{PipelineExecutor, vni_config};
+use buttre_engine::pipeline::{vni_config, PipelineExecutor};
 
 fn process_sequence(input: &str) -> String {
     let config = vni_config();
     let mut executor = PipelineExecutor::new(config);
-    
+
     for ch in input.chars() {
         executor.process(ch);
     }
-    
+
     executor.context().syllable_buffer.clone()
 }
 
@@ -17,31 +17,51 @@ fn process_sequence(input: &str) -> String {
 #[test]
 fn test_tone_then_transform_a16() {
     let result = process_sequence("a16");
-    assert_eq!(result, "ấ", "Expected 'ấ' (a + tone1 + circumflex), got '{}'", result);
+    assert_eq!(
+        result, "ấ",
+        "Expected 'ấ' (a + tone1 + circumflex), got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_tone_then_transform_e26() {
     let result = process_sequence("e26");
-    assert_eq!(result, "ề", "Expected 'ề' (e + tone2 + circumflex), got '{}'", result);
+    assert_eq!(
+        result, "ề",
+        "Expected 'ề' (e + tone2 + circumflex), got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_tone_then_transform_o36() {
     let result = process_sequence("o36");
-    assert_eq!(result, "ổ", "Expected 'ổ' (o + tone3 + circumflex), got '{}'", result);
+    assert_eq!(
+        result, "ổ",
+        "Expected 'ổ' (o + tone3 + circumflex), got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_tone_then_transform_u47() {
     let result = process_sequence("u47");
-    assert_eq!(result, "ữ", "Expected 'ữ' (u + tone4 + horn), got '{}'", result);
+    assert_eq!(
+        result, "ữ",
+        "Expected 'ữ' (u + tone4 + horn), got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_tone_then_transform_o57() {
     let result = process_sequence("o57");
-    assert_eq!(result, "ợ", "Expected 'ợ' (o + tone5 + horn), got '{}'", result);
+    assert_eq!(
+        result, "ợ",
+        "Expected 'ợ' (o + tone5 + horn), got '{}'",
+        result
+    );
 }
 
 // Priority 2: Sequential tone undo
@@ -58,24 +78,33 @@ fn test_tone_then_transform_o57() {
 fn test_sequential_tone_undo_a111() {
     let result = process_sequence("a111");
     // Unikey standard: undo pair (11) → temp_english; third 1 is literal → a11.
-    assert_eq!(result, "a11",
-        "a111 → a11: Unikey standard (tempVietOff after undo, no re-apply), got '{}'", result);
+    assert_eq!(
+        result, "a11",
+        "a111 → a11: Unikey standard (tempVietOff after undo, no re-apply), got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_sequential_tone_undo_e222() {
     let result = process_sequence("e222");
     // Unikey standard: undo pair (22) → temp_english; third 2 is literal → e22.
-    assert_eq!(result, "e22",
-        "e222 → e22: Unikey standard (tempVietOff after undo, no re-apply), got '{}'", result);
+    assert_eq!(
+        result, "e22",
+        "e222 → e22: Unikey standard (tempVietOff after undo, no re-apply), got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_sequential_tone_undo_o333() {
     let result = process_sequence("o333");
     // Unikey standard: undo pair (33) → temp_english; third 3 is literal → o33.
-    assert_eq!(result, "o33",
-        "o333 → o33: Unikey standard (tempVietOff after undo, no re-apply), got '{}'", result);
+    assert_eq!(
+        result, "o33",
+        "o333 → o33: Unikey standard (tempVietOff after undo, no re-apply), got '{}'",
+        result
+    );
 }
 
 // Priority 3: Word-level undo
@@ -89,21 +118,33 @@ fn test_word_level_undo_viet5() {
     // As a consequence, "viet5" applies nặng to the bare 'e' without English
     // fallback, and "viet55" triggers the tone-undo path → "viet5" (temp_english).
     let result = process_sequence("viet55");
-    assert_eq!(result, "viet5", "Expected 'viet5' after tone undo on bare 'ie'+'t', got '{}'", result);
+    assert_eq!(
+        result, "viet5",
+        "Expected 'viet5' after tone undo on bare 'ie'+'t', got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_word_level_undo_hoa2() {
     // hoa2 → hòa, then hoa22 → hoa2 (undo)
     let result = process_sequence("hoa22");
-    assert_eq!(result, "hoa2", "Expected 'hoa2' after tone undo, got '{}'", result);
+    assert_eq!(
+        result, "hoa2",
+        "Expected 'hoa2' after tone undo, got '{}'",
+        result
+    );
 }
 
 #[test]
 fn test_word_level_undo_toi1() {
     // toi1 → tói, then toi11 → toi1 (undo)
     let result = process_sequence("toi11");
-    assert_eq!(result, "toi1", "Expected 'toi1' after tone undo, got '{}'", result);
+    assert_eq!(
+        result, "toi1",
+        "Expected 'toi1' after tone undo, got '{}'",
+        result
+    );
 }
 
 // Priority 4: Phase 3 regression guard — VNI "ie" exception must stay (KEEP)
@@ -138,11 +179,17 @@ fn test_vni_mieng16_incremental_no_flicker() {
     for ch in "mieng1".chars() {
         executor.process(ch);
     }
-    assert!(!executor.is_temp_english_mode(),
-        "mid-typing 'mieng1' (bare 'ie' nucleus + tone) must not latch English fallback");
+    assert!(
+        !executor.is_temp_english_mode(),
+        "mid-typing 'mieng1' (bare 'ie' nucleus + tone) must not latch English fallback"
+    );
     executor.process('6');
-    assert_eq!(executor.context().syllable_buffer, "miếng",
-        "incremental mieng->1->6 must complete to 'miếng', got '{}'", executor.context().syllable_buffer);
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "miếng",
+        "incremental mieng->1->6 must complete to 'miếng', got '{}'",
+        executor.context().syllable_buffer
+    );
 }
 
 #[test]
@@ -156,11 +203,17 @@ fn test_vni_nhat61_incremental_no_flicker() {
     for ch in "nhat6".chars() {
         executor.process(ch);
     }
-    assert!(!executor.is_temp_english_mode(),
-        "mid-typing 'nhat6' must not latch English fallback");
+    assert!(
+        !executor.is_temp_english_mode(),
+        "mid-typing 'nhat6' must not latch English fallback"
+    );
     executor.process('1');
-    assert_eq!(executor.context().syllable_buffer, "nhất",
-        "incremental nhat->6->1 must complete to 'nhất', got '{}'", executor.context().syllable_buffer);
+    assert_eq!(
+        executor.context().syllable_buffer,
+        "nhất",
+        "incremental nhat->6->1 must complete to 'nhất', got '{}'",
+        executor.context().syllable_buffer
+    );
 }
 
 // Priority 5: Multi-step undo — LITERAL / undo-is-final semantics (P6)
@@ -185,8 +238,11 @@ fn test_vni_nhat61_incremental_no_flicker() {
 #[test]
 fn test_multi_step_undo_a6116() {
     let result = process_sequence("a6116");
-    assert_eq!(result, "â16",
+    assert_eq!(
+        result, "â16",
         "a6116: undo-is-final — a611 undoes the tone (-> â1, temp_english_mode \
          latches), then the trailing '6' is a literal append (-> â16), not a redo. \
-         Got '{}'", result);
+         Got '{}'",
+        result
+    );
 }

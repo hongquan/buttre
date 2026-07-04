@@ -17,13 +17,13 @@ use std::path::PathBuf;
 pub struct Settings {
     /// Current input method ID (e.g., "english", "telex", "vni", "nom", or custom method ID)
     pub input_method: String,
-    
+
     /// Enable auto-correction features
     pub auto_correct: bool,
-    
+
     /// Enable shorthand/macro expansion
     pub shorthand: bool,
-    
+
     /// Launch buttre on system startup
     pub startup: bool,
 
@@ -149,8 +149,10 @@ mod tests {
 
     #[test]
     fn backspace_mode_round_trips_through_toml() {
-        let mut settings = Settings::default();
-        settings.backspace_mode = "raw".to_string();
+        let settings = Settings {
+            backspace_mode: "raw".to_string(),
+            ..Settings::default()
+        };
         let serialized = toml::to_string_pretty(&settings).expect("serialize");
         let restored: Settings = toml::from_str(&serialized).expect("deserialize");
         assert_eq!(restored.backspace_mode, "raw");
