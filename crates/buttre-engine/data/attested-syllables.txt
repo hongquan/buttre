@@ -7936,3 +7936,15 @@ zắc
 ỷnh
 ỷu
 ỹ
+# ── Informal/slang supplement (buttre-curated, 2026-07) ──────────────────────
+# NOT from the ibus-bamboo upstream above — widely-established informal words
+# that are phonologically valid yet absent from the base dictionary. Added so
+# delayed/non-adjacent typing styles and the word-boundary closed gate accept
+# them (the class behind VNI "d9ech56" → "đệch"). Keep this list SHORT and
+# curated: every entry widens the accept set of the non-adjacent inference
+# gate (`compose::passes_attestation_gate`). Sorted within this section.
+chời
+dzui
+dzô
+dzậy
+đệch

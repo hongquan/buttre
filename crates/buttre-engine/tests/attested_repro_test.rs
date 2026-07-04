@@ -13,16 +13,22 @@ mod attested_gen;
 use std::fs;
 use std::path::PathBuf;
 
-/// Embedded tuple count as of the last regeneration (7,884 upstream entries,
-/// 166 skipped — see `data/attested-syllables.txt`'s header for the
-/// category breakdown). Bump intentionally when the dict or the phonology
-/// tables change; an unintentional change here means the dataset drifted.
+/// Embedded tuple count as of the last regeneration (7,884 upstream entries
+/// + 5 buttre-curated informal supplement entries, 166 skipped — see
+/// `data/attested-syllables.txt`'s header for the category breakdown). Bump
+/// intentionally when the dict or the phonology tables change; an
+/// unintentional change here means the dataset drifted.
 ///
 /// P6: +9 vs. the previous 7,642 — the former "k-coda place names" skip
 /// category (búk, lăk, lắk, măk, úk, ăk, đăk, đắk, ắk) is now embedded, since
 /// coda "k" has per-nucleus table rows (`pipeline::validation`, nuclei "u"
 /// and "ă" only — not a blanket allowance).
-const EXPECTED_POPCOUNT: usize = 7651;
+///
+/// Informal supplement: +5 (chời, dzui, dzô, dzậy, đệch) — widely-established
+/// slang that is phonologically valid but absent upstream, added so
+/// delayed/non-adjacent typing styles and the word-boundary closed gate
+/// accept them (see the supplement section at the end of the dict file).
+const EXPECTED_POPCOUNT: usize = 7656;
 
 fn manifest_path(parts: &[&str]) -> PathBuf {
     let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -69,7 +75,8 @@ fn skip_categories_within_expected_bounds() {
     let result =
         attested_gen::generate(&dict_text).unwrap_or_else(|e| panic!("generation failed: {e}"));
 
-    assert_eq!(result.total_lines, 7884, "upstream dict line count changed");
+    // 7,884 upstream + 5 buttre-curated informal supplement entries.
+    assert_eq!(result.total_lines, 7889, "dict line count changed");
     assert_eq!(result.gi_family_fixed, 11, "gi-family fixed count changed");
     // `classify_skip` is exhaustive over {VowelLess, Other} — every skip is
     // categorized by construction, so "unexplained" is 0/7884 (0.000%), well

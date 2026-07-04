@@ -721,6 +721,49 @@ fn critical_vni_toned_shape_attested_survives_closed_boundary() {
     assert_eq!(compose_closed(&raw("d9e6ch5"), &opts).text, "đệch");
 }
 
+// ── Informal/slang supplement (data/attested-syllables.txt) ──────────────────
+// The base ibus-bamboo dictionary already attests most established slang
+// (đéo, vãi, khum, quẩy, toang, ngáo, khịa, bựa, nhây, lầy, chảnh, hông, hem);
+// the buttre-curated supplement adds the missing phonologically-valid ones.
+// These tests pin BOTH projections so a future gate change can never silently
+// revert an informal word at the word boundary again (the "d9ech56" class).
+
+#[test]
+fn slang_supplement_composes_and_survives_boundary_telex() {
+    let opts = telex_opts();
+    for (input, expected) in [
+        ("ddeechj", "đệch"), // adjacent
+        ("ddechej", "đệch"), // delayed non-adjacent 'e' — needs the dictionary entry
+        ("chowif", "chời"),
+        ("dzoo", "dzô"),
+        ("dzaayj", "dzậy"),
+        ("dzui", "dzui"),
+        // Pre-attested slang from the base dictionary (pin protection).
+        ("vaix", "vãi"),
+        ("quaayr", "quẩy"),
+        ("ngaos", "ngáo"),
+        ("laayf", "lầy"),
+    ] {
+        assert_eq!(compose(&raw(input), &opts).text, expected, "open: {input}");
+        assert_eq!(compose_closed(&raw(input), &opts).text, expected, "closed: {input}");
+    }
+}
+
+#[test]
+fn slang_supplement_composes_and_survives_boundary_vni() {
+    let opts = vni_opts();
+    for (input, expected) in [
+        ("d9ech56", "đệch"), // delayed digit + tone (the reported bug's shape)
+        ("d9e6ch5", "đệch"), // adjacent parity
+        ("cho72i", "chời"),
+        ("dzo6", "dzô"),
+        ("dza6y5", "dzậy"),
+    ] {
+        assert_eq!(compose(&raw(input), &opts).text, expected, "open: {input}");
+        assert_eq!(compose_closed(&raw(input), &opts).text, expected, "closed: {input}");
+    }
+}
+
 #[test]
 fn critical_vni_nhat61_closed_untouched_exact_attested() {
     // Exact-attested already under the OPEN gate (the tone arrived) — the
