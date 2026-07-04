@@ -318,10 +318,8 @@ impl QueueProcessor {
                     send_replacement(backspace_count, &text);
                 }
             }
-            Action::Commit(text) => {
-                if !text.is_empty() {
-                    send_string(&text);
-                }
+            Action::Commit(text) if !text.is_empty() => {
+                send_string(&text);
             }
             _ => {}
         }

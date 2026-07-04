@@ -214,7 +214,7 @@ impl LearningStore {
         // doc's TOML example: syllable -> plain count).
         if file.user_attested.len() > MAX_ENTRIES_PER_TABLE {
             let mut entries: Vec<(String, u32)> = file.user_attested.into_iter().collect();
-            entries.sort_by(|a, b| b.1.cmp(&a.1));
+            entries.sort_by_key(|entry| std::cmp::Reverse(entry.1));
             entries.truncate(MAX_ENTRIES_PER_TABLE);
             file.user_attested = entries.into_iter().collect();
         }

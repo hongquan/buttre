@@ -272,11 +272,9 @@ pub fn dispatch_toggle_last_word(keyboard: &Arc<RwLock<Option<Keyboard>>>) {
             send_replacement(backspace_count, &text);
             record_output_hwnd();
         }
-        Some(Action::Commit(text)) => {
-            if !text.is_empty() {
-                send_string(&text);
-                record_output_hwnd();
-            }
+        Some(Action::Commit(text)) if !text.is_empty() => {
+            send_string(&text);
+            record_output_hwnd();
         }
         // `toggle_last_word` only ever returns via `diff_to_action`, which
         // yields `DoNothing`/`Commit`/`Replace` — the other `Action`
