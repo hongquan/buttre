@@ -273,6 +273,18 @@ impl PipelineExecutor {
         if buf.is_empty() {
             return None;
         }
+        // A word whose English latch was entered through a DELIBERATE
+        // undo/toggle ("tesst" → undo → "test") must commit exactly as
+        // displayed: the stateless closed projection cannot see the mid-
+        // buffer undo event, so it would re-apply the very tone the user
+        // removed ("tesst" → "tét") and destroy the escape hatch — making
+        // English words like "test"/"text"/"reset" untypeable. A
+        // NON-deliberate latch (the mid-word fallback misfire on
+        // "chwowng") keeps the repair, which is what rescues it to
+        // "chương" at commit. See `TypingContext::latch_from_undo`.
+        if self.context.latch_from_undo {
+            return None;
+        }
         let raw = buf.to_char_vec();
         let closed = compose_closed(&raw, opts);
         let repaired = apply_case_mask(&closed.text, buf, opts);

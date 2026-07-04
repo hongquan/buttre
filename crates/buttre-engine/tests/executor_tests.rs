@@ -2045,6 +2045,86 @@ fn boundary_repair_reset_space_accepted_collision_untouched() {
     );
 }
 
+// ── Deliberate-undo latch survives the boundary (escape-hatch integrity) ─────
+// A word the user explicitly forced literal through a double-tone-key undo
+// must COMMIT exactly as displayed. The stateless closed projection cannot
+// see the mid-buffer undo event, so before the `latch_from_undo` guard it
+// re-applied the removed tone at the space ("tesst" → displayed "test" but
+// committed "tét"), making English words like test/text/reset untypeable by
+// ANY key sequence.
+
+#[test]
+fn boundary_repair_tesst_space_commits_displayed_test() {
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "tesst".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(
+        ex.syllable(),
+        "test",
+        "double-s undo then 't' displays 'test'"
+    );
+    assert!(
+        ex.is_temp_english_mode(),
+        "undo latches English passthrough"
+    );
+    let actions = ex.process(' ');
+    assert_eq!(
+        confirm_text(&actions),
+        "test",
+        "deliberate-undo latch must commit as displayed, never re-toned to 'tét'"
+    );
+}
+
+#[test]
+fn boundary_repair_texxt_space_commits_displayed_text() {
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "texxt".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(ex.syllable(), "text");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "text");
+}
+
+#[test]
+fn boundary_repair_reseet_space_commits_displayed_reset() {
+    // Non-adjacent-mark undo variant: "rese" fires the inferred 'e' mark
+    // ("rế"), retyping 'e' undoes it to literal "rese", then 't' appends —
+    // the ONLY key sequence that renders "reset". It must survive commit.
+    let mut ex = PipelineExecutor::new(telex_composition_config());
+    for ch in "reseet".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(ex.syllable(), "reset");
+    let actions = ex.process(' ');
+    assert_eq!(confirm_text(&actions), "reset");
+}
+
+#[test]
+fn boundary_repair_chwowng_space_still_rescued_to_chuong() {
+    // Counter-case pinning the guard's precision: chwowng's latch is NOT a
+    // deliberate undo (the mid-word "chwow" frame trips the structural
+    // English fallback), so the closed-projection repair must still fire
+    // and rescue the committed text to the attested "chương".
+    // Uses the real preset (not this file's local config): the onset
+    // w-shorthand needs the 1-char "w"→"ư" rule.
+    let mut config = buttre_engine::pipeline::presets::telex_config();
+    config.pipeline.use_composition = true;
+    let mut ex = PipelineExecutor::new(config);
+    for ch in "chwowng".chars() {
+        ex.process(ch);
+    }
+    assert_eq!(ex.syllable(), "chwowng", "mid-word latch shows literal");
+    assert!(ex.is_temp_english_mode());
+    let actions = ex.process(' ');
+    assert_eq!(
+        confirm_text(&actions),
+        "chương",
+        "non-deliberate latch keeps the boundary repair"
+    );
+}
+
 #[test]
 fn boundary_repair_adjacent_vieet_space_never_repaired() {
     let mut ex = PipelineExecutor::new(telex_composition_config());

@@ -26,8 +26,9 @@
 
 const CONTEXT_SRC: &str = include_str!("../src/pipeline/context.rs");
 
-/// Number of `pub <field>: bool` fields on `TypingContext`, frozen at 3 by
-/// the event-sourcing-completion Phase 8 purity audit.
+/// Number of `pub <field>: bool` fields on `TypingContext` — frozen at 3 by
+/// the event-sourcing-completion Phase 8 purity audit, then deliberately
+/// bumped to 4 for `latch_from_undo` (see its table row below).
 ///
 /// Deleted 5 dead one-way bools left over from the retired dual-engine
 /// (Permutation/Reconciliation/Retrofix stages, removed in an earlier
@@ -46,6 +47,7 @@ const CONTEXT_SRC: &str = include_str!("../src/pipeline/context.rs");
 /// | Field | Why it survives |
 /// |---|---|
 /// | `temp_english_mode` | The ONE legacy latch the purity invariant explicitly calls out (`AGENTS.md`) — but it is DERIVED, not one-way: `pipeline::stages::compose_stage`'s evidence-based un-latch (event-sourcing-completion Phase 2) re-probes `compose(&full_raw)` on every trigger-eligible keystroke while set, and clears it the instant the evidence says Vietnamese (`should_unlatch`). It is a transient CACHE of `compose()`'s own most recent verdict, re-evaluated from the full raw buffer, never a valve that blocks recomputation. |
+/// | `latch_from_undo` | Companion CACHE to `temp_english_mode` recording WHY the current latch engaged: `is_last_event_undo(&raw, opts)` — itself a pure fold over the raw log — evaluated at the latching keystroke. Recomputed on every non-latched keystroke, cleared with the latch (un-latch adopt, `clear()`), and rebuilt identically when `Keyboard::compose_one_word` replays a word's keys. Consumed by `PipelineExecutor::boundary_repair`: a DELIBERATE undo latch ("tesst" → "test") must commit as displayed, while a fallback-misfire latch ("chwowng") keeps the closed-projection repair. Same raw + same opts always reproduce it — a cache of a fold, never a one-way valve. |
 /// | `showing_candidates` | UI presentation state for Stage 6 (Nôm dictionary lookup) — mirrors whether `candidates` is non-empty at the moment of the last lookup. Transient per-session UI bookkeeping, not a decision about how to interpret raw keystrokes. |
 /// | `learning_enabled` | A session-level USER SETTING (mirrors `Settings::learning_enabled`), not something derived from raw at all — same category as any other config-derived field on `ComposeOpts` (e.g. `tone_enabled`). Configuration is data, not a re-derivation target. |
 ///
@@ -64,7 +66,7 @@ const CONTEXT_SRC: &str = include_str!("../src/pipeline/context.rs");
 ///   entering `compose()` as `Arc` snapshots inside `ComposeOpts`, never as
 ///   a global or a hidden side channel. `compose()` stays pure: same
 ///   raw + same opts (incl. the snapshot) always yields the same result.
-const EXPECTED_BOOL_FIELD_COUNT: usize = 3;
+const EXPECTED_BOOL_FIELD_COUNT: usize = 4;
 
 /// Extract the brace-delimited body of `pub struct <name> { ... }` from
 /// `src`. Scoped extraction (not a whole-file scan) so `bool` mentions

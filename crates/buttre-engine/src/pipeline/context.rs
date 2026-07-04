@@ -182,6 +182,26 @@ pub struct TypingContext {
     /// Causes subsequent input to pass through as raw Latin
     pub temp_english_mode: bool,
 
+    /// True when the CURRENT `temp_english_mode` latch was entered through a
+    /// DELIBERATE undo/toggle event (`compose::is_last_event_undo` held at
+    /// the latching keystroke), as opposed to the structural English
+    /// fallback misfiring on an in-progress Vietnamese word.
+    ///
+    /// Consumed by `PipelineExecutor::boundary_repair`: a word the user
+    /// explicitly forced literal ("tesst" → undo → "test", "texxt" →
+    /// "text") must COMMIT as displayed — re-running the stateless closed
+    /// projection over the full raw would re-apply the very tone the undo
+    /// removed ("tesst" → "tét") and destroy the escape hatch. A
+    /// non-deliberate latch ("chwowng"'s mid-word fallback misfire) keeps
+    /// the repair, which is what rescues it to "chương" at commit.
+    ///
+    /// Derived state, not history: recomputed on every non-latched
+    /// keystroke as a pure fold of the raw log (same purity contract as
+    /// `temp_english_mode` itself), persisted only while the latch is
+    /// active, and rebuilt identically when `Keyboard::compose_one_word`
+    /// replays a word's keys.
+    pub latch_from_undo: bool,
+
     /// History of transformations (for advanced undo)
     /// Each entry is (raw_buffer, syllable_buffer) at that point
     pub history: Vec<(String, String)>,
@@ -386,6 +406,7 @@ impl TypingContext {
             last_output: String::new(),
             cursor: 0,
             temp_english_mode: false,
+            latch_from_undo: false,
             history: Vec::new(),
             candidates: Vec::new(),
             showing_candidates: false,
@@ -419,6 +440,7 @@ impl TypingContext {
         self.last_output.clear();
         self.cursor = 0;
         self.temp_english_mode = false;
+        self.latch_from_undo = false;
         self.history.clear();
         self.candidates.clear();
         self.showing_candidates = false;

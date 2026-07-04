@@ -148,6 +148,7 @@ impl PipelineStage for ComposeStage {
                     // diff emits the corrective Replace automatically.
                     ctx.syllable_buffer = apply_case_mask(&probe.text, &ctx.char_buffer, opts);
                     ctx.temp_english_mode = false;
+                    ctx.latch_from_undo = false;
                     return StageResult::Continue;
                 }
             }
@@ -201,6 +202,7 @@ impl PipelineStage for ComposeStage {
             // Latch passthrough so the rest of the run-on word also appends
             // literally until the next separator resets the engine.
             ctx.temp_english_mode = true;
+            ctx.latch_from_undo = false;
             return StageResult::Continue;
         }
 
@@ -212,6 +214,10 @@ impl PipelineStage for ComposeStage {
 
         ctx.syllable_buffer = text;
         ctx.temp_english_mode = result.temp_english;
+        // Record WHY this latch (if any) engaged — a deliberate undo/toggle
+        // event vs. the structural English fallback. Consumed by the
+        // word-boundary repair; see `TypingContext::latch_from_undo`.
+        ctx.latch_from_undo = result.temp_english && is_last_event_undo(&raw, opts);
 
         StageResult::Continue
     }
