@@ -38,7 +38,7 @@ panic = "abort"     # Abort on panic to reduce binary size
 strip = true        # Strip symbols from binary
 
 # The engine crate is the per-keystroke hot path: speed over size there.
-# Measured on examples/bench_vs_reference: compose ~-15%, executor ~-17%
+# Measured on tools/bench-compare: compose ~-15%, executor ~-17%
 # latency vs opt-level="z", for a one-crate binary-size delta only.
 [profile.release.package.buttre-engine]
 opt-level = 3

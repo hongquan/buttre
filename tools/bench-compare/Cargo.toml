@@ -1,0 +1,23 @@
+[package]
+name = "bench-compare"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Cross-engine benchmark comparator (buttre vs reference engines)"
+license = "GPL-3.0-only"
+
+# Standalone crate, deliberately OUTSIDE the buttre workspace: it depends on
+# the local-only `.reference/gonhanh` checkout (gitignored), so it must never
+# be reachable from the workspace manifest that CI builds — a missing path
+# dependency fails `cargo metadata` for the ENTIRE workspace, which broke
+# every CI job when this lived as a buttre-engine dev-dependency/example.
+#
+# Run from the repo root (dataset paths are CWD-relative):
+#     cargo run --release --manifest-path tools/bench-compare/Cargo.toml
+[workspace]
+
+[dependencies]
+buttre-engine = { path = "../../crates/buttre-engine" }
+gonhanh-core = { path = "../../.reference/gonhanh/core" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
