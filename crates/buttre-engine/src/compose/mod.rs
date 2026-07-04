@@ -392,14 +392,16 @@ pub fn compose(raw: &[char], opts: &ComposeOpts) -> ComposeResult {
 /// (event-sourcing-completion Phase 3 — "word-boundary final repair").
 ///
 /// Identical to [`compose`] except the attestation gate ([`passes_attestation_gate`])
-/// is forced to EXACT attestation for every trigger class, including digits —
-/// the shape-relaxation `compose` grants digit triggers exists only to avoid
-/// mid-word flicker while a tone key is still expected on the next keystroke.
+/// clamps digit triggers whose tone NEVER ARRIVED to exact attestation — the
+/// shape-relaxation `compose` grants digit triggers exists (mid-word) to
+/// avoid flicker while a tone key is still expected on the next keystroke.
 /// A word that has reached a boundary (separator, Enter, or any other commit
 /// point) expects no further keystrokes, so a shape-only inferred mark whose
 /// tone never arrived (VNI `"nhat6"` → open-projection `"nhât"`) is demoted to
 /// its literal raw form (`"nhat6"`) instead of staying on the shape-attested
-/// intermediate.
+/// intermediate. When the tone HAS arrived, shape attestation still suffices
+/// at the boundary (`"d9ech56"` → `"đệch"` commits even though only `"đếch"`
+/// is dictionary-attested) — see [`passes_attestation_gate`]'s digit branch.
 ///
 /// Callers compare this against the currently-displayed (open-projection)
 /// text and only emit a correction when the two differ — see
@@ -610,12 +612,18 @@ fn last_tone_raw_pos(raw: &[char], tone_key: char) -> Option<usize> {
 /// ## Word-boundary closed projection (Phase 3)
 ///
 /// `closed` is the word-boundary flag from [`compose_closed`]. When `true`,
-/// the digit-trigger shape-relaxation below is disabled unconditionally and
-/// EVERY trigger class requires exact attestation — a closed word expects no
-/// further keystrokes, so there is no "tone hasn't arrived yet" excuse left
-/// for a shape-only match to survive on. The demote path taken when this
-/// fails is byte-identical to the open-projection gate's (`compose_internal`
-/// recurses with `allow_nonadjacent=false`, unaffected by `closed`).
+/// the digit-trigger shape-relaxation below is disabled for TONELESS text —
+/// a closed word expects no further keystrokes, so a shape-only match whose
+/// tone never arrived has no excuse left to survive on ("nhat6" → "nhât"
+/// restores its literal raw). When the composed text ALREADY carries a tone,
+/// shape attestation still suffices at the boundary: the "tone hasn't
+/// arrived yet" rationale is moot, and clamping to exact attestation there
+/// rejected deliberately-typed informal words ("d9ech56" → "đệch", shape
+/// attested via "đếch") while the adjacent key order ("d9e6ch5", marks
+/// unflagged) committed the same word — commit results must not depend on
+/// key order. The demote path taken when the gate fails is byte-identical
+/// to the open-projection gate's (`compose_internal` recurses with
+/// `allow_nonadjacent=false`, unaffected by `closed`).
 ///
 /// ## Trigger classification (P6 gate hardening)
 ///
@@ -677,11 +685,30 @@ fn passes_attestation_gate(text: &str, applied: &[AppliedMark], closed: bool, op
     if flagged.peek().is_none() {
         return true;
     }
-    if !closed && flagged.all(|m| m.key.is_ascii_digit()) {
+    // Digit (VNI) triggers relax to SHAPE attestation — mid-word always, and
+    // at the closed boundary too PROVIDED the composed text already carries a
+    // tone. The boundary's exact-attestation clamp exists solely for the
+    // "tone never arrived" intermediates ("nhat6" → shape-only "nhât" must
+    // restore its literal raw at commit); once a tone HAS been deliberately
+    // typed, demoting a shape-attested word because its exact tone combo is
+    // not in the dictionary would be aggressive spell-check — it rejected
+    // real informal words ("d9ech56" → "đệch", shape attested via "đếch"),
+    // and it made commit results depend on KEY ORDER: adjacent "d9e6ch5"
+    // (marks unflagged, gate never consulted) committed "đệch" while the
+    // delayed order reverted to raw. A digit trigger cannot occur inside an
+    // English word, so this relaxation has no English-safety cost.
+    if flagged.all(|m| m.key.is_ascii_digit()) && (!closed || carries_tone(text)) {
         is_shape_attested(text)
     } else {
         is_attested_overlay(text, opts.user_attested.as_deref())
     }
+}
+
+/// True when any char of `text` carries one of the five Vietnamese tone
+/// marks — i.e. a tone key has already been applied to this composition.
+fn carries_tone(text: &str) -> bool {
+    text.chars()
+        .any(|c| crate::tone::strip(c).1 != ToneMark::None)
 }
 
 /// Stylistic elongation fallback: when the syllable is invalid, check whether it

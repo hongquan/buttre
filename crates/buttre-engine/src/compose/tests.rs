@@ -701,6 +701,27 @@ fn critical_vni_nhat6_closed_restores_literal() {
 }
 
 #[test]
+fn critical_vni_toned_shape_attested_survives_closed_boundary() {
+    // "d9ech56": delayed digit order — the '6' mark is non-adjacent, so the
+    // gate is consulted. The composed "đệch" is NOT exact-attested (only
+    // "đếch" is in the dictionary) but its tone HAS been deliberately typed
+    // ('5' = nặng), so the closed boundary must keep the shape-attested
+    // composition instead of reverting to raw. Regression: the old
+    // unconditional exact clamp committed "d9ech56" while the ADJACENT key
+    // order "d9e6ch5" (marks unflagged, gate never consulted) committed
+    // "đệch" — commit results must not depend on key order.
+    let opts = vni_opts();
+    assert_eq!(compose(&raw("d9ech56"), &opts).text, "đệch", "open projection");
+    assert_eq!(
+        compose_closed(&raw("d9ech56"), &opts).text,
+        "đệch",
+        "toned shape-attested word must survive the closed boundary"
+    );
+    // Key-order parity: the adjacent order commits the same word.
+    assert_eq!(compose_closed(&raw("d9e6ch5"), &opts).text, "đệch");
+}
+
+#[test]
 fn critical_vni_nhat61_closed_untouched_exact_attested() {
     // Exact-attested already under the OPEN gate (the tone arrived) — the
     // closed projection must be byte-identical.
