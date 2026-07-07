@@ -928,6 +928,8 @@ lu75, lự
 lua75, lựa
 luc75, lực
 luu75, lựu
+mieng16, miếng
+mieng26, miềng
 mieng61, miếng
 mieu61, miếu
 mien62, miền
@@ -2273,3 +2275,10 @@ on63, ổn
 o73, ở
 uy3, ủy
 ung71, ứng
+# Informal/slang supplement (buttre-curated) — "d9ech56" is the delayed
+# digit+tone style behind the word-boundary revert bug.
+d9ech56, đệch
+d9e6ch5, đệch
+cho72i, chời
+dzo6, dzô
+dza6y5, dzậy

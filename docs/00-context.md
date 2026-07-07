@@ -1,5 +1,5 @@
 # Bối Cảnh Hệ Thống & Quy Tắc Thiết Kế buttre
-**Cập nhật lần cuối**: 2026-06-14
+**Cập nhật lần cuối**: 2026-07-03 (event-sourcing-completion: un-latch, boundary repair, learning, controls)
 **Đối tượng**: Developer & AI Agent
 
 ---
@@ -429,6 +429,62 @@ temp_english_mode:
   hành_vi: Phím chữ cái tiếp theo là raw (không phải tiếng Việt)
   reset_khi: Ký tự không phải chữ cái hoặc ranh giới từ
   ví_dụ: "Aaron" (aa → â → a [undo] → r → o → n [raw])
+
+  un_latch_dua_tren_bang_chung: >-
+    (event-sourcing-completion Phase 2) Không còn là latch một chiều — mỗi
+    phím thuộc lớp trigger re-probe compose(raw) đầy đủ và tự gỡ latch khi
+    bằng chứng nói là tiếng Việt (xem PIPELINE_ARCHITECTURE.md mục
+    "Un-latch dựa trên bằng chứng"). Sửa lớp lỗi "vietj"+"e" → "việt".
+```
+
+### Điều Khiển Người Dùng & Cá Nhân Hóa (event-sourcing-completion Phase 4/5)
+
+**Toggle từ cuối (bidirectional word toggle)** — chỉ Hook multiword backend (TSF chưa hỗ trợ):
+
+```yaml
+hotkey: Ctrl+Shift+Z (mặc định, đăng ký trong buttre-core/src/hotkey/manager.rs)
+hanh_vi:
+  - Bấm lần 1: đổi từ cuối cùng đang mở sang literal(raw) — vd "rết" → "reset"
+  - Bấm lần 2: đổi lại thành compose(raw) — vd "reset" → "rết"
+  - Lặp lại vô hạn (khác Unikey Ctrl+Shift+Esc — one-shot, phá hủy dạng đã ghép)
+  - Toggle ĐÓNG từ (word-freezing): gõ tiếp sau toggle bắt đầu từ MỚI, không
+    nối vào từ đã bị toggle (tránh phím dấu/transform làm hỏng từ đã đóng băng)
+an_toan:
+  - Chord exemption: giữ Ctrl/Shift không reset engine (nếu không, chord tự
+    xóa window trước khi hotkey kịp xử lý)
+  - Focus guard: so khớp foreground HWND tại thời điểm dispatch — alt-tab
+    sang app khác trước khi bấm hotkey → no-op, không xóa nhầm text app khác
+```
+
+**Backspace mode** (`Settings::backspace_mode`, TOML `backspace_mode = "grapheme" | "raw"`):
+
+```yaml
+grapheme (mặc định): xóa 1 ký tự HIỂN THỊ, hành vi không đổi từ trước phase này
+raw: xóa 1 PHÍM THÔ và tái ghép — nghịch đảo tự nhiên của kiến trúc event-sourcing,
+     có thể xóa nhiều/ít hơn 1 glyph hiển thị (vd "việt" raw "vietj" → backspace
+     raw xóa 'j' → "viet", không phải "việ")
+```
+
+**Personal learning store** (`Settings::learning_enabled`, mặc định `true`):
+
+```yaml
+vi_tri_file: "{dirs::data_dir()}/buttre/learning.toml"
+  # Windows: %APPDATA%/buttre/learning.toml
+noi_dung:
+  user_attested: "âm tiết người dùng gõ trực tiếp (không suy luận) ≥ 3 lần
+    riêng biệt, dù chưa có trong bảng âm tiết tĩnh — mở khóa gõ trễ/không
+    liền kề cho chính âm tiết đó sau này"
+  prefs: "chuỗi phím thô chính xác → hình chiếu ưa thích (literal/composed),
+    ghi lại từ hành động CHỦ Ý (double-tap undo, hoặc toggle Ctrl+Shift+Z)"
+quyen_rieng_tu:
+  - "learning.toml chứa MẢNH VỠ của chữ đã gõ (chuỗi phím thô của từ đã
+    sửa/toggle) — KHÔNG BAO GIỜ được ghi vào log"
+  - "File thuần TOML, người dùng có thể tự đọc/sửa/xóa — đây LÀ cơ chế xóa
+    (không có nút 'Clear' trong app ở phase này)"
+  - "Tắt hoàn toàn bằng learning_enabled = false trong settings — không thu
+    thập, không áp dụng snapshot, hành vi giống hệt lúc chưa có store"
+  - "Chỉ tiến trình Hook mới ghi file (atomic temp+rename, ngoài luồng xử
+    lý phím — không bao giờ ghi từ LL-hook callback); tiến trình TSF chỉ đọc"
 ```
 
 ---

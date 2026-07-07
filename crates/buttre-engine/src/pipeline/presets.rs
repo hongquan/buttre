@@ -13,7 +13,7 @@ use std::sync::Arc;
 ///
 /// ## DEPRECATED
 /// This function is deprecated. Use `buttre_core::keyboard::telex::build_config()` instead.
-/// 
+///
 /// ## Telex Input Method
 ///
 /// Telex is the most popular Vietnamese input method. It uses letter combinations
@@ -36,7 +36,7 @@ use std::sync::Arc;
 /// - `j` → Dot (nặng)
 pub fn telex_config() -> PipelineConfig {
     let mut config = PipelineConfig::new("telex");
-    
+
     // ========================================
     // DEPRECATED: Use buttre_core::keyboard::telex::build_config() instead
     // ========================================
@@ -48,10 +48,10 @@ pub fn telex_config() -> PipelineConfig {
     //
     // This preset now only provides basic transforms and tones.
     // ========================================
-    
+
     // Empty context rules (special rules moved to buttre-core)
     config.context_rules = Arc::new(Vec::new());
-    
+
     // ========================================
     // Standard Transformation Rules
     // ========================================
@@ -63,7 +63,12 @@ pub fn telex_config() -> PipelineConfig {
     config.add_transform("oo", "ô");
     config.add_transform("ow", "ơ");
     config.add_transform("uw", "ư");
-    
+    // Onset-only w-shorthand ("lwu"→"lưu", "trwong"→"trương"): a 1-char rule
+    // makes 'w' fire as an inferred ư-insertion after a pure-consonant onset
+    // (see `compose::segment::onset_only_insertion_fires`). Word-initial 'w'
+    // stays literal, and unattested results demote — English w-words are safe.
+    config.add_transform("w", "ư");
+
     // Uppercase variants
     config.add_transform("AA", "Â");
     config.add_transform("AW", "Ă");
@@ -76,7 +81,7 @@ pub fn telex_config() -> PipelineConfig {
     config.add_transform("Ow", "Ơ");
     config.add_transform("UW", "Ư");
     config.add_transform("Uw", "Ư");
-    
+
     // Tone marks
     config.add_tone('s', ToneMark::Acute);
     config.add_tone('S', ToneMark::Acute);
@@ -88,12 +93,12 @@ pub fn telex_config() -> PipelineConfig {
     config.add_tone('X', ToneMark::Tilde);
     config.add_tone('j', ToneMark::Dot);
     config.add_tone('J', ToneMark::Dot);
-    
+
     // Settings
     config.enable_lookup = false; // Disable by default
-    config.tone_style = ToneStyle::Old;  // Default: kiểu cũ (óa, úa, úy)
+    config.tone_style = ToneStyle::Old; // Default: kiểu cũ (óa, úa, úy)
     config.unicode_form = UnicodeForm::NFC;
-    
+
     config
 }
 
@@ -141,7 +146,7 @@ pub fn telex_config() -> PipelineConfig {
 /// ```
 pub fn vni_config() -> PipelineConfig {
     let mut config = PipelineConfig::new("vni");
-    
+
     // Transformation rules
     // Note: VNI has multiple ways to type some characters
     config.add_transform("a6", "â");
@@ -151,7 +156,7 @@ pub fn vni_config() -> PipelineConfig {
     config.add_transform("o6", "ô");
     config.add_transform("o7", "ơ");
     config.add_transform("u7", "ư");
-    
+
     // Uppercase variants
     config.add_transform("A6", "Â");
     config.add_transform("A8", "Ă");
@@ -160,7 +165,7 @@ pub fn vni_config() -> PipelineConfig {
     config.add_transform("O6", "Ô");
     config.add_transform("O7", "Ơ");
     config.add_transform("U7", "Ư");
-    
+
     // Tone marks (numbers)
     config.add_tone('1', ToneMark::Acute);
     config.add_tone('2', ToneMark::Grave);
@@ -168,12 +173,12 @@ pub fn vni_config() -> PipelineConfig {
     config.add_tone('4', ToneMark::Tilde);
     config.add_tone('5', ToneMark::Dot);
     config.add_tone('0', ToneMark::None); // Remove tone
-    
+
     // Settings
     config.enable_lookup = false; // Disable by default
-    config.tone_style = ToneStyle::Old;  // Default: kiểu cũ (óa, úa, úy)
+    config.tone_style = ToneStyle::Old; // Default: kiểu cũ (óa, úa, úy)
     config.unicode_form = UnicodeForm::NFC;
-    
+
     config
 }
 
@@ -200,12 +205,9 @@ pub fn simple_telex_config() -> PipelineConfig {
 ///
 /// This is a placeholder for future implementation.
 pub fn viqr_config() -> PipelineConfig {
-    let config = PipelineConfig::new("viqr");
-    
     // Future: Add VIQR transformation rules
     // Example: a^ → â, a( → ă, etc.
-    
-    config
+    PipelineConfig::new("viqr")
 }
 
 #[cfg(test)]
@@ -221,7 +223,7 @@ mod tests {
     #[test]
     fn test_telex_has_transformations() {
         let config = telex_config();
-        
+
         assert_eq!(config.transform_rules.get("aa"), Some(&"â".to_string()));
         assert_eq!(config.transform_rules.get("aw"), Some(&"ă".to_string()));
         assert_eq!(config.transform_rules.get("dd"), Some(&"đ".to_string()));
@@ -234,7 +236,7 @@ mod tests {
     #[test]
     fn test_telex_has_uppercase_transformations() {
         let config = telex_config();
-        
+
         assert_eq!(config.transform_rules.get("AA"), Some(&"Â".to_string()));
         assert_eq!(config.transform_rules.get("DD"), Some(&"Đ".to_string()));
     }
@@ -242,7 +244,7 @@ mod tests {
     #[test]
     fn test_telex_has_tones() {
         let config = telex_config();
-        
+
         assert_eq!(config.tone_map.get(&'s'), Some(&ToneMark::Acute));
         assert_eq!(config.tone_map.get(&'f'), Some(&ToneMark::Grave));
         assert_eq!(config.tone_map.get(&'r'), Some(&ToneMark::Hook));
@@ -253,9 +255,9 @@ mod tests {
     #[test]
     fn test_telex_settings() {
         let config = telex_config();
-        
-        assert_eq!(config.enable_lookup, false);
-        assert_eq!(config.tone_style, ToneStyle::Old);  // Uses old style (óa, úa, úy)
+
+        assert!(!config.enable_lookup);
+        assert_eq!(config.tone_style, ToneStyle::Old); // Uses old style (óa, úa, úy)
         assert_eq!(config.unicode_form, UnicodeForm::NFC);
     }
 
@@ -268,7 +270,7 @@ mod tests {
     #[test]
     fn test_vni_has_transformations() {
         let config = vni_config();
-        
+
         assert_eq!(config.transform_rules.get("a6"), Some(&"â".to_string()));
         assert_eq!(config.transform_rules.get("a8"), Some(&"ă".to_string()));
         assert_eq!(config.transform_rules.get("d9"), Some(&"đ".to_string()));
@@ -281,7 +283,7 @@ mod tests {
     #[test]
     fn test_vni_has_tones() {
         let config = vni_config();
-        
+
         assert_eq!(config.tone_map.get(&'1'), Some(&ToneMark::Acute));
         assert_eq!(config.tone_map.get(&'2'), Some(&ToneMark::Grave));
         assert_eq!(config.tone_map.get(&'3'), Some(&ToneMark::Hook));
@@ -293,9 +295,9 @@ mod tests {
     #[test]
     fn test_vni_settings() {
         let config = vni_config();
-        
-        assert_eq!(config.enable_lookup, false);
-        assert_eq!(config.tone_style, ToneStyle::Old);  // Uses old style (óa, úa, úy)
+
+        assert!(!config.enable_lookup);
+        assert_eq!(config.tone_style, ToneStyle::Old); // Uses old style (óa, úa, úy)
         assert_eq!(config.unicode_form, UnicodeForm::NFC);
     }
 

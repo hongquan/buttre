@@ -9,9 +9,9 @@
 //! - Watching for config file changes (future)
 
 use crate::KeyboardConfig;
-use anyhow::{Result, Context};
-use std::path::{Path, PathBuf};
+use anyhow::{Context, Result};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 /// Config Service - Manages keyboard configurations
 ///
@@ -69,34 +69,32 @@ impl ConfigService {
     /// - Linux: `~/.config/buttre/keyboards`
     pub fn new() -> Result<Self> {
         let custom_dir = Self::get_custom_dir()?;
-        
+
         // Ensure directory exists
-        fs::create_dir_all(&custom_dir)
-            .context("Failed to create keyboards directory")?;
-        
+        fs::create_dir_all(&custom_dir).context("Failed to create keyboards directory")?;
+
         Ok(Self { custom_dir })
     }
-    
+
     /// Create a ConfigService with a custom directory
     ///
     /// # Arguments
     ///
     /// * `custom_dir` - Path to the custom keyboards directory
     pub fn with_custom_dir(custom_dir: PathBuf) -> Result<Self> {
-        fs::create_dir_all(&custom_dir)
-            .context("Failed to create keyboards directory")?;
-        
+        fs::create_dir_all(&custom_dir).context("Failed to create keyboards directory")?;
+
         Ok(Self { custom_dir })
     }
-    
+
     /// Get the default custom keyboards directory
     fn get_custom_dir() -> Result<PathBuf> {
-        let data_dir = dirs::data_dir()
-            .ok_or_else(|| anyhow::anyhow!("Could not find data directory"))?;
-        
+        let data_dir =
+            dirs::data_dir().ok_or_else(|| anyhow::anyhow!("Could not find data directory"))?;
+
         Ok(data_dir.join("buttre").join("keyboards"))
     }
-    
+
     /// Load a configuration by ID
     ///
     /// This will first check for built-in configs (telex, vni),
@@ -116,16 +114,16 @@ impl ConfigService {
             "vni" => return KeyboardConfig::vni(),
             _ => {}
         }
-        
+
         // Look for custom config
         let path = self.custom_dir.join(format!("{}.toml", id));
         if path.exists() {
             return self.load_file(&path);
         }
-        
+
         Err(anyhow::anyhow!("Config '{}' not found", id))
     }
-    
+
     /// Load a configuration from a file
     ///
     /// # Arguments
@@ -137,12 +135,13 @@ impl ConfigService {
     /// The loaded configuration
     pub fn load_file(&self, path: impl AsRef<Path>) -> Result<KeyboardConfig> {
         let path = path.as_ref();
-        KeyboardConfig::load(path.to_str().ok_or_else(|| {
-            anyhow::anyhow!("Invalid path")
-        })?)
+        KeyboardConfig::load(
+            path.to_str()
+                .ok_or_else(|| anyhow::anyhow!("Invalid path"))?,
+        )
         .with_context(|| format!("Failed to load config from {:?}", path))
     }
-    
+
     /// List all available configurations
     ///
     /// This includes both built-in and custom configurations.
@@ -152,7 +151,7 @@ impl ConfigService {
     /// A vector of configuration information
     pub fn list(&self) -> Result<Vec<ConfigInfo>> {
         let mut configs = Vec::new();
-        
+
         // Add built-in configs
         configs.push(ConfigInfo {
             id: "telex".to_string(),
@@ -160,25 +159,25 @@ impl ConfigService {
             language: "vietnamese".to_string(),
             source: ConfigSource::Builtin,
         });
-        
+
         configs.push(ConfigInfo {
             id: "vni".to_string(),
             name: "VNI".to_string(),
             language: "vietnamese".to_string(),
             source: ConfigSource::Builtin,
         });
-        
+
         // Scan custom directory
         if self.custom_dir.exists() {
             for entry in fs::read_dir(&self.custom_dir)? {
                 let entry = entry?;
                 let path = entry.path();
-                
+
                 // Only process .toml files
                 if path.extension().and_then(|s| s.to_str()) != Some("toml") {
                     continue;
                 }
-                
+
                 // Try to load the config to get metadata
                 if let Ok(config) = self.load_file(&path) {
                     configs.push(ConfigInfo {
@@ -190,15 +189,15 @@ impl ConfigService {
                 }
             }
         }
-        
+
         Ok(configs)
     }
-    
+
     /// Get the custom keyboards directory path
     pub fn custom_dir(&self) -> &Path {
         &self.custom_dir
     }
-    
+
     /// Check if a config exists
     ///
     /// # Arguments
@@ -209,7 +208,7 @@ impl ConfigService {
         if matches!(id, "telex" | "vni") {
             return true;
         }
-        
+
         // Check custom
         let path = self.custom_dir.join(format!("{}.toml", id));
         path.exists()
@@ -221,4 +220,3 @@ impl Default for ConfigService {
         Self::new().expect("Failed to create ConfigService")
     }
 }
-

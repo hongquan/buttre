@@ -10,7 +10,10 @@ use super::vk_codes::*;
 /// These keys should reset the input buffer
 #[inline]
 pub fn is_movement_key(vk: u16) -> bool {
-    matches!(vk, VK_LEFT | VK_UP | VK_RIGHT | VK_DOWN | VK_HOME | VK_END | VK_PRIOR | VK_NEXT)
+    matches!(
+        vk,
+        VK_LEFT | VK_UP | VK_RIGHT | VK_DOWN | VK_HOME | VK_END | VK_PRIOR | VK_NEXT
+    )
 }
 
 /// Check if virtual key is a modifier key
@@ -18,11 +21,17 @@ pub fn is_movement_key(vk: u16) -> bool {
 pub fn is_modifier_key(vk: u16) -> bool {
     matches!(
         vk,
-        VK_SHIFT | VK_CONTROL | VK_MENU |
-        VK_LSHIFT | VK_RSHIFT |
-        VK_LCONTROL | VK_RCONTROL |
-        VK_LMENU | VK_RMENU |
-        VK_LWIN | VK_RWIN
+        VK_SHIFT
+            | VK_CONTROL
+            | VK_MENU
+            | VK_LSHIFT
+            | VK_RSHIFT
+            | VK_LCONTROL
+            | VK_RCONTROL
+            | VK_LMENU
+            | VK_RMENU
+            | VK_LWIN
+            | VK_RWIN
     )
 }
 
@@ -32,7 +41,8 @@ pub fn is_special_key(vk: u16) -> bool {
     matches!(
         vk,
         // Function keys
-        VK_F1..=VK_F24 |
+        VK_F1
+            ..=VK_F24 |
         // Insert, Delete
         VK_INSERT | VK_DELETE |
         // System keys (but NOT movement keys)
@@ -50,7 +60,7 @@ pub fn is_special_key(vk: u16) -> bool {
 }
 
 /// Check if virtual key should cause buffer reset (word termination)
-/// 
+///
 /// Based on UniKey behavior, these keys should reset the Vietnamese input buffer:
 /// - Movement keys (arrows, Home, End, PgUp/Down) - cursor relocation = word boundary
 /// - Enter key (line termination)
@@ -59,7 +69,7 @@ pub fn is_special_key(vk: u16) -> bool {
 /// - Delete key (forward delete)
 /// - Insert key (mode toggle)
 /// - Function keys (F1-F24) - typically trigger commands
-/// 
+///
 /// Note: Mouse clicks are handled separately via mouse hook.
 /// Note: Backspace is NOT included (handled separately with undo logic).
 /// Note: Space is NOT included (processed as character for soft separator).
@@ -75,9 +85,9 @@ pub fn is_buffer_reset_key(vk: u16) -> bool {
         // Editing keys (non-backspace)
         VK_INSERT | VK_DELETE |
         // Function keys (typically trigger commands)
-        VK_F1..=VK_F24 |
+        VK_F1
+            ..=VK_F24 |
         // System keys
         VK_PAUSE | VK_SNAPSHOT
     )
 }
-

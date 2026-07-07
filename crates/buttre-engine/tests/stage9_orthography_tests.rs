@@ -1,6 +1,6 @@
-use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig};
-use buttre_engine::pipeline::stages::stage9_orthography::OrthographyStage;
 use buttre_engine::pipeline::config::{ToneStyle, UnicodeForm};
+use buttre_engine::pipeline::stages::stage9_orthography::OrthographyStage;
+use buttre_engine::pipeline::{PipelineConfig, PipelineStage, StageResult, TypingContext};
 use unicode_normalization::UnicodeNormalization;
 
 #[test]
@@ -40,7 +40,10 @@ fn test_nfc_form() {
     // Output: NFC form (composed)
     assert_eq!(ctx.syllable_buffer, "â");
     // Verify it's actually NFC
-    assert_eq!(ctx.syllable_buffer, ctx.syllable_buffer.nfc().collect::<String>());
+    assert_eq!(
+        ctx.syllable_buffer,
+        ctx.syllable_buffer.nfc().collect::<String>()
+    );
 }
 
 #[test]
@@ -56,7 +59,10 @@ fn test_nfd_form() {
     // Should be "a" + combining circumflex
     assert_eq!(ctx.syllable_buffer, "â".nfd().collect::<String>());
     // Verify it's actually NFD
-    assert_eq!(ctx.syllable_buffer, ctx.syllable_buffer.nfd().collect::<String>());
+    assert_eq!(
+        ctx.syllable_buffer,
+        ctx.syllable_buffer.nfd().collect::<String>()
+    );
 }
 
 #[test]
@@ -80,10 +86,10 @@ fn test_from_config() {
 #[test]
 fn test_normalize_unicode() {
     let stage = OrthographyStage::new(ToneStyle::New, UnicodeForm::NFC);
-    
+
     let result = stage.normalize_unicode("test");
     assert_eq!(result, "test");
-    
+
     let result = stage.normalize_unicode("thường");
     assert_eq!(result, "thường");
 }
@@ -91,7 +97,7 @@ fn test_normalize_unicode() {
 #[test]
 fn test_normalize_tone_position() {
     let stage = OrthographyStage::new(ToneStyle::New, UnicodeForm::NFC);
-    
+
     let result = stage.normalize_tone_position("hòa");
     assert_eq!(result, "hòa");
 }
@@ -156,7 +162,10 @@ fn test_nfc_complex_vietnamese() {
     stage.process(&mut ctx, 'o');
 
     // Should be NFC
-    assert_eq!(ctx.syllable_buffer, ctx.syllable_buffer.nfc().collect::<String>());
+    assert_eq!(
+        ctx.syllable_buffer,
+        ctx.syllable_buffer.nfc().collect::<String>()
+    );
 }
 
 #[test]
@@ -164,7 +173,7 @@ fn test_unicode_normalization_idempotent() {
     // Test that normalizing already normalized text is idempotent
     let stage_nfc = OrthographyStage::new(ToneStyle::New, UnicodeForm::NFC);
     let stage_nfd = OrthographyStage::new(ToneStyle::New, UnicodeForm::NFD);
-    
+
     let mut ctx_nfc = TypingContext::new();
     ctx_nfc.syllable_buffer = "hòa".to_string();
     stage_nfc.process(&mut ctx_nfc, 'a');
@@ -257,6 +266,8 @@ fn test_process_does_not_change_case() {
     ctx.set_case_mask(vec![true, true, true, true, true]);
     ctx.syllable_buffer = "NGƯỜI".to_string(); // already cased by ComposeStage
     stage.process(&mut ctx, 'i');
-    assert_eq!(ctx.syllable_buffer, "NGƯỜI",
-               "process must not alter case — ComposeStage owns case restoration");
+    assert_eq!(
+        ctx.syllable_buffer, "NGƯỜI",
+        "process must not alter case — ComposeStage owns case restoration"
+    );
 }

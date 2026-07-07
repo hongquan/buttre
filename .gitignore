@@ -20,7 +20,8 @@ debug.log
 .vscode/
 .idea/
 .agents/
-.cargo
+.cargo/*
+!.cargo/audit.toml
 .claude
 *.swp
 *.swo

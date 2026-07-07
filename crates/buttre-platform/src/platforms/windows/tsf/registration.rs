@@ -3,7 +3,7 @@
 //! Handles COM server and TSF service registration
 
 use anyhow::{Context, Result};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use winreg::enums::*;
 use winreg::RegKey;
 
@@ -14,8 +14,8 @@ pub const CLSID_BUTTRE_TEXT_SERVICE: &str = "{E6B8A6C0-1234-5678-9ABC-DEF0123456
 pub const GUID_PROFILE: &str = "{B7447743-7652-4AB6-8D82-250D935EBCC0}";
 
 // Language IDs
-const LANGID_VIETNAMESE: u32 = 0x042A;  // Vietnamese (0x042A)
-const LANGID_ENGLISH_US: u32 = 0x0409;  // English (US) (0x0409)
+const LANGID_VIETNAMESE: u32 = 0x042A; // Vietnamese (0x042A)
+const LANGID_ENGLISH_US: u32 = 0x0409; // English (US) (0x0409)
 
 /// Check if TSF service is registered
 pub fn is_tsf_registered() -> bool {
@@ -25,7 +25,7 @@ pub fn is_tsf_registered() -> bool {
 }
 
 /// Register COM server
-pub fn register_com_server(dll_path: &PathBuf) -> Result<()> {
+pub fn register_com_server(dll_path: &Path) -> Result<()> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let clsid_path = format!("SOFTWARE\\Classes\\CLSID\\{}", CLSID_BUTTRE_TEXT_SERVICE);
 
@@ -66,11 +66,8 @@ pub fn unregister_com_server() -> Result<()> {
 }
 
 /// Register TSF service for a specific language
-fn register_tsf_language_profile(tip_key: &RegKey, dll_path: &PathBuf, langid: u32) -> Result<()> {
-    let profile_path = format!(
-        "LanguageProfile\\0x{:08X}\\{}",
-        langid, GUID_PROFILE
-    );
+fn register_tsf_language_profile(tip_key: &RegKey, dll_path: &Path, langid: u32) -> Result<()> {
+    let profile_path = format!("LanguageProfile\\0x{:08X}\\{}", langid, GUID_PROFILE);
     let (profile_key, _) = tip_key
         .create_subkey(&profile_path)
         .context("Failed to create language profile key")?;
@@ -91,11 +88,11 @@ fn register_tsf_language_profile(tip_key: &RegKey, dll_path: &PathBuf, langid: u
     // CRITICAL: Enable the profile so Windows will load the DLL
     #[cfg(debug_assertions)]
     eprintln!("Setting Enable flag for language 0x{:08X}", langid);
-    
+
     profile_key
         .set_value("Enable", &1u32)
         .context("Failed to set Enable flag")?;
-    
+
     #[cfg(debug_assertions)]
     eprintln!("Enable flag set successfully!");
 
@@ -106,9 +103,9 @@ fn register_tsf_language_profile(tip_key: &RegKey, dll_path: &PathBuf, langid: u
 /// Only registers TSF for languages that are actually installed/active on the system
 fn get_installed_languages() -> Vec<u32> {
     use windows::Win32::Globalization::GetUserDefaultLangID;
-    
+
     let mut languages = Vec::new();
-    
+
     // SAFETY: GetUserDefaultLangID is a safe Windows API call
     // that returns language identifier with no side effects
     unsafe {
@@ -116,21 +113,21 @@ fn get_installed_languages() -> Vec<u32> {
         let user_lang = GetUserDefaultLangID();
         languages.push(user_lang as u32);
     }
-    
+
     // Always include English (US) as fallback - most systems have it
     if !languages.contains(&LANGID_ENGLISH_US) {
         languages.push(LANGID_ENGLISH_US);
     }
-    
+
     // Deduplicate
     languages.sort_unstable();
     languages.dedup();
-    
+
     languages
 }
 
 /// Register TSF service for installed languages only
-pub fn register_tsf_service(dll_path: &PathBuf) -> Result<()> {
+pub fn register_tsf_service(dll_path: &Path) -> Result<()> {
     let hklm = RegKey::predef(HKEY_LOCAL_MACHINE);
     let tip_path = format!(
         "SOFTWARE\\Microsoft\\CTF\\TIP\\{}",
@@ -143,11 +140,15 @@ pub fn register_tsf_service(dll_path: &PathBuf) -> Result<()> {
 
     // Get installed languages (only those active on system)
     let languages = get_installed_languages();
-    
+
     // Register for each supported language
     for &langid in &languages {
-        register_tsf_language_profile(&tip_key, dll_path, langid)
-            .with_context(|| format!("Failed to register language profile for LANGID 0x{:08X}", langid))?;
+        register_tsf_language_profile(&tip_key, dll_path, langid).with_context(|| {
+            format!(
+                "Failed to register language profile for LANGID 0x{:08X}",
+                langid
+            )
+        })?;
     }
 
     Ok(())
@@ -172,8 +173,8 @@ fn register_categories() -> Result<()> {
     use windows::core::*;
     use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
     use windows::Win32::UI::TextServices::{
-        ITfCategoryMgr, CLSID_TF_CategoryMgr, 
-        GUID_TFCAT_TIP_KEYBOARD, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER
+        CLSID_TF_CategoryMgr, ITfCategoryMgr, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+        GUID_TFCAT_TIP_KEYBOARD,
     };
 
     // Define GUID manually to match CLSID_BUTTRE_TEXT_SERVICE string
@@ -192,13 +193,20 @@ fn register_categories() -> Result<()> {
     // 5. CLSID_BUTTRE and GUID_TFCAT_* are valid GUID constants
     // 6. All COM methods use proper error handling with ?
     unsafe {
-        let cat_mgr: ITfCategoryMgr = CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)
-            .context("Failed to create CategoryMgr")?;
-        
-        cat_mgr.RegisterCategory(&CLSID_BUTTRE, &GUID_TFCAT_TIP_KEYBOARD, &CLSID_BUTTRE)
+        let cat_mgr: ITfCategoryMgr =
+            CoCreateInstance(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)
+                .context("Failed to create CategoryMgr")?;
+
+        cat_mgr
+            .RegisterCategory(&CLSID_BUTTRE, &GUID_TFCAT_TIP_KEYBOARD, &CLSID_BUTTRE)
             .context("Failed to register Keyboard Category")?;
-            
-        cat_mgr.RegisterCategory(&CLSID_BUTTRE, &GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, &CLSID_BUTTRE)
+
+        cat_mgr
+            .RegisterCategory(
+                &CLSID_BUTTRE,
+                &GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+                &CLSID_BUTTRE,
+            )
             .context("Failed to register DisplayAttributeProvider Category")?;
     }
     Ok(())
@@ -208,8 +216,8 @@ fn unregister_categories() -> Result<()> {
     use windows::core::*;
     use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
     use windows::Win32::UI::TextServices::{
-        ITfCategoryMgr, CLSID_TF_CategoryMgr, 
-        GUID_TFCAT_TIP_KEYBOARD, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER
+        CLSID_TF_CategoryMgr, ITfCategoryMgr, GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+        GUID_TFCAT_TIP_KEYBOARD,
     };
 
     const CLSID_BUTTRE: GUID = GUID {
@@ -225,19 +233,25 @@ fn unregister_categories() -> Result<()> {
     // 3. UnregisterCategory is safe even if category doesn't exist
     // 4. Errors are ignored (best-effort cleanup during uninstall)
     unsafe {
-        if let Ok(cat_mgr) = CoCreateInstance::<_, ITfCategoryMgr>(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER) {
-             let _ = cat_mgr.UnregisterCategory(&CLSID_BUTTRE, &GUID_TFCAT_TIP_KEYBOARD, &CLSID_BUTTRE);
-             let _ = cat_mgr.UnregisterCategory(&CLSID_BUTTRE, &GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER, &CLSID_BUTTRE);
+        if let Ok(cat_mgr) =
+            CoCreateInstance::<_, ITfCategoryMgr>(&CLSID_TF_CategoryMgr, None, CLSCTX_INPROC_SERVER)
+        {
+            let _ =
+                cat_mgr.UnregisterCategory(&CLSID_BUTTRE, &GUID_TFCAT_TIP_KEYBOARD, &CLSID_BUTTRE);
+            let _ = cat_mgr.UnregisterCategory(
+                &CLSID_BUTTRE,
+                &GUID_TFCAT_DISPLAYATTRIBUTEPROVIDER,
+                &CLSID_BUTTRE,
+            );
         }
     }
     Ok(())
 }
 
-
 /// Register server (called by DllRegisterServer)
-pub fn register_server(dll_path: &PathBuf) -> Result<()> {
-    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
+pub fn register_server(dll_path: &Path) -> Result<()> {
     use windows::Win32::Foundation::S_OK;
+    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 
     // SAFETY: CoInitializeEx is safe to call; returns S_OK if we initialised COM,
     // S_FALSE if it was already initialised by the caller (no increment), or an
@@ -257,7 +271,9 @@ pub fn register_server(dll_path: &PathBuf) -> Result<()> {
 
     // SAFETY: only uninitialize COM if we were the ones who initialized it.
     if we_inited {
-        unsafe { CoUninitialize(); }
+        unsafe {
+            CoUninitialize();
+        }
     }
 
     result
@@ -265,8 +281,8 @@ pub fn register_server(dll_path: &PathBuf) -> Result<()> {
 
 /// Unregister server (called by DllUnregisterServer)
 pub fn unregister_server() -> Result<()> {
-    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
     use windows::Win32::Foundation::S_OK;
+    use windows::Win32::System::Com::{CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED};
 
     // SAFETY: same reasoning as register_server.
     let co_hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED) };
@@ -281,19 +297,21 @@ pub fn unregister_server() -> Result<()> {
     })();
 
     if we_inited {
-        unsafe { CoUninitialize(); }
+        unsafe {
+            CoUninitialize();
+        }
     }
 
     result
 }
 
 pub fn get_dll_path() -> Result<PathBuf> {
+    use windows::core::PCWSTR;
     use windows::Win32::Foundation::HMODULE;
     use windows::Win32::System::LibraryLoader::{
         GetModuleFileNameW, GetModuleHandleExW, GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
     };
-    use windows::core::PCWSTR;
 
     // SAFETY:
     // 1. GetModuleHandleExW is properly declared in windows crate
@@ -306,12 +324,13 @@ pub fn get_dll_path() -> Result<PathBuf> {
     unsafe {
         let mut hmodule = HMODULE::default();
         let func_ptr = get_dll_path as *const ();
-        
+
         GetModuleHandleExW(
             GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
             PCWSTR(func_ptr as *const u16),
-            &mut hmodule
-        ).context("Failed to get module handle")?;
+            &mut hmodule,
+        )
+        .context("Failed to get module handle")?;
 
         let mut buffer = vec![0u16; 260];
         let len = GetModuleFileNameW(Some(hmodule), &mut buffer);

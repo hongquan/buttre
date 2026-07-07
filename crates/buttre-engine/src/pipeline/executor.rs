@@ -16,10 +16,15 @@
 //! has been retired.  All composition logic lives in `crates/buttre-engine/src/compose/`
 //! and is invoked by `ComposeStage` as a single recompute-from-raw step.
 
-use crate::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig};
+use std::sync::{Arc, RwLock};
+
+use crate::compose::{compose_closed, ComposeOpts, LearningSnapshot, Validator};
+use crate::pipeline::context::{CharInfo, CharInfoBufferExt};
+use crate::pipeline::stages::compose_stage::apply_case_mask;
 use crate::pipeline::stages::*;
+use crate::pipeline::{PipelineConfig, PipelineStage, StageResult, TypingContext};
 use crate::types::Action;
-use tracing::{instrument, debug, trace, warn};
+use tracing::{debug, instrument, trace, warn};
 
 /// Pipeline Executor
 ///
@@ -41,6 +46,24 @@ pub struct PipelineExecutor {
 
     /// Whether to emit TSF composition actions (vs. simple commit/replace).
     use_composition: bool,
+
+    /// Word-boundary final repair opts (event-sourcing-completion Phase 3):
+    /// `Some` only when the compose stage is present in this pipeline,
+    /// `config.boundary_repair` is enabled, AND the compose validator is
+    /// `Validator::Vietnamese` (there is no attested-syllable table to gate
+    /// against otherwise). `None` makes [`Self::boundary_repair`] a no-op.
+    boundary_repair_opts: Option<ComposeOpts>,
+
+    /// Shared handle into the live compose stage's merged `ComposeOpts`
+    /// (event-sourcing-completion Phase 5; perf: the learning fields are
+    /// written in place here at word boundaries instead of being re-merged
+    /// into a full opts clone on every keystroke) — `Some` only when a
+    /// compose stage is present. Captured at construction time, before the
+    /// stage is boxed into the type-erased `stages` vec (see [`Self::new`]),
+    /// since `PipelineStage` has no reason to expose a generic "set learning
+    /// data" method for the other 6 stages that never consult one. See
+    /// [`Self::set_learning_snapshot`].
+    compose_live_opts: Option<Arc<RwLock<ComposeOpts>>>,
 }
 
 impl PipelineExecutor {
@@ -78,10 +101,15 @@ impl PipelineExecutor {
             config.pipeline.enabled.clone()
         };
 
+        let mut compose_stage_present = false;
+        let mut compose_live_opts: Option<Arc<RwLock<ComposeOpts>>> = None;
         for stage_name in &stage_order {
             match stage_name.as_str() {
                 "compose" => {
-                    stages.push(Box::new(ComposeStage::from_config(&config)));
+                    let stage = ComposeStage::from_config(&config);
+                    compose_live_opts = Some(stage.live_opts_handle());
+                    stages.push(Box::new(stage));
+                    compose_stage_present = true;
                 }
                 "orthography" => {
                     stages.push(Box::new(OrthographyStage::from_config(&config)));
@@ -106,10 +134,164 @@ impl PipelineExecutor {
         // Stage 7 (last): Output — ALWAYS LAST
         stages.push(Box::new(OutputStage::new(use_composition)));
 
+        // Word-boundary repair opts (Phase 3): computed once here, not on the
+        // hot per-keystroke path — `ComposeOpts::from_config` is the same
+        // derivation `ComposeStage::from_config` already ran; a second copy
+        // is the cheapest way to reach it without exposing `ComposeStage`'s
+        // internals across the `PipelineStage` trait object boundary.
+        let boundary_repair_opts = if compose_stage_present && config.boundary_repair {
+            let opts = ComposeOpts::from_config(&config);
+            (opts.validator == Validator::Vietnamese).then_some(opts)
+        } else {
+            None
+        };
+
         Self {
             stages,
             context: TypingContext::new(),
             use_composition,
+            boundary_repair_opts,
+            compose_live_opts,
+        }
+    }
+
+    /// Refresh the learning-store snapshot consulted by every `compose()`/
+    /// `compose_closed()` call this pipeline makes (event-sourcing-
+    /// completion Phase 5). Updates BOTH the live compose stage's opts
+    /// (via the shared handle captured in [`Self::new`]) AND the cached
+    /// `boundary_repair_opts` (P3's closed-gate projection) — the
+    /// "single consult point" (`pipeline::validation::is_attested_overlay`)
+    /// must see the SAME data from every caller, or the open-projection and
+    /// closed-projection gates could silently diverge.
+    ///
+    /// Callers (`buttre_core::keyboard::Keyboard`) refresh this at word
+    /// boundaries only, never mid-word — see the phase's Combined Contract.
+    /// A no-op (aside from the `boundary_repair_opts` half) for pipelines
+    /// without a compose stage (Nôm candidate-lookup configs, native
+    /// scripts).
+    pub fn set_learning_snapshot(&mut self, snapshot: LearningSnapshot) {
+        if let Some(handle) = &self.compose_live_opts {
+            let mut guard = match handle.write() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            guard.user_attested = snapshot.user_attested.clone();
+            guard.raw_prefs = snapshot.raw_prefs.clone();
+        }
+        if let Some(opts) = self.boundary_repair_opts.as_mut() {
+            opts.user_attested = snapshot.user_attested.clone();
+            opts.raw_prefs = snapshot.raw_prefs.clone();
+        }
+    }
+
+    /// Compose `word` forcing the COMPOSED interpretation, IGNORING any stored
+    /// raw-preference (event-sourcing-completion Phase 4: a word toggle → composed
+    /// must override a `Pref::Literal`, per the Combined Contract's
+    /// `toggle > pref` precedence — otherwise a stored literal pref makes the
+    /// toggle-to-composed direction unreachable and the invisible double-press
+    /// silently corrupts the stored direction). The user-attested overlay still
+    /// applies — only the literal/composed preference is suppressed for the
+    /// duration of this one compose. Reuses the full pipeline (reset → process →
+    /// closed boundary repair) so case-mask + orthography match the normal path.
+    pub fn compose_word_forced_composed(&mut self, word: &[char], closed: bool) -> String {
+        // Null-and-save `raw_prefs` on both the live opts (read per keystroke
+        // by the compose stage) and the cached boundary-repair opts, so neither
+        // the open nor the closed projection consults a pref here; restore after.
+        let saved_snapshot_prefs = self
+            .compose_live_opts
+            .as_ref()
+            .and_then(|h| h.write().ok().and_then(|mut g| g.raw_prefs.take()));
+        let saved_boundary_prefs = self
+            .boundary_repair_opts
+            .as_mut()
+            .and_then(|o| o.raw_prefs.take());
+
+        self.reset();
+        for &c in word {
+            self.process(c);
+        }
+        let out = if closed {
+            self.boundary_repair()
+                .unwrap_or_else(|| self.get_buffer().to_string())
+        } else {
+            self.get_buffer().to_string()
+        };
+
+        if let (Some(handle), Some(prefs)) = (&self.compose_live_opts, saved_snapshot_prefs) {
+            if let Ok(mut g) = handle.write() {
+                g.raw_prefs = Some(prefs);
+            }
+        }
+        if let (Some(opts), Some(prefs)) =
+            (self.boundary_repair_opts.as_mut(), saved_boundary_prefs)
+        {
+            opts.raw_prefs = Some(prefs);
+        }
+        out
+    }
+
+    /// Recompute the CURRENT in-progress word's word-boundary "closed"
+    /// projection (event-sourcing-completion Phase 3: [`compose_closed`])
+    /// WITHOUT mutating any pipeline state.
+    ///
+    /// The repair diff is computed against the SAME case-masked display form
+    /// already on screen (`apply_case_mask`) — comparing against the raw
+    /// lowercase-anchored `compose` output would spuriously "repair" the
+    /// case of every mixed-case word (red-team M2: `"Vieejt"` must not
+    /// downcase to `"việt"`).
+    ///
+    /// Returns `None` when there is nothing to repair: `boundary_repair` is
+    /// disabled/inapplicable for this config (see `boundary_repair_opts`),
+    /// the buffer is empty, or the closed projection is byte-identical to
+    /// what's already displayed. Callers should treat `None` as "commit the
+    /// buffer unchanged".
+    ///
+    /// Reads the FULL `char_buffer` as the word's raw keys — correct for
+    /// external callers (TSF's Enter / buffer-reset-key handlers), which
+    /// query this BEFORE any commit key is ever pushed into the buffer.
+    /// `PipelineExecutor`'s own `PassThrough` branch (a separator commit) is
+    /// the one exception: Stage 1 (Normalization) has already pushed the
+    /// triggering separator itself into `char_buffer` earlier in this SAME
+    /// `process()` call, so it uses [`Self::boundary_repair_excluding_last`]
+    /// instead to exclude that trailing key.
+    pub fn boundary_repair(&self) -> Option<String> {
+        self.boundary_repair_for(&self.context.char_buffer)
+    }
+
+    /// Same as [`Self::boundary_repair`], but recomputed on `char_buffer`
+    /// WITHOUT its last entry — see that method's doc for why the
+    /// `PassThrough` branch (the only caller) needs this instead.
+    fn boundary_repair_excluding_last(&self) -> Option<String> {
+        let len = self.context.char_buffer.len();
+        self.boundary_repair_for(&self.context.char_buffer[..len.saturating_sub(1)])
+    }
+
+    /// Shared implementation: recompute `buf`'s closed projection and adopt
+    /// it when it differs from the currently-displayed `syllable_buffer`.
+    fn boundary_repair_for(&self, buf: &[CharInfo]) -> Option<String> {
+        let opts = self.boundary_repair_opts.as_ref()?;
+        if buf.is_empty() {
+            return None;
+        }
+        // A word whose English latch was entered through a DELIBERATE
+        // undo/toggle ("tesst" → undo → "test") must commit exactly as
+        // displayed: the stateless closed projection cannot see the mid-
+        // buffer undo event, so it would re-apply the very tone the user
+        // removed ("tesst" → "tét") and destroy the escape hatch — making
+        // English words like "test"/"text"/"reset" untypeable. A
+        // NON-deliberate latch (the mid-word fallback misfire on
+        // "chwowng") keeps the repair, which is what rescues it to
+        // "chương" at commit. See `TypingContext::latch_from_undo`.
+        if self.context.latch_from_undo {
+            return None;
+        }
+        let raw = buf.to_char_vec();
+        let closed = compose_closed(&raw, opts);
+        let repaired = apply_case_mask(&closed.text, buf, opts);
+        if repaired == self.context.syllable_buffer {
+            None
+        } else {
+            Some(repaired)
         }
     }
 
@@ -128,16 +310,29 @@ impl PipelineExecutor {
             match result {
                 StageResult::Continue => {}
                 StageResult::PassThrough => {
-                    debug!("Stage '{}' returned PassThrough — confirming and resetting", stage.name());
+                    debug!(
+                        "Stage '{}' returned PassThrough — confirming and resetting",
+                        stage.name()
+                    );
 
                     let mut actions = Vec::new();
 
                     // If TSF composition is active, confirm any pending composition first.
                     if self.use_composition && !self.context.syllable_buffer.is_empty() {
-                        debug!("Confirming composition: {}", self.context.syllable_buffer);
-                        actions.push(Action::ConfirmComposition(
-                            self.context.syllable_buffer.clone(),
-                        ));
+                        // Word-boundary final repair (event-sourcing-completion
+                        // Phase 3): `input` (the separator that just triggered
+                        // this PassThrough) is the moment of complete evidence
+                        // for the word about to be confirmed. TSF's
+                        // `VietnameseEngine::process_key` consumes only
+                        // `actions[0]`, and its Replace handler ignores
+                        // `backspace_count` — a separate Replace-then-Confirm
+                        // pair is unexecutable there, so the repair MUST be
+                        // folded directly into `ConfirmComposition`'s payload.
+                        let confirmed = self
+                            .boundary_repair_excluding_last()
+                            .unwrap_or_else(|| self.context.syllable_buffer.clone());
+                        debug!("Confirming composition: {}", confirmed);
+                        actions.push(Action::ConfirmComposition(confirmed));
                     }
 
                     trace!("Committing pass-through character: '{}'", input);

@@ -97,6 +97,15 @@ pub const SYLLABLES: &[&str] = &[
     "mat","mát","mạt",
     "nat","nát","nạt",
 
+    // ── coda "k" (Đắk Lắk class — P6 table extension, P8 golden regen) ──────
+    // The 9 dict entries P6 re-embedded into the attested-syllable table
+    // (`pipeline::validation`'s coda-k doc, `data/attested-syllables.txt`).
+    // Deferred from P6 to this phase per its own Architecture note ("Golden:
+    // đắk corpus lines added in P8") — added here so gen_golden emits them
+    // as Telex+VNI positives, alongside the already-committed hawk/gawk/murk
+    // ENGLISH_WORDS pins (P6).
+    "búk","lăk","lắk","măk","úk","ăk","đăk","đắk","ắk",
+
     // ── hard onset clusters ─────────────────────────────────────────────────
     // Note: chó and chú appear only here (removed duplicates from cho/chu rows)
     "cha","chá","chè","chí","chó","chú","chơ","chư",
@@ -184,29 +193,63 @@ pub const SYLLABLES: &[&str] = &[
     "NGước","Ngước",
 ];
 
-/// ~40 pure ASCII English words for the `EnglishWord` tag.
+/// ~50 pure ASCII English words for the `EnglishWord` tag.
+///
+/// // known-attested-collisions: entries below whose composed output is a
+/// REAL, attested Vietnamese syllable that the attestation gate cannot and
+/// must not try to reject (attestation only knows "is this a real syllable",
+/// not "is this English or Vietnamese lexically") — accepted by design; the
+/// escape hatch is non-adjacent undo (Phase 4: retype the trigger key to
+/// revert). Corpus-verified via golden regen (phase-05):
+/// - `reset` → `rết` (centipede) — Telex only; VNI has no letter-doubling
+///   transform, so VNI `reset` stays the literal English word.
+/// - `mama` → `mâm` (tray) — Telex only, same reason.
+///
+/// This list is NOT exhaustive: any English word whose non-adjacent transform
+/// happens to yield a real Vietnamese syllable will collide (attestation knows
+/// only "real syllable?", not "English or Vietnamese?"). This is an accepted
+/// design trade-off (leniency over aggressive spell-check); the universal
+/// escape is the undo above, and frequency-based collision tiering was
+/// explicitly descoped. Entries here are the ones surfaced by this corpus.
+///
+/// P6 addition — coda-"k" leak (red-team M1, accept-with-pins): adding coda
+/// "k" (Đắk Lắk class, `pipeline::validation`) also structurally validates
+/// nucleus "ă"/"u" + "k", which the ADJACENT `aw`→`ă` / tone-`r`→hook-on-`u`
+/// paths reach ungated (same as `how`→`hơ` — deliberately not gated by the
+/// non-adjacent attestation check):
+/// - `hawk` → `hăk`, `gawk` → `găk` — Telex only (`aw` doubling has no VNI
+///   equivalent; VNI has no letter-doubling transform at all).
+/// - `murk` → `mủk` — Telex only (`r` is a Telex hook-tone key after a vowel;
+///   VNI's tone keys are digits, so VNI `murk` never fires any mark and stays
+///   literal).
+///
+/// This documents the leak as KNOWN behavior; it is not fixed here (the
+/// per-nucleus coda-k rows are load-bearing for the Đắk Lắk place-name class
+/// and cannot distinguish "English word" from "real Vietnamese word" any more
+/// than the rest of the attestation-collision list above can).
+///
+/// The remaining new entries (`meme`, `photo`, `papa`, `salsa`, `radar`,
+/// `banana`, `canal`, `media`, `dad`, `dads`, `nasa`) compose to their literal
+/// ASCII form in both methods.
 pub const ENGLISH_WORDS: &[&str] = &[
-    "file", "text", "next", "expect", "window", "water", "their", "weird",
-    "fix", "email", "password", "data", "type", "user", "name", "first",
-    "last", "list", "from", "this", "that", "with", "have", "will", "been",
-    "some", "what", "when", "where", "which", "would", "could", "should",
-    "Claus", "hello", "world", "class", "style", "color", "width", "height",
+    "file", "text", "next", "expect", "window", "water", "their", "weird", "fix", "email",
+    "password", "data", "type", "user", "name", "first", "last", "list", "from", "this", "that",
+    "with", "have", "will", "been", "some", "what", "when", "where", "which", "would", "could",
+    "should", "Claus", "hello", "world", "class", "style", "color", "width", "height", "meme",
+    "photo", "papa", "salsa", "radar", "banana", "canal", "media", "dad", "dads", "reset", "nasa",
+    "mama", "hawk", "gawk", "murk",
 ];
 
 /// Telex sequences testing undo / double-key toggle behaviour.
 pub const TELEX_UNDO_TOGGLE: &[&str] = &[
-    "aaa", "aww", "eee", "ooo", "uww", "ddd",
-    "ass", "aff", "arr", "axx", "ajj",
-    "aaaa", "dddd",
-    "bas", "bass", "hass",
-    "sin", "can", "ban", "tan", "man", "fan", "ran", "dan", "van", "pan", "win", "fin",
+    "aaa", "aww", "eee", "ooo", "uww", "ddd", "ass", "aff", "arr", "axx", "ajj", "aaaa", "dddd",
+    "bas", "bass", "hass", "sin", "can", "ban", "tan", "man", "fan", "ran", "dan", "van", "pan",
+    "win", "fin",
 ];
 
 /// VNI sequences testing undo / double-digit toggle behaviour.
 pub const VNI_UNDO_TOGGLE: &[&str] = &[
-    "a11", "a22", "a33", "a44", "a55", "a66", "a88", "d99",
-    "a61", "a62", "a63", "a64", "a65", "a81", "a82",
-    "ba1", "ba11", "ba2", "ba22",
-    "dua71", "dua72", "nguoi72", "nguoi73",
-    "sin", "can", "ban", "tan", "man", "fan", "ran", "dan",
+    "a11", "a22", "a33", "a44", "a55", "a66", "a88", "d99", "a61", "a62", "a63", "a64", "a65",
+    "a81", "a82", "ba1", "ba11", "ba2", "ba22", "dua71", "dua72", "nguoi72", "nguoi73", "sin",
+    "can", "ban", "tan", "man", "fan", "ran", "dan",
 ];

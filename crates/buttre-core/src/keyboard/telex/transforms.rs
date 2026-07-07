@@ -17,7 +17,7 @@ use std::collections::HashMap;
 /// - "dd" → "đ"
 pub fn get_rules() -> HashMap<String, String> {
     let mut rules = HashMap::new();
-    
+
     // Basic transformations
     rules.insert("aa".to_string(), "â".to_string());
     rules.insert("aw".to_string(), "ă".to_string());
@@ -27,12 +27,15 @@ pub fn get_rules() -> HashMap<String, String> {
     rules.insert("ow".to_string(), "ơ".to_string());
     rules.insert("uw".to_string(), "ư".to_string());
 
-    // NOTE: standalone 'w' → 'ư' is intentionally NOT registered.
-    // A leading bare 'w' would turn every English w-word ("won", "with",
-    // "will", "want", …) into "ư…".  In this Telex layout 'w' is only the
-    // modifier in aw/ow/uw, and 'ư' at the start of a word is typed as "uw"
-    // (uwng → ưng, uwu → ưu).  See segment.rs: a standalone alphabetic modifier
-    // is treated as a literal base char unless a compatible vowel precedes it.
+    // Standalone 'w' → 'ư' (UniKey-habit compatibility): fires ONLY as an
+    // onset-only insertion ("nhw"→"như", "lwu"→"lưu", "trwong"→"trương") —
+    // see `compose::segment::onset_only_insertion_fires`. A word-INITIAL
+    // bare 'w' still stays literal (segment requires a non-empty
+    // pure-consonant base), so English w-words ("won", "with", "will",
+    // "want", …) keep typing naturally, and any unattested composition
+    // ("swim" → "sưim") demotes back to literal via the attestation gate.
+    // 'ư' at the start of a word is still typed "uw".
+    rules.insert("w".to_string(), "ư".to_string());
 
     // Uppercase variants
     rules.insert("AA".to_string(), "Â".to_string());
@@ -46,13 +49,12 @@ pub fn get_rules() -> HashMap<String, String> {
     rules.insert("Ow".to_string(), "Ơ".to_string());
     rules.insert("UW".to_string(), "Ư".to_string());
     rules.insert("Uw".to_string(), "Ư".to_string());
-    
+
     // NOTE: "uow" → "ươ" rules are intentionally REMOVED
     // Stage 6 handles uo+w contextually:
     // - thuowr → thuở (uơ, only hook o when at end of word)
     // - tuowng → tương (ươ, hook both when followed by consonant)
     // Keeping this HashMap rule would override the Stage 4 skip logic.
-    
+
     rules
 }
-

@@ -10,7 +10,7 @@
 //! Uses callback pattern to avoid `Send + Sync` issues with UI types.
 //! The callback is implemented in main.rs where UI references live.
 
-use buttre_core::{StateObserver, Settings};
+use buttre_core::{Settings, StateObserver};
 use log::info;
 use std::sync::Arc;
 
@@ -24,7 +24,7 @@ pub trait UICallback: Send + Sync {
     /// # Arguments
     /// * `method` - The new input method ID
     fn update_menu_checkmarks(&self, method: &str);
-    
+
     /// Update tray icon and tooltip
     ///
     /// # Arguments
@@ -82,18 +82,20 @@ impl UIObserver {
 
 impl StateObserver for UIObserver {
     fn on_method_changed(&self, method: &str, enabled: bool) {
-        info!("UIObserver: Method changed to '{}' (enabled: {})", method, enabled);
-        
+        info!(
+            "UIObserver: Method changed to '{}' (enabled: {})",
+            method, enabled
+        );
+
         // Update menu checkmarks via callback
         self.callback.update_menu_checkmarks(method);
-        
+
         // Update tray icon via callback
         self.callback.update_tray_icon(method, enabled);
     }
-    
+
     fn on_settings_changed(&self, _settings: &Settings) {
         // UI doesn't need to react to other settings changes
         // (auto_correct, shorthand, startup don't affect UI)
     }
 }
-

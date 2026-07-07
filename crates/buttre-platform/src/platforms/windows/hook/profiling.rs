@@ -10,24 +10,30 @@ use std::time::Instant;
 pub struct HookProfiler {
     /// Total number of hook callbacks
     pub total_calls: AtomicUsize,
-    
+
     /// Total time spent in hook callback (nanoseconds)
     pub total_time_ns: AtomicU64,
-    
+
     /// Maximum time spent in single callback (nanoseconds)
     pub max_time_ns: AtomicU64,
-    
+
     /// Minimum time spent in single callback (nanoseconds)
     pub min_time_ns: AtomicU64,
-    
+
     /// Number of callbacks that processed Vietnamese input
     pub vietnamese_calls: AtomicUsize,
-    
+
     /// Number of callbacks that were passthrough (English/modifiers)
     pub passthrough_calls: AtomicUsize,
-    
+
     /// Number of times lock was busy (try_lock failed)
     pub lock_busy_count: AtomicUsize,
+}
+
+impl Default for HookProfiler {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl HookProfiler {
@@ -42,19 +48,19 @@ impl HookProfiler {
             lock_busy_count: AtomicUsize::new(0),
         }
     }
-    
+
     /// Record a hook callback timing
     #[inline]
     pub fn record_callback(&self, duration_ns: u64, was_vietnamese: bool) {
         self.total_calls.fetch_add(1, Ordering::Relaxed);
         self.total_time_ns.fetch_add(duration_ns, Ordering::Relaxed);
-        
+
         if was_vietnamese {
             self.vietnamese_calls.fetch_add(1, Ordering::Relaxed);
         } else {
             self.passthrough_calls.fetch_add(1, Ordering::Relaxed);
         }
-        
+
         // Update max
         let mut current_max = self.max_time_ns.load(Ordering::Relaxed);
         while duration_ns > current_max {
@@ -68,7 +74,7 @@ impl HookProfiler {
                 Err(x) => current_max = x,
             }
         }
-        
+
         // Update min
         let mut current_min = self.min_time_ns.load(Ordering::Relaxed);
         while duration_ns < current_min {
@@ -83,13 +89,13 @@ impl HookProfiler {
             }
         }
     }
-    
+
     /// Record a lock busy event
     #[inline]
     pub fn record_lock_busy(&self) {
         self.lock_busy_count.fetch_add(1, Ordering::Relaxed);
     }
-    
+
     /// Get statistics snapshot
     pub fn get_stats(&self) -> ProfileStats {
         let total = self.total_calls.load(Ordering::Relaxed);
@@ -99,20 +105,28 @@ impl HookProfiler {
         let vietnamese = self.vietnamese_calls.load(Ordering::Relaxed);
         let passthrough = self.passthrough_calls.load(Ordering::Relaxed);
         let lock_busy = self.lock_busy_count.load(Ordering::Relaxed);
-        
-        let avg_ns = if total > 0 { total_ns / total as u64 } else { 0 };
-        
+
+        let avg_ns = if total > 0 {
+            total_ns / total as u64
+        } else {
+            0
+        };
+
         ProfileStats {
             total_calls: total,
             avg_us: (avg_ns as f64) / 1000.0,
             max_us: (max_ns as f64) / 1000.0,
-            min_us: if min_ns == u64::MAX { 0.0 } else { (min_ns as f64) / 1000.0 },
+            min_us: if min_ns == u64::MAX {
+                0.0
+            } else {
+                (min_ns as f64) / 1000.0
+            },
             vietnamese_calls: vietnamese,
             passthrough_calls: passthrough,
             lock_busy_count: lock_busy,
         }
     }
-    
+
     /// Reset all statistics
     pub fn reset(&self) {
         self.total_calls.store(0, Ordering::Relaxed);
@@ -143,7 +157,7 @@ impl ProfileStats {
         // Target: avg < 500μs (0.5ms), max < 2000μs (2ms)
         self.avg_us < 500.0 && self.max_us < 2000.0
     }
-    
+
     /// Get performance grade
     pub fn grade(&self) -> &'static str {
         if self.avg_us < 100.0 && self.max_us < 500.0 {
@@ -163,17 +177,25 @@ impl std::fmt::Display for ProfileStats {
         writeln!(f, "Hook Callback Performance Profile")?;
         writeln!(f, "==================================")?;
         writeln!(f, "Total Callbacks: {}", self.total_calls)?;
-        writeln!(f, "  Vietnamese: {} ({:.1}%)", 
-            self.vietnamese_calls, 
-            if self.total_calls > 0 { 
-                (self.vietnamese_calls as f64 / self.total_calls as f64) * 100.0 
-            } else { 0.0 }
+        writeln!(
+            f,
+            "  Vietnamese: {} ({:.1}%)",
+            self.vietnamese_calls,
+            if self.total_calls > 0 {
+                (self.vietnamese_calls as f64 / self.total_calls as f64) * 100.0
+            } else {
+                0.0
+            }
         )?;
-        writeln!(f, "  Passthrough: {} ({:.1}%)", 
+        writeln!(
+            f,
+            "  Passthrough: {} ({:.1}%)",
             self.passthrough_calls,
-            if self.total_calls > 0 { 
-                (self.passthrough_calls as f64 / self.total_calls as f64) * 100.0 
-            } else { 0.0 }
+            if self.total_calls > 0 {
+                (self.passthrough_calls as f64 / self.total_calls as f64) * 100.0
+            } else {
+                0.0
+            }
         )?;
         writeln!(f, "  Lock Busy: {}", self.lock_busy_count)?;
         writeln!(f)?;
@@ -206,7 +228,7 @@ impl ProfileTimer {
             was_vietnamese,
         }
     }
-    
+
     /// Mark this callback as processing Vietnamese input
     #[inline]
     pub fn mark_vietnamese(&mut self) {

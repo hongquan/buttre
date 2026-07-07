@@ -1,15 +1,18 @@
-mod hook;
+// Filename deliberately NOT `hook.rs` — `mod hook;` inside the `hook` module
+// directory triggers clippy::module_inception (a module with the same name
+// as its containing module).
+mod callback;
 mod profiling;
 mod queue;
 
-pub use hook::{install_hook, run_message_loop, uninstall_hook};
-pub use profiling::{HOOK_PROFILER, ProfileStats};
-pub use queue::{QueueProcessor, KeyEvent};
 pub use crate::platforms::windows::common::{send_backspaces, send_string, send_unicode_char};
+pub use callback::{dispatch_toggle_last_word, install_hook, run_message_loop, uninstall_hook};
+pub use profiling::{ProfileStats, HOOK_PROFILER};
+pub use queue::{KeyEvent, QueueProcessor};
 
 use anyhow::Result;
-use std::sync::{Arc, RwLock};
 use buttre_core::Keyboard;
+use std::sync::{Arc, RwLock};
 
 /// Windows Keyboard Hook Backend
 pub struct HookBackend {
@@ -44,7 +47,10 @@ impl HookBackend {
         //   - No separate flag needed → No sync issues!
         //   - This function does nothing but is kept for API compatibility
         // ====================================================================
-        tracing::debug!("HookBackend::set_enabled({}) - ignored (uses KEYBOARD global)", _enabled);
+        tracing::debug!(
+            "HookBackend::set_enabled({}) - ignored (uses KEYBOARD global)",
+            _enabled
+        );
     }
 
     pub fn cleanup(&mut self) {

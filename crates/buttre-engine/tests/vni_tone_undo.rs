@@ -1,3 +1,4 @@
+use buttre_engine::pipeline::config::ToneMark;
 /// VNI Tone Undo Tests
 ///
 /// Tests VNI undo/toggle behavior for tone marks.
@@ -31,9 +32,7 @@
 /// strips the tone but PRESERVES the diacritic transform. `a611` → `â1`,
 /// `a822` → `ă2`, `u733` → `ư3`, `o744` → `ơ4`, `u7o711` → `ươ1`.
 /// Matches all four reference IMEs (fcitx5-unikey, Unikey-Windows, OpenKey, ibus-bamboo).
-
-use buttre_engine::pipeline::{PipelineExecutor, PipelineConfig};
-use buttre_engine::pipeline::config::ToneMark;
+use buttre_engine::pipeline::{PipelineConfig, PipelineExecutor};
 
 /// Helper function to create VNI config
 fn create_vni_config() -> PipelineConfig {
@@ -350,8 +349,11 @@ fn test_vni_a611_undo_tone_keep_circumflex() {
     // Correct output: â1. Matches all four reference IMEs.
     let config = create_vni_config();
     let executor = process_sequence(&config, "a611");
-    assert_eq!(executor.syllable(), "â1",
-        "a611 → â1: tone stripped, circumflex transform preserved (universal IME behaviour)");
+    assert_eq!(
+        executor.syllable(),
+        "â1",
+        "a611 → â1: tone stripped, circumflex transform preserved (universal IME behaviour)"
+    );
 }
 
 #[test]
@@ -359,8 +361,11 @@ fn test_vni_a6116_undo_then_literal_6() {
     // a611 → â1 (undo), then `6` is literal in temp_english_mode → â16.
     let config = create_vni_config();
     let executor = process_sequence(&config, "a6116");
-    assert_eq!(executor.syllable(), "â16",
-        "a6116 → â16: undo gives â1, then literal 6 appended in temp_english_mode");
+    assert_eq!(
+        executor.syllable(),
+        "â16",
+        "a6116 → â16: undo gives â1, then literal 6 appended in temp_english_mode"
+    );
 }
 
 #[test]
@@ -376,8 +381,11 @@ fn test_vni_a822_undo_tone_keep_breve() {
     // Correct output: ă2. Matches all four reference IMEs.
     let config = create_vni_config();
     let executor = process_sequence(&config, "a822");
-    assert_eq!(executor.syllable(), "ă2",
-        "a822 → ă2: tone stripped, breve transform preserved (universal IME behaviour)");
+    assert_eq!(
+        executor.syllable(),
+        "ă2",
+        "a822 → ă2: tone stripped, breve transform preserved (universal IME behaviour)"
+    );
 }
 
 #[test]
@@ -393,8 +401,11 @@ fn test_vni_u733_undo_tone_keep_horn() {
     // Correct output: ư3. Matches all four reference IMEs.
     let config = create_vni_config();
     let executor = process_sequence(&config, "u733");
-    assert_eq!(executor.syllable(), "ư3",
-        "u733 → ư3: tone stripped, horn transform preserved (universal IME behaviour)");
+    assert_eq!(
+        executor.syllable(),
+        "ư3",
+        "u733 → ư3: tone stripped, horn transform preserved (universal IME behaviour)"
+    );
 }
 
 #[test]
@@ -410,8 +421,11 @@ fn test_vni_o744_undo_tone_keep_horn() {
     // Correct output: ơ4. Matches all four reference IMEs.
     let config = create_vni_config();
     let executor = process_sequence(&config, "o744");
-    assert_eq!(executor.syllable(), "ơ4",
-        "o744 → ơ4: tone stripped, horn transform preserved (universal IME behaviour)");
+    assert_eq!(
+        executor.syllable(),
+        "ơ4",
+        "o744 → ơ4: tone stripped, horn transform preserved (universal IME behaviour)"
+    );
 }
 
 // ============================================================================
@@ -423,7 +437,11 @@ fn test_vni_a12_switch_acute_to_grave() {
     let config = create_vni_config();
     let executor = process_sequence(&config, "a12");
     // a1 → á, then 2 → à (switch tone)
-    assert_eq!(executor.syllable(), "à", "a12 should switch from acute to grave");
+    assert_eq!(
+        executor.syllable(),
+        "à",
+        "a12 should switch from acute to grave"
+    );
 }
 
 #[test]
@@ -469,8 +487,11 @@ fn test_vni_word_viet_with_tone_undo() {
     // Correct output: viêt5 — strip dot tone from việt, keep ê circumflex, literal 5.
     // Matches all four reference IMEs (Unikey tempVietOff after repress).
     executor.process('5');
-    assert_eq!(executor.syllable(), "viêt5",
-        "vie65t5 → viêt5: same-tone repress strips tone, keeps ê transform, literal 5");
+    assert_eq!(
+        executor.syllable(),
+        "viêt5",
+        "vie65t5 → viêt5: same-tone repress strips tone, keeps ê transform, literal 5"
+    );
 }
 
 #[test]
@@ -489,8 +510,11 @@ fn test_vni_word_nguoi_with_tone_undo() {
     // applies transforms to base "nguoi" with marks [7@3, 7@5] → "ngươi",
     // then appends literal "2" → "ngươi2".
     executor.process('2');
-    assert_eq!(executor.syllable(), "ngươi2",
-        "ngu7o7i22 → ngươi2: tone stripped, ươ compound preserved, literal 2 appended");
+    assert_eq!(
+        executor.syllable(),
+        "ngươi2",
+        "ngu7o7i22 → ngươi2: tone stripped, ươ compound preserved, literal 2 appended"
+    );
 }
 
 #[test]
@@ -509,8 +533,11 @@ fn test_vni_sequential_tone_undo() {
     // Matches Unikey: after undo pair (11), temp_english_mode engages.
     // Third `1` is literal append → "a11". Intentional standard, not a deferral.
     executor.process('1'); // literal in temp_english_mode
-    assert_eq!(executor.syllable(), "a11",
-        "a111 → a11: Unikey standard — after tone-undo, subsequent same-key taps are literal");
+    assert_eq!(
+        executor.syllable(),
+        "a11",
+        "a111 → a11: Unikey standard — after tone-undo, subsequent same-key taps are literal"
+    );
 
     executor.process('1'); // compose: another literal
     assert_eq!(executor.syllable(), "a111");
@@ -549,8 +576,11 @@ fn test_vni_uow_with_tone_and_undo() {
     // u7o711: `11` undo pair at tail strips tone, keeps ươ compound transform.
     // Correct output: ươ1. Matches all four reference IMEs.
     let executor2 = process_sequence(&config, "u7o711");
-    assert_eq!(executor2.syllable(), "ươ1",
-        "u7o711 → ươ1: tone stripped, ươ compound transform preserved, literal 1 appended");
+    assert_eq!(
+        executor2.syllable(),
+        "ươ1",
+        "u7o711 → ươ1: tone stripped, ươ compound transform preserved, literal 1 appended"
+    );
 }
 
 #[test]

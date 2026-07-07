@@ -8,11 +8,11 @@
 //! - Processing input through the current keyboard
 //! - Publishing keyboard events to the event bus
 
-use crate::{Keyboard, KeyboardBuilder, KeyboardConfig};
-use crate::events::{SharedEventBus, AppEvent};
+use crate::events::{AppEvent, SharedEventBus};
 use crate::Action;
+use crate::{Keyboard, KeyboardBuilder, KeyboardConfig};
+use anyhow::{Context, Result};
 use std::collections::HashMap;
-use anyhow::{Result, Context};
 
 /// Keyboard Service - Manages multiple keyboard instances
 ///
@@ -41,10 +41,10 @@ use anyhow::{Result, Context};
 pub struct KeyboardService {
     /// Map of keyboard ID to keyboard instance
     keyboards: HashMap<String, Keyboard>,
-    
+
     /// Currently active keyboard ID
     current_id: Option<String>,
-    
+
     /// Event bus for publishing events
     event_bus: SharedEventBus,
 }
@@ -69,7 +69,7 @@ impl Preset {
             Preset::Nom => "nom",
         }
     }
-    
+
     /// Get the display name for this preset
     pub fn name(&self) -> &'static str {
         match self {
@@ -93,7 +93,7 @@ impl KeyboardService {
             event_bus,
         }
     }
-    
+
     /// Create a keyboard from a preset
     ///
     /// This will create and register a keyboard using one of the built-in presets.
@@ -107,21 +107,21 @@ impl KeyboardService {
     /// `Ok(())` if successful, or an error if keyboard creation fails
     pub fn create_preset(&mut self, preset: Preset) -> Result<()> {
         let id = preset.id().to_string();
-        
+
         let keyboard = match preset {
             Preset::Telex => KeyboardBuilder::telex()?,
             Preset::Vni => KeyboardBuilder::vni()?,
             Preset::Nom => KeyboardBuilder::nom(None)?, // TODO: Add dictionary path support
         };
-        
+
         self.keyboards.insert(id.clone(), keyboard);
-        
+
         // Publish config loaded event
         self.event_bus.publish(AppEvent::ConfigLoaded { id });
-        
+
         Ok(())
     }
-    
+
     /// Create a keyboard from a custom config
     ///
     /// # Arguments
@@ -134,20 +134,20 @@ impl KeyboardService {
     /// `Ok(())` if successful, or an error if keyboard creation fails
     pub fn create(&mut self, id: impl Into<String>, config: KeyboardConfig) -> Result<()> {
         let id = id.into();
-        
+
         let keyboard = KeyboardBuilder::new()
             .with_config(config)
             .build()
             .context("Failed to create keyboard from config")?;
-        
+
         self.keyboards.insert(id.clone(), keyboard);
-        
+
         // Publish config loaded event
         self.event_bus.publish(AppEvent::ConfigLoaded { id });
-        
+
         Ok(())
     }
-    
+
     /// Switch to a different keyboard
     ///
     /// This will make the specified keyboard the active one for processing input.
@@ -163,16 +163,17 @@ impl KeyboardService {
         if !self.keyboards.contains_key(id) {
             return Err(anyhow::anyhow!("Keyboard '{}' not found", id));
         }
-        
+
         self.current_id = Some(id.to_string());
-        
+
         // Publish method changed event
         let enabled = id != "english";
-        self.event_bus.publish(AppEvent::method_changed(id, enabled));
-        
+        self.event_bus
+            .publish(AppEvent::method_changed(id, enabled));
+
         Ok(())
     }
-    
+
     /// Process a keystroke through the current keyboard
     ///
     /// # Arguments
@@ -186,7 +187,7 @@ impl KeyboardService {
     pub fn process(&mut self, key: char) -> Result<Action> {
         // Publish input event
         self.event_bus.publish(AppEvent::KeyboardInput(key));
-        
+
         let action = if let Some(id) = &self.current_id {
             if let Some(keyboard) = self.keyboards.get_mut(id) {
                 // Process returns Vec<Action>, take first one
@@ -198,13 +199,14 @@ impl KeyboardService {
         } else {
             Action::DoNothing
         };
-        
+
         // Publish output event
-        self.event_bus.publish(AppEvent::KeyboardOutput(action.clone()));
-        
+        self.event_bus
+            .publish(AppEvent::KeyboardOutput(action.clone()));
+
         Ok(action)
     }
-    
+
     /// Process backspace
     ///
     /// # Returns
@@ -218,7 +220,7 @@ impl KeyboardService {
         }
         Ok(Action::DoNothing)
     }
-    
+
     /// Reset the current keyboard's state
     pub fn reset(&mut self) {
         if let Some(id) = &self.current_id {
@@ -228,22 +230,22 @@ impl KeyboardService {
             }
         }
     }
-    
+
     /// Get the current keyboard ID
     pub fn current(&self) -> Option<&str> {
         self.current_id.as_deref()
     }
-    
+
     /// List all loaded keyboard IDs
     pub fn list(&self) -> Vec<&str> {
         self.keyboards.keys().map(|s| s.as_str()).collect()
     }
-    
+
     /// Check if a keyboard exists
     pub fn has(&self, id: &str) -> bool {
         self.keyboards.contains_key(id)
     }
-    
+
     /// Remove a keyboard
     ///
     /// # Arguments
@@ -257,9 +259,8 @@ impl KeyboardService {
         if self.current_id.as_deref() == Some(id) {
             return Err(anyhow::anyhow!("Cannot remove current keyboard"));
         }
-        
+
         self.keyboards.remove(id);
         Ok(())
     }
 }
-

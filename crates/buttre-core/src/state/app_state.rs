@@ -20,16 +20,16 @@ use std::sync::Arc;
 pub struct AppState {
     /// Whether Vietnamese input is currently enabled
     enabled: bool,
-    
+
     /// Current input method ID (e.g., "telex", "vni", "nom", "english")
     current_method: String,
-    
+
     /// Last Vietnamese method used (for toggle functionality)
     last_vietnamese_method: String,
-    
+
     /// Application settings (persisted to disk)
     settings: Settings,
-    
+
     /// Registered observers that will be notified of state changes
     observers: Vec<Arc<dyn StateObserver>>,
 }
@@ -47,9 +47,12 @@ impl AppState {
         } else {
             "telex".to_string() // Default Vietnamese method
         };
-        
-        info!("Initialized AppState: method={}, enabled={}", current_method, enabled);
-        
+
+        info!(
+            "Initialized AppState: method={}, enabled={}",
+            current_method, enabled
+        );
+
         Self {
             enabled,
             current_method,
@@ -70,7 +73,7 @@ impl AppState {
         } else {
             "telex".to_string()
         };
-        
+
         Self {
             enabled,
             current_method,
@@ -123,29 +126,32 @@ impl AppState {
     /// # Returns
     /// `Ok(())` if successful, or an error if settings could not be saved
     pub fn set_method(&mut self, method: &str) -> anyhow::Result<()> {
-        info!("Setting input method: {} (was: {})", method, self.current_method);
-        
+        info!(
+            "Setting input method: {} (was: {})",
+            method, self.current_method
+        );
+
         // Remember last Vietnamese method if switching away from one
         if self.enabled && method == "english" {
             self.last_vietnamese_method = self.current_method.clone();
         }
-        
+
         // Update state
         self.current_method = method.to_string();
         self.enabled = method != "english";
-        
+
         // Update last_vietnamese_method if switching to a Vietnamese method
         if self.enabled {
             self.last_vietnamese_method = method.to_string();
         }
-        
+
         // Update and save settings
         self.settings.input_method = method.to_string();
         self.settings.save()?;
-        
+
         // Notify observers
         self.notify_method_changed();
-        
+
         Ok(())
     }
 
@@ -164,7 +170,7 @@ impl AppState {
             // Currently disabled -> switch to last Vietnamese method
             self.last_vietnamese_method.clone()
         };
-        
+
         info!("Toggling: {} -> {}", self.current_method, new_method);
         self.set_method(&new_method)
     }
@@ -199,4 +205,3 @@ impl Default for AppState {
         Self::new()
     }
 }
-

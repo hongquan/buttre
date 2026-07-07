@@ -1,6 +1,6 @@
 use buttre_core::keyboard::vni::{special, tones, transforms, vowel_sequences};
-use buttre_engine::pipeline::context::TypingContext;
 use buttre_engine::pipeline::config::ToneMark;
+use buttre_engine::pipeline::context::TypingContext;
 
 // ========================================================================
 // Special Rules Tests
@@ -12,9 +12,9 @@ fn test_double_char_block() {
     ctx.syllable_buffer = "â".to_string();
     ctx.last_char = Some('6');
     ctx.last_transform_key = Some('6');
-    
+
     let rule = special::double_char_block();
-    
+
     // Should block second '6'
     assert!(rule.matches(&ctx));
 }
@@ -25,9 +25,9 @@ fn test_double_char_no_block_different_digit() {
     ctx.syllable_buffer = "â".to_string();
     ctx.last_char = Some('7');
     ctx.last_transform_key = Some('6'); // Different digit
-    
+
     let rule = special::double_char_block();
-    
+
     // Should NOT block different digit
     assert!(!rule.matches(&ctx));
 }
@@ -74,7 +74,7 @@ fn test_uppercase_transforms() {
 fn test_table_not_empty() {
     let table = vowel_sequences::get_table();
     assert!(!table.is_empty());
-    assert!(table.len() >= 30);  // At least 30 sequences
+    assert!(table.len() >= 30); // At least 30 sequences
 }
 
 #[test]
@@ -93,7 +93,7 @@ fn test_find_compound_uo() {
     let info = table.find("ươ").expect("Should find 'ươ'");
     assert_eq!(info.len, 2);
     assert_eq!(info.vowels, vec!['ư', 'ơ']);
-    assert_eq!(info.primary_tone_position(), Some(1));  // Prefer 'ơ'
+    assert_eq!(info.primary_tone_position(), Some(1)); // Prefer 'ơ'
 }
 
 #[test]
@@ -102,7 +102,7 @@ fn test_find_triple() {
     let info = table.find("oai").expect("Should find 'oai'");
     assert_eq!(info.len, 3);
     assert_eq!(info.vowels, vec!['o', 'a', 'i']);
-    assert_eq!(info.primary_tone_position(), Some(1));  // Tone on 'a'
+    assert_eq!(info.primary_tone_position(), Some(1)); // Tone on 'a'
 }
 
 #[test]

@@ -3,8 +3,8 @@
 //! Each stage in the 7-stage pipeline implements the PipelineStage trait,
 //! which defines a single `process` method that takes a context and input character.
 
-use crate::types::Action;
 use super::context::TypingContext;
+use crate::types::Action;
 
 /// Result of processing through a pipeline stage
 ///
@@ -106,28 +106,34 @@ mod tests {
 
     #[test]
     fn test_stage_continue() {
-        let stage = MockStage { should_continue: true };
+        let stage = MockStage {
+            should_continue: true,
+        };
         let mut ctx = TypingContext::new();
-        
+
         let result = stage.process(&mut ctx, 'a');
-        
+
         assert_eq!(result, StageResult::Continue);
         assert_eq!(ctx.raw_buffer(), "a");
     }
 
     #[test]
     fn test_stage_passthrough() {
-        let stage = MockStage { should_continue: false };
+        let stage = MockStage {
+            should_continue: false,
+        };
         let mut ctx = TypingContext::new();
-        
+
         let result = stage.process(&mut ctx, 'a');
-        
+
         assert_eq!(result, StageResult::PassThrough);
     }
 
     #[test]
     fn test_stage_name() {
-        let stage = MockStage { should_continue: true };
+        let stage = MockStage {
+            should_continue: true,
+        };
         assert_eq!(stage.name(), "MockStage");
     }
 }

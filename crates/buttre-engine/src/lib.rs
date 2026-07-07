@@ -7,7 +7,14 @@
 //! Pure Vietnamese language processing algorithms. This crate contains the core
 //! 7-stage pipeline that transforms raw keystrokes into Vietnamese characters.
 
-#![warn(clippy::all, clippy::pedantic, clippy::nursery, missing_docs)]
+// `clippy::pedantic`/`clippy::nursery` are deliberately NOT enabled here —
+// the workspace's own lint policy (`Cargo.toml` [workspace.lints.clippy])
+// already states style/complexity are "disabled for now (too many warnings
+// in existing code)". Warning on them at the crate level while CI runs
+// `cargo clippy -- -D warnings` promoted ~500 pedantic/nursery style
+// findings (doc-comment backticks, `use Self`, etc. — no correctness bugs)
+// into hard build failures, silently breaking CI for every release.
+#![warn(clippy::all, missing_docs)]
 #![deny(unsafe_code)]
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 //!
@@ -59,20 +66,20 @@
 //!
 //! See `ARCHITECTURE.md` for full system design.
 
-pub mod pipeline;
-pub mod types;
 pub mod buffer;
+pub mod compose;
+pub mod pipeline;
+pub mod tone; // Single source of truth for tone char tables and placement
+pub mod types;
 pub mod unicode;
-pub mod vowel;  // NEW: Vowel processing module for flexible typing
-pub mod tone;   // Single source of truth for tone char tables and placement
-pub mod compose; // Phase 3: pure recompute-from-raw compose engine
+pub mod vowel; // NEW: Vowel processing module for flexible typing // Phase 3: pure recompute-from-raw compose engine
 
 // Re-export core types
-pub use pipeline::{PipelineConfig, PipelineExecutor, TypingContext, PipelineStage, StageResult};
-pub use types::{Action, CharInfo, Config, WordForm};
 pub use buffer::InputBuffer;
-pub use unicode::{normalize_nfc, normalize_nfd, str_eq_normalized, sanitize_filename};
-pub use vowel::{VowelSeqInfo, VowelSeqTable, VowelCluster, find_vowel_clusters};  // NEW
+pub use pipeline::{PipelineConfig, PipelineExecutor, PipelineStage, StageResult, TypingContext};
+pub use types::{Action, CharInfo, Config, WordForm};
+pub use unicode::{normalize_nfc, normalize_nfd, sanitize_filename, str_eq_normalized};
+pub use vowel::{find_vowel_clusters, VowelCluster, VowelSeqInfo, VowelSeqTable}; // NEW
 
 /// Engine version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -87,19 +94,16 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// ```rust,no_run
 /// use buttre_engine::init_tracing;
 ///
-/// fn main() {
-///     init_tracing();
-///     // Your code here
-/// }
+/// init_tracing();
+/// // Your code here
 /// ```
 pub fn init_tracing() {
     use tracing_subscriber::{fmt, EnvFilter};
-    
+
     // Set up filter from environment variable RUST_LOG
     // Default to "info" level if not set
-    let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info"));
-    
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+
     // Initialize subscriber with pretty formatting
     fmt()
         .with_env_filter(filter)

@@ -1,5 +1,5 @@
-use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 use buttre_engine::pipeline::stages::stage1_normalization::NormalizationStage;
+use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 
 #[test]
 fn test_normalize_lowercase() {
@@ -89,7 +89,7 @@ fn test_normalize_char_method() {
 #[test]
 fn test_normalize_all_uppercase_letters() {
     let stage = NormalizationStage::new();
-    
+
     for ch in 'A'..='Z' {
         let normalized = stage.normalize_char(ch);
         assert!(normalized.is_lowercase(), "Failed for '{}'", ch);
@@ -99,7 +99,7 @@ fn test_normalize_all_uppercase_letters() {
 #[test]
 fn test_normalize_all_lowercase_unchanged() {
     let stage = NormalizationStage::new();
-    
+
     for ch in 'a'..='z' {
         let normalized = stage.normalize_char(ch);
         assert_eq!(normalized, ch);
@@ -109,7 +109,7 @@ fn test_normalize_all_lowercase_unchanged() {
 #[test]
 fn test_normalize_digits_unchanged() {
     let stage = NormalizationStage::new();
-    
+
     for ch in '0'..='9' {
         let normalized = stage.normalize_char(ch);
         assert_eq!(normalized, ch);
@@ -119,7 +119,7 @@ fn test_normalize_digits_unchanged() {
 #[test]
 fn test_normalize_punctuation_unchanged() {
     let stage = NormalizationStage::new();
-    
+
     let punctuation = vec!['.', ',', '!', '?', ';', ':', '-', '_', '(', ')'];
     for ch in punctuation {
         let normalized = stage.normalize_char(ch);
@@ -130,7 +130,7 @@ fn test_normalize_punctuation_unchanged() {
 #[test]
 fn test_normalize_vietnamese_uppercase() {
     let stage = NormalizationStage::new();
-    
+
     let test_cases = vec![
         ('Ă', 'ă'),
         ('Â', 'â'),
@@ -140,7 +140,7 @@ fn test_normalize_vietnamese_uppercase() {
         ('Ơ', 'ơ'),
         ('Ư', 'ư'),
     ];
-    
+
     for (upper, lower) in test_cases {
         assert_eq!(stage.normalize_char(upper), lower);
     }
@@ -149,7 +149,7 @@ fn test_normalize_vietnamese_uppercase() {
 #[test]
 fn test_normalize_vietnamese_tones_uppercase() {
     let stage = NormalizationStage::new();
-    
+
     // Uppercase toned characters
     assert_eq!(stage.normalize_char('Á'), 'á');
     assert_eq!(stage.normalize_char('À'), 'à');
@@ -241,7 +241,7 @@ fn test_never_blocks_input() {
 
     // Try various problematic inputs
     let inputs = vec!['@', '#', '$', '%', '&', '*', '\t', '\n'];
-    
+
     for ch in inputs {
         let result = stage.process(&mut ctx, ch);
         assert_eq!(result, StageResult::Continue, "Failed for '{:?}'", ch);
@@ -253,10 +253,10 @@ fn test_never_blocks_input() {
 #[test]
 fn test_reset_no_state() {
     let mut stage = NormalizationStage::new();
-    
+
     // Should not crash
     stage.reset();
-    
+
     // Should still work
     let mut ctx = TypingContext::new();
     assert_eq!(stage.process(&mut ctx, 'a'), StageResult::Continue);
@@ -265,11 +265,11 @@ fn test_reset_no_state() {
 #[test]
 fn test_reset_multiple_times() {
     let mut stage = NormalizationStage::new();
-    
+
     stage.reset();
     stage.reset();
     stage.reset();
-    
+
     // Still functional
     let mut ctx = TypingContext::new();
     stage.process(&mut ctx, 'x');
@@ -297,13 +297,11 @@ fn test_preserves_context_flags() {
     let stage = NormalizationStage::new();
     let mut ctx = TypingContext::new();
     ctx.temp_english_mode = true;
-    ctx.last_was_undo = true;
 
     stage.process(&mut ctx, 'a');
 
     // Flags should not be modified
     assert!(ctx.temp_english_mode);
-    assert!(ctx.last_was_undo);
 }
 
 // === Vietnamese Input Tests ===
@@ -389,7 +387,7 @@ fn test_whitespace_characters() {
 
     stage.process(&mut ctx, ' ');
     stage.process(&mut ctx, '\t');
-    
+
     // Whitespace preserved as-is
     assert_eq!(ctx.raw_buffer(), " \t");
 }

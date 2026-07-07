@@ -1,5 +1,5 @@
-use buttre_core::services::HotkeyService;
 use buttre_core::events::create_event_bus;
+use buttre_core::services::HotkeyService;
 
 #[test]
 fn test_create_hotkey_service() {

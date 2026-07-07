@@ -22,7 +22,7 @@
 //! When `free_marking = true`, users can place tones on any vowel in the cluster,
 //! overriding the phonology rules. This provides maximum flexibility.
 
-use super::cluster::{VowelCluster, ClusterType};
+use super::cluster::{ClusterType, VowelCluster};
 use super::sequences::VowelSeqTable;
 
 /// Tone Positioning Mode
@@ -32,7 +32,7 @@ use super::sequences::VowelSeqTable;
 pub enum TonePositioningMode {
     /// Follow Vietnamese phonology rules (default)
     Phonology,
-    
+
     /// Allow tone on any vowel (free marking)
     Free,
 }
@@ -108,7 +108,7 @@ pub fn find_phonology_position(syllable: &str, cluster: &VowelCluster) -> Option
             return Some(cluster.start_pos + i);
         }
     }
-    
+
     // PRIORITY 2: Special patterns (qu, gi)
     let syllable_lower: String = syllable.to_lowercase();
     if syllable_lower.starts_with("qu") && cluster.vowels.len() >= 2 {
@@ -121,12 +121,12 @@ pub fn find_phonology_position(syllable: &str, cluster: &VowelCluster) -> Option
         // Example: "giá" - tone on 'á'
         return Some(cluster.start_pos + 1);
     }
-    
+
     // PRIORITY 3: Triple vowels - tone on middle
     if cluster.vowels.len() == 3 {
         return Some(cluster.start_pos + 1);
     }
-    
+
     // PRIORITY 4: Double vowels with special rules
     if cluster.vowels.len() == 2 {
         match cluster.cluster_type {
@@ -135,18 +135,18 @@ pub fn find_phonology_position(syllable: &str, cluster: &VowelCluster) -> Option
                 // Old style → tone on first vowel (o)
                 // Default to modern style
                 return Some(cluster.start_pos + 1);
-            },
+            }
             ClusterType::CompoundUO => {
                 // ươ: Tone on ơ (second vowel)
                 return Some(cluster.start_pos + 1);
-            },
+            }
             _ => {
                 // Default for double vowels: First vowel
                 return Some(cluster.start_pos);
             }
         }
     }
-    
+
     // Single vowel or fallback: First vowel
     Some(cluster.start_pos)
 }
@@ -168,21 +168,21 @@ pub fn find_phonology_position(syllable: &str, cluster: &VowelCluster) -> Option
 /// The character index closest to `input_pos` within the cluster
 pub fn find_free_position(cluster: &VowelCluster, input_pos: Option<usize>) -> Option<usize> {
     let input_pos = input_pos?;
-    
+
     // Find the vowel position closest to input_pos
     let mut closest_pos = cluster.start_pos;
     let mut min_distance = (input_pos as i32 - cluster.start_pos as i32).abs();
-    
+
     for i in 0..cluster.vowels.len() {
         let pos = cluster.start_pos + i;
         let distance = (input_pos as i32 - pos as i32).abs();
-        
+
         if distance < min_distance {
             min_distance = distance;
             closest_pos = pos;
         }
     }
-    
+
     Some(closest_pos)
 }
 
@@ -207,11 +207,10 @@ pub fn find_tone_position_from_table(
 ) -> Option<usize> {
     // Look up the cluster in the table
     let seq_info = table.find_by_vowels(&cluster.vowels)?;
-    
+
     // Get the primary tone position from the table
     let relative_pos = seq_info.primary_tone_position()?;
-    
+
     // Convert to absolute position
     Some(cluster.start_pos + relative_pos)
 }
-

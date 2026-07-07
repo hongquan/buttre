@@ -105,7 +105,7 @@ impl SimpleDictionary {
 
         self.entries
             .entry(keyword.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(candidate);
     }
 
@@ -113,17 +113,14 @@ impl SimpleDictionary {
     pub fn add_candidates(&mut self, keyword: &str, candidates: Vec<Candidate>) {
         self.entries
             .entry(keyword.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .extend(candidates);
     }
 }
 
 impl DictionaryProvider for SimpleDictionary {
     fn lookup(&self, keyword: &str) -> Vec<Candidate> {
-        self.entries
-            .get(keyword)
-            .cloned()
-            .unwrap_or_default()
+        self.entries.get(keyword).cloned().unwrap_or_default()
     }
 
     fn count(&self) -> usize {

@@ -1,5 +1,5 @@
-use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 use buttre_engine::pipeline::stages::stage2_gatekeeper::GatekeeperStage;
+use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext};
 
 #[test]
 fn test_normal_alphabetic_input() {
@@ -168,9 +168,9 @@ fn test_multiple_separators() {
 #[test]
 fn test_reset_no_effect() {
     let mut stage = GatekeeperStage::new();
-    
+
     stage.reset();
-    
+
     // Should still work
     let mut ctx = TypingContext::new();
     assert_eq!(stage.process(&mut ctx, 'a'), StageResult::Continue);
@@ -200,7 +200,7 @@ fn test_temp_english_sequence() {
     assert_eq!(stage.process(&mut ctx, 'i'), StageResult::Continue);
     assert_eq!(stage.process(&mut ctx, 'l'), StageResult::Continue);
     assert_eq!(stage.process(&mut ctx, 'e'), StageResult::Continue);
-    
+
     // All should continue in temp English mode (Stage 4 will append)
 }
 
@@ -219,7 +219,7 @@ fn test_normal_mode_sequence() {
 #[test]
 fn test_is_separator_newline() {
     let stage = GatekeeperStage::new();
-    
+
     assert!(stage.is_separator('\n'));
     assert!(stage.is_separator('\r'));
     assert!(stage.is_separator('\t'));
@@ -232,13 +232,13 @@ fn test_mixed_input_sequence() {
 
     // Vietnamese text
     assert_eq!(stage.process(&mut ctx, 'a'), StageResult::Continue);
-    
+
     // Number (passthrough, resets if temp mode was on)
     assert_eq!(stage.process(&mut ctx, '1'), StageResult::PassThrough);
-    
+
     // Space (passthrough)
     assert_eq!(stage.process(&mut ctx, ' '), StageResult::PassThrough);
-    
+
     // Back to Vietnamese
     assert_eq!(stage.process(&mut ctx, 'b'), StageResult::Continue);
 }

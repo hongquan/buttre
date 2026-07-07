@@ -1,3 +1,4 @@
+use buttre_engine::pipeline::config::ToneMark;
 /// VNI Transformation Undo Tests
 ///
 /// Tests VNI undo/toggle behavior for transformations.
@@ -12,9 +13,7 @@
 /// This matches Unikey's `tempVietOff` behaviour: after a transform-undo,
 /// subsequent same-key taps are literal (no re-apply). This is the correct
 /// standard; it is not a missing feature.
-
-use buttre_engine::pipeline::{PipelineExecutor, PipelineConfig};
-use buttre_engine::pipeline::config::ToneMark;
+use buttre_engine::pipeline::{PipelineConfig, PipelineExecutor};
 
 fn create_vni_config() -> PipelineConfig {
     let mut config = PipelineConfig::new("vni");
@@ -26,7 +25,7 @@ fn create_vni_config() -> PipelineConfig {
     config.add_transform("o7", "ơ");
     config.add_transform("u7", "ư");
     config.add_transform("d9", "đ");
-    
+
     // Uppercase transforms
     config.add_transform("A6", "Â");
     config.add_transform("A8", "Ă");
@@ -35,7 +34,7 @@ fn create_vni_config() -> PipelineConfig {
     config.add_transform("O7", "Ơ");
     config.add_transform("U7", "Ư");
     config.add_transform("D9", "Đ");
-    
+
     // Tones
     config.add_tone('1', ToneMark::Acute);
     config.add_tone('2', ToneMark::Grave);
@@ -75,11 +74,14 @@ fn test_vni_a666_circumflex_reapply() {
     // (no re-apply). This is intentional standard behaviour, not a missing feature.
     let config = create_vni_config();
     let executor = process_sequence(&config, "a666");
-    assert_eq!(executor.syllable(), "a66",
-        "a666 → a66: Unikey standard — after undo pair, subsequent taps are literal (no re-apply)");
+    assert_eq!(
+        executor.syllable(),
+        "a66",
+        "a666 → a66: Unikey standard — after undo pair, subsequent taps are literal (no re-apply)"
+    );
 }
 
-// Horn tests  
+// Horn tests
 #[test]
 fn test_vni_o7_horn_apply() {
     let config = create_vni_config();

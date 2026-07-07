@@ -9,11 +9,11 @@
 //! - Thread-safe access with mutex protection
 //! - Integration with the pipeline's dictionary system
 
-use crate::pipeline::{Candidate, CandidateType, dictionary::DictionaryProvider};
+use crate::pipeline::{dictionary::DictionaryProvider, Candidate, CandidateType};
+use log::{error, info, warn};
 use rusqlite::{Connection, OpenFlags};
 use std::path::PathBuf;
 use std::sync::Mutex;
-use log::{info, error, warn};
 
 /// SQLite-based Nôm dictionary implementation
 pub struct NomDictionary {
@@ -28,7 +28,7 @@ impl NomDictionary {
             path,
             OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )?;
-        
+
         Ok(Self {
             conn: Mutex::new(conn),
         })
@@ -50,12 +50,13 @@ impl DictionaryProvider for NomDictionary {
         // 1. Single keyword: "thien*" - prefix search for candidates starting with "thien"
         // 2. Multi-keyword: "thien* AND thuong*" - AND search for all keywords
         //    Example: "thien thuong" finds characters with meaning containing both words
-        
+
         // Build FTS5 query
         let fts_query = if keyword.contains(' ') {
             // Multi-keyword search: split by space and join with AND
             // "thien thuong" → "thien* AND thuong*"
-            keyword.split_whitespace()
+            keyword
+                .split_whitespace()
                 .map(|word| format!("{}*", word))
                 .collect::<Vec<_>>()
                 .join(" AND ")
@@ -63,7 +64,7 @@ impl DictionaryProvider for NomDictionary {
             // Single keyword: simple prefix search
             format!("{}*", keyword)
         };
-        
+
         // Query FTS5 table and join with main table to get frequency
         // ORDER BY freq DESC to show most common characters first
         // Schema: nom_data (id, char, keywords, meaning, freq, metadata)
@@ -73,7 +74,7 @@ impl DictionaryProvider for NomDictionary {
              INNER JOIN nom_data ON nom_fts.rowid = nom_data.id
              WHERE nom_fts.keywords MATCH ?1
              ORDER BY nom_data.freq DESC 
-             LIMIT 20"
+             LIMIT 20",
         ) {
             Ok(s) => s,
             Err(e) => {
@@ -86,21 +87,21 @@ impl DictionaryProvider for NomDictionary {
             let char: String = row.get(0)?;
             let freq: i64 = row.get(1).unwrap_or(0);
             let meaning: String = row.get(2).unwrap_or_default();
-            
+
             // Display format: "𡗶 (trời)" if meaning exists, otherwise just the character
             let display_text = if !meaning.is_empty() {
                 format!("{} ({})", char, meaning)
             } else {
                 char.clone()
             };
-            
+
             // Value is always just the Nôm character (without meaning in parentheses)
             let value = if !meaning.is_empty() {
                 Some(char)
             } else {
                 None // If no meaning, text == value, so no need to duplicate
             };
-            
+
             Ok(Candidate {
                 text: display_text,
                 value,
@@ -115,9 +116,7 @@ impl DictionaryProvider for NomDictionary {
             }
         };
 
-        candidate_iter
-            .filter_map(Result::ok)
-            .collect()
+        candidate_iter.filter_map(Result::ok).collect()
     }
 
     fn contains(&self, keyword: &str) -> bool {
@@ -128,9 +127,7 @@ impl DictionaryProvider for NomDictionary {
 
         // Use FTS5 prefix search to check if any keyword starts with the input
         let fts_query = format!("{}*", keyword);
-        let mut stmt = match conn.prepare(
-            "SELECT 1 FROM nom_fts WHERE keywords MATCH ?1 LIMIT 1"
-        ) {
+        let mut stmt = match conn.prepare("SELECT 1 FROM nom_fts WHERE keywords MATCH ?1 LIMIT 1") {
             Ok(s) => s,
             Err(_) => return false,
         };

@@ -931,6 +931,9 @@ luwj, lự
 luwaj, lựa
 luwcj, lực
 luwuj, lựu
+luuw, lưu
+dodongf, đồng
+vietej, việt
 ma, ma
 mai, mai
 man, man
@@ -2424,3 +2427,18 @@ ur, ủ
 uyr, ủy
 uwngs, ứng
 dzowj, dzợ
+# Informal/slang supplement (buttre-curated) — pins leniency + the attested
+# supplement in data/attested-syllables.txt; "ddechej" is the delayed
+# non-adjacent style that requires the dictionary entry to survive.
+ddeechj, đệch
+ddechej, đệch
+chowif, chời
+dzoo, dzô
+dzaayj, dzậy
+dzui, dzui
+vaix, vãi
+quaayr, quẩy
+ngaos, ngáo
+laayf, lầy
+khum, khum
+toang, toang

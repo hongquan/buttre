@@ -18,11 +18,11 @@
 //! **last** tone key typed (`stage6:392` semantics). This function does not
 //! receive the full list.
 
+use super::ComposeOpts;
 use crate::pipeline::config::ToneMark;
-use crate::pipeline::validation::{extract_onset, extract_coda, normalize_vietnamese};
+use crate::pipeline::validation::{extract_coda, extract_onset, normalize_vietnamese};
 use crate::tone;
 use crate::vowel::cluster::{is_vowel, normalize_vowel};
-use super::ComposeOpts;
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
@@ -42,7 +42,7 @@ pub fn apply_tone(word: &str, tone_key: char, opts: &ComposeOpts) -> Option<Stri
     let word_lower = normalize_vietnamese(word);
     let onset = extract_onset(&word_lower);
     let after_onset = &word_lower[onset.len()..];
-    let coda  = extract_coda(after_onset);
+    let coda = extract_coda(after_onset);
     let nucleus_end = after_onset.len() - coda.len();
     let nucleus_str = &after_onset[..nucleus_end];
 
@@ -50,17 +50,18 @@ pub fn apply_tone(word: &str, tone_key: char, opts: &ComposeOpts) -> Option<Stri
     // Align with the nucleus slice from the lowercase analysis.
     let onset_char_count = onset.chars().count();
     let nucleus_chars_count = nucleus_str.chars().count();
-    let coda_char_count   = coda.chars().count();
+    let coda_char_count = coda.chars().count();
 
     // Vowels in the word (in order), restricted to the nucleus range.
-    let vowel_positions: Vec<usize> = (onset_char_count
-        ..onset_char_count + nucleus_chars_count)
+    let vowel_positions: Vec<usize> = (onset_char_count..onset_char_count + nucleus_chars_count)
         .filter(|&i| i < chars.len() && is_vowel(normalize_vowel(chars[i])))
         .collect();
 
     if vowel_positions.is_empty() {
         // Fallback: scan all vowels in the word.
-        let all_vowels: Vec<usize> = chars.iter().enumerate()
+        let all_vowels: Vec<usize> = chars
+            .iter()
+            .enumerate()
             .filter(|(_, &c)| is_vowel(normalize_vowel(c)))
             .map(|(i, _)| i)
             .collect();
@@ -71,7 +72,8 @@ pub fn apply_tone(word: &str, tone_key: char, opts: &ComposeOpts) -> Option<Stri
     }
 
     // Build the nucleus character slice for the placement algorithm.
-    let nucleus_vowels: Vec<char> = vowel_positions.iter()
+    let nucleus_vowels: Vec<char> = vowel_positions
+        .iter()
         .map(|&i| normalize_vowel(chars[i]))
         .collect();
 
@@ -86,7 +88,7 @@ pub fn apply_tone(word: &str, tone_key: char, opts: &ComposeOpts) -> Option<Stri
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-fn apply_at_position(chars: &mut Vec<char>, idx: usize, tone: ToneMark) -> Option<String> {
+fn apply_at_position(chars: &mut [char], idx: usize, tone: ToneMark) -> Option<String> {
     let original = chars[idx];
     let toned = tone::apply(original, tone);
     if toned == original {
@@ -102,7 +104,7 @@ fn apply_at_position(chars: &mut Vec<char>, idx: usize, tone: ToneMark) -> Optio
 mod tests {
     use super::*;
     use crate::compose::ComposeOpts;
-    use crate::pipeline::config::{PipelineConfig, ToneMark, ToneStyle};
+    use crate::pipeline::config::{PipelineConfig, ToneMark};
 
     fn telex_opts() -> ComposeOpts {
         let mut cfg = PipelineConfig::new("telex");

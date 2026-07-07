@@ -1,4 +1,4 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-only
 // Composition State Management for buttre TSF
 //
 // **Tests**: Integration tests for this module are located in `crates/buttre-platform/tests/platform_windows_tsf_tests.rs`.
@@ -8,7 +8,7 @@ use std::rc::Rc;
 use windows::Win32::UI::TextServices::ITfComposition;
 
 /// Shared composition state
-/// 
+///
 /// This holds the current TSF composition object.
 /// It is shared between the TextService and EditSessions.
 #[derive(Clone, Default)]
@@ -50,7 +50,7 @@ impl Composition {
 use windows::core::HSTRING;
 
 /// Pending composition data
-/// 
+///
 /// Holds the text and cursor position that we want to apply to the document.
 #[derive(Clone, Default)]
 pub struct PendingComposition {
@@ -58,6 +58,3 @@ pub struct PendingComposition {
     pub cursor: usize,
     pub previous_length: usize, // Track previous text length for backspace
 }
-
-
-

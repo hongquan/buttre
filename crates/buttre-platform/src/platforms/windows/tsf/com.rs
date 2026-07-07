@@ -41,17 +41,15 @@ pub extern "system" fn DllMain(
 
     // A panic crossing an FFI boundary is undefined behaviour. Catch and swallow
     // any panic here so a bug in the logging path cannot crash the host process.
-    let ok = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        match fdw_reason {
-            DLL_PROCESS_ATTACH => {
-                init_logging();
-                log_debug("DLL_PROCESS_ATTACH - buttre TSF loaded");
-            }
-            DLL_PROCESS_DETACH => {
-                log_debug("DLL_PROCESS_DETACH - buttre TSF unloaded");
-            }
-            _ => {}
+    let ok = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| match fdw_reason {
+        DLL_PROCESS_ATTACH => {
+            init_logging();
+            log_debug("DLL_PROCESS_ATTACH - buttre TSF loaded");
         }
+        DLL_PROCESS_DETACH => {
+            log_debug("DLL_PROCESS_DETACH - buttre TSF unloaded");
+        }
+        _ => {}
     }));
 
     BOOL(ok.is_ok() as i32)

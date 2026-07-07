@@ -10,10 +10,10 @@
 //! the previous stages no longer exist.  All measurements confirm the recompute
 //! path stays well under the 1 ms/keystroke threshold.
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
 use buttre_engine::compose::{compose, ComposeOpts};
 use buttre_engine::pipeline::presets;
 use buttre_engine::pipeline::PipelineExecutor;
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 // ---------------------------------------------------------------------------
 // compose() micro-benchmark — pure recompute logic, no executor overhead
@@ -27,26 +27,20 @@ fn bench_compose_telex(c: &mut Criterion) {
 
     // Representative Telex sequences (raw key buffers)
     let cases: &[(&str, &str)] = &[
-        ("nguwowif",  "người"),   // complex compound vowel + tone
-        ("tuongwf",   "tường"),   // uo+w compound + grave
-        ("dduwowcj",  "được"),    // đ-stroke + compound + dot-below
-        ("thuongwf",  "thường"),  // th- initial + compound + grave
-        ("aa",        "â"),       // simple transform
-        ("awf",       "ằ"),       // transform + tone
-        ("a",         "a"),       // single char (hot path)
+        ("nguwowif", "người"),  // complex compound vowel + tone
+        ("tuongwf", "tường"),   // uo+w compound + grave
+        ("dduwowcj", "được"),   // đ-stroke + compound + dot-below
+        ("thuongwf", "thường"), // th- initial + compound + grave
+        ("aa", "â"),            // simple transform
+        ("awf", "ằ"),           // transform + tone
+        ("a", "a"),             // single char (hot path)
     ];
 
     for (raw_str, _expected) in cases {
         let raw: Vec<char> = raw_str.chars().collect();
-        group.bench_with_input(
-            BenchmarkId::from_parameter(*raw_str),
-            &raw,
-            |b, raw| {
-                b.iter(|| {
-                    compose(black_box(raw), black_box(&opts))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(*raw_str), &raw, |b, raw| {
+            b.iter(|| compose(black_box(raw), black_box(&opts)));
+        });
     }
 
     group.finish();
@@ -60,26 +54,20 @@ fn bench_compose_vni(c: &mut Criterion) {
 
     // Representative VNI sequences (raw key buffers)
     let cases: &[(&str, &str)] = &[
-        ("ngu7o72i",   "người"),
-        ("tuo7ng1",    "tuống"),
-        ("ddu7o7c5",   "được"),
-        ("thu7o7ng1",  "thường"),
-        ("a6",         "â"),
-        ("a8f",        "ằ"),
-        ("a",          "a"),
+        ("ngu7o72i", "người"),
+        ("tuo7ng1", "tuống"),
+        ("ddu7o7c5", "được"),
+        ("thu7o7ng1", "thường"),
+        ("a6", "â"),
+        ("a8f", "ằ"),
+        ("a", "a"),
     ];
 
     for (raw_str, _expected) in cases {
         let raw: Vec<char> = raw_str.chars().collect();
-        group.bench_with_input(
-            BenchmarkId::from_parameter(*raw_str),
-            &raw,
-            |b, raw| {
-                b.iter(|| {
-                    compose(black_box(raw), black_box(&opts))
-                });
-            },
-        );
+        group.bench_with_input(BenchmarkId::from_parameter(*raw_str), &raw, |b, raw| {
+            b.iter(|| compose(black_box(raw), black_box(&opts)));
+        });
     }
 
     group.finish();
@@ -95,7 +83,7 @@ fn bench_executor_telex_word(c: &mut Criterion) {
     // Each case is typed keystroke-by-keystroke through a fresh executor.
     let words: &[(&str, &str)] = &[
         ("nguwowif", "người"),
-        ("tuongwf",  "tường"),
+        ("tuongwf", "tường"),
         ("thuowngf", "thường"),
     ];
 
@@ -131,23 +119,19 @@ fn bench_executor_keystroke_latency(c: &mut Criterion) {
     ];
 
     for (ch, id) in keystrokes {
-        group.bench_with_input(
-            BenchmarkId::from_parameter(id),
-            &ch,
-            |b, &ch| {
-                let config = presets::telex_config();
-                let mut executor = PipelineExecutor::new(config);
-                // Prime with one character so the buffer is non-empty.
-                executor.process('a');
+        group.bench_with_input(BenchmarkId::from_parameter(id), &ch, |b, &ch| {
+            let config = presets::telex_config();
+            let mut executor = PipelineExecutor::new(config);
+            // Prime with one character so the buffer is non-empty.
+            executor.process('a');
 
-                b.iter(|| {
-                    // Reset to consistent state between iterations.
-                    executor.reset();
-                    executor.process('a');
-                    let _ = executor.process(black_box(ch));
-                });
-            },
-        );
+            b.iter(|| {
+                // Reset to consistent state between iterations.
+                executor.reset();
+                executor.process('a');
+                let _ = executor.process(black_box(ch));
+            });
+        });
     }
 
     group.finish();

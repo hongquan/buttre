@@ -1,13 +1,13 @@
-﻿// SPDX-License-Identifier: GPL-3.0-only
+// SPDX-License-Identifier: GPL-3.0-only
 // Vietnamese Engine Integration for TSF
 //
 // **Tests**: Integration tests for this module are located in `crates/buttre-platform/tests/platform_windows_tsf_tests.rs`.
 
-use buttre_core::InputBuffer;
+use super::candidate_ui::CandidateItem;
 use buttre_core::Action;
+use buttre_core::InputBuffer;
 use buttre_core::Keyboard;
 use buttre_core::KeyboardBuilder;
-use super::candidate_ui::CandidateItem;
 use std::path::PathBuf;
 
 /// Vietnamese input mode
@@ -39,16 +39,12 @@ impl VietnameseEngine {
             buffer: InputBuffer::new(),
         }
     }
-    
+
     /// Load keyboard instance for given mode
     fn load_keyboard(mode: &VietnameseMode) -> Option<Keyboard> {
         match mode {
-            VietnameseMode::Telex => {
-                KeyboardBuilder::telex_with_composition(true).ok()
-            }
-            VietnameseMode::VNI => {
-                KeyboardBuilder::vni_with_composition(true).ok()
-            }
+            VietnameseMode::Telex => KeyboardBuilder::telex_with_composition(true).ok(),
+            VietnameseMode::VNI => KeyboardBuilder::vni_with_composition(true).ok(),
             VietnameseMode::Nom => {
                 // Load Nôm dictionary and create keyboard with TSF composition mode
                 let nom_path = buttre_core::vietnamese::get_nom_db_path();
@@ -59,11 +55,11 @@ impl VietnameseEngine {
                 tracing::info!("TSF: Loading custom keyboard: {}", method_id);
                 let custom_dir = buttre_core::vietnamese::get_custom_dir();
                 let config_path = custom_dir.join(format!("{}.toml", method_id));
-                
+
                 if config_path.exists() {
                     match buttre_core::Config::load(config_path.to_str().unwrap()) {
                         Ok(config) => {
-                            tracing::info!(“TSF: ✓ Loaded custom keyboard from {:?}”, config_path);
+                            tracing::info!("TSF: loaded custom keyboard from {:?}", config_path);
                             // Create keyboard with composition mode for TSF
                             KeyboardBuilder::new()
                                 .with_config(config)
@@ -126,6 +122,19 @@ impl VietnameseEngine {
         }
     }
 
+    /// Word-boundary final repair probe (event-sourcing-completion Phase 3):
+    /// see `buttre_core::keyboard::Keyboard::boundary_repair`.
+    ///
+    /// Callers (Enter, and TSF's own buffer-reset-key handling in
+    /// `text_service_stub.rs`) query this BEFORE ending the composition —
+    /// those commit points bypass `process_key`/`ConfirmComposition`
+    /// entirely (they call `end_composition` directly), so without this
+    /// probe a shape-only inferred word (e.g. VNI `"nhat6"`) would commit
+    /// unrepaired.
+    pub fn boundary_repair(&self) -> Option<String> {
+        self.keyboard.as_ref().and_then(|kb| kb.boundary_repair())
+    }
+
     /// Get current buffer content
     pub fn buffer_content(&self) -> String {
         if let Some(ref kb) = self.keyboard {
@@ -150,4 +159,3 @@ impl VietnameseEngine {
         Vec::new()
     }
 }
-

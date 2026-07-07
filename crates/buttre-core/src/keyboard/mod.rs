@@ -24,20 +24,22 @@
 //! let action = keyboard.process('a')?;
 //! ```
 
-mod config;
-mod keyboard;
 mod builder;
+mod config;
+// Filename deliberately NOT `keyboard.rs` — `mod keyboard;` inside the
+// `keyboard` module directory triggers clippy::module_inception (a module
+// with the same name as its containing module).
+mod engine;
 
 // Input method modules (hardcoded configs)
+pub mod nom;
 pub mod telex;
 pub mod vni;
-pub mod nom;
 
 #[cfg(test)]
 mod vni_debug_test;
 
 // Re-export public types
-pub use config::{Config, Metadata, Rules};
-pub use keyboard::Keyboard;
 pub use builder::KeyboardBuilder;
-
+pub use config::{Config, Metadata, Rules};
+pub use engine::{BackspaceMode, Keyboard, ToggleSignal};

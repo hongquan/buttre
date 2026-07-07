@@ -8,15 +8,15 @@
 //! - Real Vietnamese words
 //! - Performance benchmarks
 
-use buttre_engine::pipeline::PipelineExecutor;
 use buttre_engine::pipeline::presets;
+use buttre_engine::pipeline::PipelineExecutor;
 
 /// Helper function to process VNI input
 fn process_vni(input: &str) -> String {
     let config = presets::vni_config();
     let mut executor = PipelineExecutor::new(config);
     let mut result = String::new();
-    
+
     for ch in input.chars() {
         let actions = executor.process(ch);
         // Apply actions to build result
@@ -26,7 +26,10 @@ fn process_vni(input: &str) -> String {
                     // Commit action - append the text
                     result.push_str(&text);
                 }
-                buttre_engine::types::Action::Replace { text, backspace_count } => {
+                buttre_engine::types::Action::Replace {
+                    text,
+                    backspace_count,
+                } => {
                     // Remove last N chars
                     for _ in 0..backspace_count {
                         result.pop();
@@ -42,7 +45,7 @@ fn process_vni(input: &str) -> String {
             }
         }
     }
-    
+
     result
 }
 
@@ -182,7 +185,7 @@ fn test_vni_all_combined_transforms() {
     assert_eq!(process_vni("a63"), "ẩ");
     assert_eq!(process_vni("a64"), "ẫ");
     assert_eq!(process_vni("a65"), "ậ");
-    
+
     assert_eq!(process_vni("a81"), "ắ");
     assert_eq!(process_vni("a82"), "ằ");
     assert_eq!(process_vni("a83"), "ẳ");
@@ -204,7 +207,7 @@ fn test_vni_word_viet() {
 fn test_vni_word_nguoi() {
     // người = ng + ư + ờ + i
     // ư = u7, ờ = ơ + tone2, ơ = o7
-    // So: ngu7o7i2 → người  
+    // So: ngu7o7i2 → người
     assert_eq!(process_vni("ngu7o7i2"), "người");
 }
 
@@ -300,7 +303,7 @@ fn test_vni_multi_digit_number() {
 fn test_vni_number_vs_tone() {
     // "a1" should transform (tone mark)
     assert_eq!(process_vni("a1"), "á");
-    
+
     // " 1" should NOT transform (number after space)
     assert_eq!(process_vni(" 1"), " 1");
 }
@@ -382,7 +385,7 @@ fn test_vni_long_text() {
     let input = "Vie65t Nam la2 mo65t nu7o73c co1 gia1o du5c";
     let result = process_vni(input);
     // Should not panic and should contain Vietnamese characters
-    assert!(result.contains('ệ') || result.contains('ị') || result.len() > 0);
+    assert!(result.contains('ệ') || result.contains('ị') || !result.is_empty());
 }
 
 #[test]
@@ -426,34 +429,40 @@ fn test_vni_regression_tone_on_non_vowel() {
 #[test]
 fn test_vni_performance_100_chars() {
     use std::time::Instant;
-    
+
     let start = Instant::now();
-    
+
     // Process 100 characters (50x "a6")
     for _ in 0..50 {
         let _ = process_vni("a6");
     }
-    
+
     let duration = start.elapsed();
-    
+
     // Should complete in < 500ms in debug mode (< 50ms in release)
-    assert!(duration.as_millis() < 1000, 
-            "100 chars took {}ms, too slow", duration.as_millis());
+    assert!(
+        duration.as_millis() < 1000,
+        "100 chars took {}ms, too slow",
+        duration.as_millis()
+    );
 }
 
 #[test]
 fn test_vni_performance_paragraph() {
     use std::time::Instant;
-    
+
     let paragraph = "Vie65t Nam la2 mo65t nu7o73c co1 ne62n va(n ho1a la2u \
                      do72i va2 phong phu2. Chu1ng to5i ra65t tu7 ha2o ve62 \
                      di5 sa3n va(n ho1a cu3a mi2nh.";
-    
+
     let start = Instant::now();
     let _ = process_vni(paragraph);
     let duration = start.elapsed();
-    
+
     // Should complete in < 500ms in debug mode (< 50ms in release) for ~150 chars
-    assert!(duration.as_millis() < 1000,
-            "Paragraph took {}ms, too slow", duration.as_millis());
+    assert!(
+        duration.as_millis() < 1000,
+        "Paragraph took {}ms, too slow",
+        duration.as_millis()
+    );
 }

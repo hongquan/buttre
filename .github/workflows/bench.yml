@@ -11,25 +11,38 @@ jobs:
   benchmark:
     name: Run Benchmarks
     runs-on: windows-latest
+    # github-action-benchmark pushes its data series to the gh-pages branch
+    # (auto-push below) and comments on alerts — both need write access; the
+    # repo's default GITHUB_TOKEN is read-only.
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
-      
+
+      # The benchmark action's `cargo` tool parses the TEXT OUTPUT of
+      # `cargo bench` (it understands criterion's "time: [..]" lines) — it
+      # does not read criterion's target/criterion JSON tree. Capture stdout
+      # to the file the action reads; the previous configuration pointed at
+      # a file nothing ever wrote, so this workflow had never stored a
+      # result.
       - name: Run benchmarks
-        run: cargo bench --workspace
-      
+        run: cargo bench --workspace | tee bench-output.txt
+        shell: bash
+
       - name: Store benchmark result
         uses: benchmark-action/github-action-benchmark@v1
         if: github.event_name != 'pull_request'
         with:
           name: buttre Benchmarks
           tool: 'cargo'
-          output-file-path: target/criterion/output.txt
+          output-file-path: bench-output.txt
           github-token: ${{ secrets.GITHUB_TOKEN }}
           auto-push: true
           # Show alert when performance degrades

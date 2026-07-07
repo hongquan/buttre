@@ -1,4 +1,6 @@
-use buttre_engine::unicode::normalization::{normalize_nfc, normalize_nfd, str_eq_normalized, sanitize_filename};
+use buttre_engine::unicode::normalization::{
+    normalize_nfc, normalize_nfd, sanitize_filename, str_eq_normalized,
+};
 
 #[test]
 fn test_nfc_normalization() {
@@ -6,7 +8,7 @@ fn test_nfc_normalization() {
     let nfd = "e\u{0301}";
     // NFC: é (single codepoint)
     let nfc = "\u{00e9}";
-    
+
     assert_eq!(normalize_nfc(nfd), nfc);
     assert_eq!(normalize_nfc(nfc), nfc);
 }
@@ -15,7 +17,7 @@ fn test_nfc_normalization() {
 fn test_string_comparison() {
     let nfd = "café"; // might be NFD on macOS
     let nfc = "café"; // NFC on Windows/Linux
-    
+
     assert!(str_eq_normalized(nfd, nfc));
 }
 
@@ -25,7 +27,7 @@ fn test_filename_sanitization() {
         sanitize_filename("file:name*test?.txt"),
         "file_name_test_.txt"
     );
-    
+
     assert_eq!(
         sanitize_filename("café.txt"),
         "café.txt" // Normalized to NFC
@@ -41,8 +43,8 @@ fn test_nfc_vietnamese_chars() {
     // Test Vietnamese characters with combining marks
     // NFD: a + combining hook above
     let nfd = "a\u{0309}"; // ả in NFD
-    let nfc = "\u{1EA3}";   // ả in NFC
-    
+    let nfc = "\u{1EA3}"; // ả in NFC
+
     assert_eq!(normalize_nfc(nfd), nfc);
     assert_eq!(normalize_nfc(nfc), nfc);
 }
@@ -59,7 +61,7 @@ fn test_nfc_all_vietnamese_vowels() {
         ("ơ", "\u{01A1}"),
         ("ư", "\u{01B0}"),
     ];
-    
+
     for (input, expected) in vowels {
         assert_eq!(normalize_nfc(input), expected);
     }
@@ -75,7 +77,7 @@ fn test_nfc_vietnamese_tones() {
         ("ã", "\u{00E3}"), // Tilde
         ("ạ", "\u{1EA1}"), // Dot below
     ];
-    
+
     for (input, expected) in tones {
         assert_eq!(normalize_nfc(input), expected);
     }
@@ -86,7 +88,7 @@ fn test_nfc_complex_vietnamese_word() {
     // Test complex Vietnamese word
     let word = "Việt Nam";
     let normalized = normalize_nfc(word);
-    
+
     // Should remain the same if already NFC
     assert_eq!(normalized, word);
     assert_eq!(normalized.chars().count(), 8); // V i ệ t [space] N a m
@@ -107,7 +109,7 @@ fn test_nfc_ascii_unchanged() {
 fn test_nfc_mixed_content() {
     let mixed = "Hello café, xin chào!";
     let normalized = normalize_nfc(mixed);
-    
+
     // Should normalize all characters
     assert!(normalized.contains("café"));
     assert!(normalized.contains("chào"));
@@ -121,7 +123,7 @@ fn test_nfd_normalization() {
     let nfc = "\u{00e9}";
     // NFD: e + combining acute
     let nfd = "e\u{0301}";
-    
+
     assert_eq!(normalize_nfd(nfc), nfd);
     assert_eq!(normalize_nfd(nfd), nfd);
 }
@@ -132,7 +134,7 @@ fn test_nfd_vietnamese_chars() {
     let nfc = "\u{1EA3}";
     // NFD: a + combining hook above
     let nfd = "a\u{0309}";
-    
+
     assert_eq!(normalize_nfd(nfc), nfd);
 }
 
@@ -151,7 +153,7 @@ fn test_nfd_ascii_unchanged() {
 fn test_nfd_complex_vietnamese() {
     let word = "Việt";
     let nfd = normalize_nfd(word);
-    
+
     // NFD should have more codepoints due to combining marks
     assert!(nfd.len() >= word.len());
 }
@@ -176,8 +178,8 @@ fn test_str_eq_normalized_different() {
 fn test_str_eq_normalized_nfc_vs_nfd() {
     // NFD vs NFC should be equal
     let nfd = "e\u{0301}"; // é in NFD
-    let nfc = "\u{00e9}";   // é in NFC
-    
+    let nfc = "\u{00e9}"; // é in NFC
+
     assert!(str_eq_normalized(nfd, nfc));
     assert!(str_eq_normalized(nfc, nfd));
 }
@@ -187,7 +189,7 @@ fn test_str_eq_normalized_vietnamese() {
     // Test Vietnamese characters with different normalizations
     let word1 = "Việt Nam";
     let word2 = "Việt Nam"; // Could be NFD on macOS
-    
+
     assert!(str_eq_normalized(word1, word2));
 }
 
@@ -270,7 +272,7 @@ fn test_sanitize_normalizes_to_nfc() {
     // Input with NFD should be normalized to NFC
     let nfd_input = "cafe\u{0301}.txt"; // café in NFD
     let result = sanitize_filename(nfd_input);
-    
+
     // Should be NFC
     assert_eq!(result, "café.txt");
 }
@@ -301,7 +303,7 @@ fn test_vietnamese_double_diacritics() {
         "ứ", "ừ", "ử", "ữ", "ự", // ư + tones
         "ớ", "ờ", "ở", "ỡ", "ợ", // ơ + tones
     ];
-    
+
     for ch in chars {
         let normalized = normalize_nfc(ch);
         assert!(!normalized.is_empty());
@@ -312,19 +314,12 @@ fn test_vietnamese_double_diacritics() {
 
 #[test]
 fn test_vietnamese_word_normalization() {
-    let words = vec![
-        "thường",
-        "trường",
-        "người",
-        "được",
-        "không",
-        "những",
-    ];
-    
+    let words = vec!["thường", "trường", "người", "được", "không", "những"];
+
     for word in words {
         let nfc = normalize_nfc(word);
         let nfd = normalize_nfd(word);
-        
+
         // NFC and NFD should be equivalent when compared
         assert!(str_eq_normalized(&nfc, &nfd));
     }
@@ -333,24 +328,24 @@ fn test_vietnamese_word_normalization() {
 #[test]
 fn test_roundtrip_nfc_nfd() {
     let original = "Việt Nam";
-    
+
     // NFC -> NFD -> NFC should equal NFC
     let nfc1 = normalize_nfc(original);
     let nfd = normalize_nfd(&nfc1);
     let nfc2 = normalize_nfc(&nfd);
-    
+
     assert_eq!(nfc1, nfc2);
 }
 
 #[test]
 fn test_normalization_idempotent() {
     let text = "café Việt Nam";
-    
+
     // Normalizing multiple times should give same result
     let nfc1 = normalize_nfc(text);
     let nfc2 = normalize_nfc(&nfc1);
     let nfc3 = normalize_nfc(&nfc2);
-    
+
     assert_eq!(nfc1, nfc2);
     assert_eq!(nfc2, nfc3);
 }
@@ -362,7 +357,7 @@ fn test_macos_filesystem_compat() {
     // macOS uses NFD, but we should normalize to NFC
     let macos_nfd = "cafe\u{0301}"; // café in NFD (macOS)
     let normalized = normalize_nfc(macos_nfd);
-    
+
     assert_eq!(normalized, "café"); // NFC
 }
 
@@ -371,7 +366,7 @@ fn test_windows_linux_compat() {
     // Windows/Linux use NFC
     let windows_nfc = "café";
     let normalized = normalize_nfc(windows_nfc);
-    
+
     assert_eq!(normalized, windows_nfc);
 }
 
@@ -380,11 +375,11 @@ fn test_cross_platform_comparison() {
     // File from macOS (NFD) vs Windows (NFC)
     let macos_nfd = "cafe\u{0301}"; // café in NFD (macOS)
     let windows_nfc = "café"; // café in NFC (Windows)
-    
+
     // Both should normalize to same NFC form
     let result1 = normalize_nfc(macos_nfd);
     let result2 = normalize_nfc(windows_nfc);
-    
+
     // After normalization, should be identical
     assert_eq!(result1, result2);
     assert!(str_eq_normalized(macos_nfd, windows_nfc));

@@ -17,26 +17,26 @@
 //! The former dual-engine stages (Transform, Tone, Permutation, Reconciliation,
 //! Retrofix) have been retired and replaced by `ComposeStage`.
 
+mod attested_data; // Generated bitset — see examples/gen_attested_syllables.rs
 pub mod config;
 pub mod context;
+pub mod dictionary;
+pub mod executor;
+pub mod nom_dictionary;
+pub mod permutation;
+pub mod presets;
+pub mod rules; // Enhanced rules system (Phase 1)
 pub mod stage;
 pub mod stages;
-pub mod executor;
-pub mod presets;
-pub mod dictionary;
-pub mod nom_dictionary;
-pub mod validation;
-pub mod rules;  // Enhanced rules system (Phase 1)
-pub mod permutation;  // Permutation engine for flexible typing (Phase 2)
+pub mod validation; // Permutation engine for flexible typing (Phase 2)
 
 // Re-exports for convenience
 pub use config::{PipelineConfig, ToneMark};
-pub use context::{TypingContext, Candidate, CandidateType, TransformRecord, TransformType};
-pub use stage::{PipelineStage, StageResult};
+pub use context::{Candidate, CandidateType, TransformRecord, TransformType, TypingContext};
 pub use executor::PipelineExecutor;
-pub use rules::{ContextRule, ConditionalRule, RuleMatcher, RuleAction};
+pub use rules::{ConditionalRule, ContextRule, RuleAction, RuleMatcher};
+pub use stage::{PipelineStage, StageResult};
 // Note: SpecialHandler moved to buttre-core/keyboard/{telex,vni,nom}/special.rs
 
 // Re-export preset functions
-pub use presets::{telex_config, vni_config, simple_telex_config, viqr_config};
-
+pub use presets::{simple_telex_config, telex_config, viqr_config, vni_config};

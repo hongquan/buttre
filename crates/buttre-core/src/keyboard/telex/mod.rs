@@ -3,10 +3,10 @@
 //! This module provides the hardcoded Telex configuration.
 //! Telex is the most popular Vietnamese input method.
 
-pub mod transforms;
-pub mod tones;
 pub mod special;
-pub mod vowel_sequences;  // NEW: Vowel sequence data for flexible typing
+pub mod tones;
+pub mod transforms;
+pub mod vowel_sequences; // NEW: Vowel sequence data for flexible typing
 
 use buttre_engine::pipeline::config::{PipelineConfig, ToneStyle, UnicodeForm};
 use buttre_engine::vowel::TonePositioningMode;
@@ -38,8 +38,8 @@ pub fn build_config() -> PipelineConfig {
     config.context_rules = Arc::new(special::get_rules());
 
     // NEW: Flexible typing configuration
-    config.tone.free_marking = false;  // Default: strict phonology
-    config.tone.allow_permutation = true;  // Enable flexible typing order
+    config.tone.free_marking = false; // Default: strict phonology
+    config.tone.allow_permutation = true; // Enable flexible typing order
     config.tone.vowel_sequences = vowel_sequences::get_table();
     config.tone.positioning_mode = TonePositioningMode::Phonology;
 

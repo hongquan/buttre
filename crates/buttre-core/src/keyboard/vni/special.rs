@@ -4,18 +4,14 @@
 //!
 //! This module defines VNI-specific context rules for complex cases.
 
-use buttre_engine::pipeline::rules::{ContextRule, RuleMatcher, RuleAction};
+use buttre_engine::pipeline::rules::{ContextRule, RuleAction, RuleMatcher};
 
 /// Get all VNI special context rules
 ///
 /// ## Returns
 /// Vector of ContextRules for VNI special cases
 pub fn get_rules() -> Vec<ContextRule> {
-    vec![
-        double_char_block(),
-        uo_7_block(),
-        uu_7_block(),
-    ]
+    vec![double_char_block(), uo_7_block(), uu_7_block()]
 }
 
 /// Block '7' Stage 4 transformation for "uo" at end of syllable
@@ -69,4 +65,3 @@ pub fn double_char_block() -> ContextRule {
         RuleAction::Skip,
     )
 }
-

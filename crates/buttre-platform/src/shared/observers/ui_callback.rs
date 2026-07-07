@@ -1,6 +1,6 @@
-use std::sync::mpsc;
 use crate::shared::observers::ui_observer::UICallback;
 use log::info;
+use std::sync::mpsc;
 
 /// Events sent from UIObserver to the main thread
 pub enum UIEvent {
@@ -22,11 +22,18 @@ impl MainUICallback {
 impl UICallback for MainUICallback {
     fn update_menu_checkmarks(&self, method: &str) {
         info!("Proxying menu update for: {}", method);
-        let _ = self.sender.send(UIEvent::UpdateMenuCheckmarks(method.to_string()));
+        let _ = self
+            .sender
+            .send(UIEvent::UpdateMenuCheckmarks(method.to_string()));
     }
-    
+
     fn update_tray_icon(&self, method: &str, enabled: bool) {
-        info!("Proxying tray update for: {} (enabled: {})", method, enabled);
-        let _ = self.sender.send(UIEvent::UpdateTrayIcon(method.to_string(), enabled));
+        info!(
+            "Proxying tray update for: {} (enabled: {})",
+            method, enabled
+        );
+        let _ = self
+            .sender
+            .send(UIEvent::UpdateTrayIcon(method.to_string(), enabled));
     }
 }

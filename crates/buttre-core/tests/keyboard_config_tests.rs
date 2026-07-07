@@ -20,8 +20,8 @@ language = "vietnamese"
 tone_position = "modern"
 validate_syllables = true
 "#;
-    
-    let config = Config::from_str(toml).unwrap();
+
+    let config = Config::from_toml_str(toml).unwrap();
     assert_eq!(config.metadata.id, "telex");
     assert_eq!(config.transformations.get("aa"), Some(&"â".to_string()));
     assert_eq!(config.tones.get("s"), Some(&"acute".to_string()));

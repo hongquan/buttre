@@ -1,7 +1,7 @@
 //! IPC Client for communicating with buttre-broker
 //!
 //! **WARNING: This module is DEPRECATED and NOT USED by current TSF implementation**
-//! 
+//!
 //! The current TSF uses `vietnamese_engine` directly for much better performance.
 //! This file is kept for reference/legacy purposes only.
 //!

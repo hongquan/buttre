@@ -5,10 +5,10 @@
 //! Pins the current engine behaviour before the refactor so we can detect
 //! regressions.  The two key primitives are:
 //!
-//! - [`replay`]         — convert a flat `Vec<Action>` into the visible text
-//!                        a host app would show after applying them.
+//! - [`replay`] — convert a flat `Vec<Action>` into the visible text a host
+//!   app would show after applying them.
 //! - [`type_sequence`] — drive a fresh `PipelineExecutor` with a key string,
-//!                        collect all actions and replay them.
+//!   collect all actions and replay them.
 //!
 //! ## Composition mode
 //!
@@ -92,7 +92,10 @@ pub fn replay(actions: &[Action]) -> String {
             Action::Commit(s) => {
                 buf.extend(s.chars());
             }
-            Action::Replace { backspace_count, text } => {
+            Action::Replace {
+                backspace_count,
+                text,
+            } => {
                 let remove = (*backspace_count).min(buf.len());
                 buf.truncate(buf.len() - remove);
                 buf.extend(text.chars());
@@ -104,9 +107,7 @@ pub fn replay(actions: &[Action]) -> String {
             // Preview only — committed text is captured via Commit/Replace/Confirm.
             Action::UpdateComposition { .. } => {}
             // UI events and no-ops.
-            Action::DoNothing
-            | Action::ShowCandidates { .. }
-            | Action::HideCandidates => {}
+            Action::DoNothing | Action::ShowCandidates { .. } | Action::HideCandidates => {}
         }
     }
 
@@ -129,6 +130,11 @@ pub fn replay(actions: &[Action]) -> String {
 /// passes the full list to [`replay`].  This means multi-syllable input like
 /// `"nguwowif theo"` is reconstructed correctly across the space-triggered
 /// reset.
+// This module is included via `#[path]` by two independent integration-test
+// binaries (`golden_regression.rs`, which calls this, and
+// `compose_isolation.rs`, which doesn't) — each binary compiles its own copy,
+// so this is "unused" only from the latter's perspective.
+#[allow(dead_code)]
 pub fn type_sequence(config: PipelineConfig, keys: &str) -> String {
     let mut executor = PipelineExecutor::new(config);
     let mut all_actions: Vec<Action> = Vec::new();
@@ -232,12 +238,10 @@ mod tests {
 
     #[test]
     fn replay_backspace_does_not_underflow() {
-        let actions = vec![
-            Action::Replace {
-                backspace_count: 100,
-                text: "safe".to_string(),
-            },
-        ];
+        let actions = vec![Action::Replace {
+            backspace_count: 100,
+            text: "safe".to_string(),
+        }];
         assert_eq!(replay(&actions), "safe");
     }
 }

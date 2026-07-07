@@ -1,10 +1,14 @@
 [package]
 name = "buttre-engine"
-version = "0.7.4-beta"
+version = "0.7.6-beta"
 edition = "2021"
 description = "Universal Vietnamese input engine with 7-stage pipeline"
 license = "GPL-3.0-only"
 authors = ["Buttre Contributors"]
+# Internal workspace crate — never published to crates.io. Also lets
+# cargo-deny's [licenses.private] exempt this GPL-3.0-only crate from the
+# third-party license allow-list check (see root deny.toml).
+publish = false
 
 [lints]
 workspace = true
@@ -26,6 +30,12 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
+# NOTE: the cross-engine comparator lives in tools/bench-compare (standalone,
+# outside the workspace) because it depends on the local-only, gitignored
+# `.reference/gonhanh` checkout — a path dev-dependency here broke
+# `cargo metadata` for the whole workspace on CI.
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 [lib]
 name = "buttre_engine"

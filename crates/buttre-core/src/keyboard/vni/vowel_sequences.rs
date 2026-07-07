@@ -18,7 +18,7 @@
 //! - Algorithm/logic is in buttre-engine/vowel (processing layer)
 //! - Populated here, consumed by pipeline stages
 
-use buttre_engine::vowel::{VowelSeqInfo, VowelSeqTable, VowelSeq};
+use buttre_engine::vowel::{VowelSeq, VowelSeqInfo, VowelSeqTable};
 
 /// Get the complete Vietnamese vowel sequence table for VNI
 ///
@@ -49,7 +49,7 @@ pub fn get_table() -> VowelSeqTable {
         // ========================================
         // SINGLE VOWELS (12)
         // ========================================
-        
+
         // a family
         VowelSeqInfo {
             sequence: "a".to_string(),
@@ -57,8 +57,8 @@ pub fn get_table() -> VowelSeqTable {
             complete: true,
             vowels: vec!['a'],
             tone_positions: vec![0],
-            roof_pos: Some(0),  // a + ^ → â
-            hook_pos: Some(0),  // a + ˘ → ă
+            roof_pos: Some(0), // a + ^ → â
+            hook_pos: Some(0), // a + ˘ → ă
             with_roof: Some(VowelSeq::AR),
             with_hook: Some(VowelSeq::AB),
         },
@@ -68,7 +68,7 @@ pub fn get_table() -> VowelSeqTable {
             complete: true,
             vowels: vec!['ă'],
             tone_positions: vec![0],
-            roof_pos: None,  // Already has breve
+            roof_pos: None, // Already has breve
             hook_pos: None,
             with_roof: None,
             with_hook: None,
@@ -79,12 +79,11 @@ pub fn get_table() -> VowelSeqTable {
             complete: true,
             vowels: vec!['â'],
             tone_positions: vec![0],
-            roof_pos: None,  // Already has roof
+            roof_pos: None, // Already has roof
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // e family
         VowelSeqInfo {
             sequence: "e".to_string(),
@@ -92,7 +91,7 @@ pub fn get_table() -> VowelSeqTable {
             complete: true,
             vowels: vec!['e'],
             tone_positions: vec![0],
-            roof_pos: Some(0),  // e + ^ → ê
+            roof_pos: Some(0), // e + ^ → ê
             hook_pos: None,
             with_roof: Some(VowelSeq::ER),
             with_hook: None,
@@ -103,12 +102,11 @@ pub fn get_table() -> VowelSeqTable {
             complete: true,
             vowels: vec!['ê'],
             tone_positions: vec![0],
-            roof_pos: None,  // Already has roof
+            roof_pos: None, // Already has roof
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // i
         VowelSeqInfo {
             sequence: "i".to_string(),
@@ -121,7 +119,6 @@ pub fn get_table() -> VowelSeqTable {
             with_roof: None,
             with_hook: None,
         },
-        
         // o family
         VowelSeqInfo {
             sequence: "o".to_string(),
@@ -129,8 +126,8 @@ pub fn get_table() -> VowelSeqTable {
             complete: true,
             vowels: vec!['o'],
             tone_positions: vec![0],
-            roof_pos: Some(0),  // o + ^ → ô
-            hook_pos: Some(0),  // o + + → ơ
+            roof_pos: Some(0), // o + ^ → ô
+            hook_pos: Some(0), // o + + → ơ
             with_roof: Some(VowelSeq::OR),
             with_hook: Some(VowelSeq::OH),
         },
@@ -140,7 +137,7 @@ pub fn get_table() -> VowelSeqTable {
             complete: true,
             vowels: vec!['ô'],
             tone_positions: vec![0],
-            roof_pos: None,  // Already has roof
+            roof_pos: None, // Already has roof
             hook_pos: None,
             with_roof: None,
             with_hook: None,
@@ -152,11 +149,10 @@ pub fn get_table() -> VowelSeqTable {
             vowels: vec!['ơ'],
             tone_positions: vec![0],
             roof_pos: None,
-            hook_pos: None,  // Already has hook
+            hook_pos: None, // Already has hook
             with_roof: None,
             with_hook: None,
         },
-        
         // u family
         VowelSeqInfo {
             sequence: "u".to_string(),
@@ -165,7 +161,7 @@ pub fn get_table() -> VowelSeqTable {
             vowels: vec!['u'],
             tone_positions: vec![0],
             roof_pos: None,
-            hook_pos: Some(0),  // u + + → ư
+            hook_pos: Some(0), // u + + → ư
             with_roof: None,
             with_hook: Some(VowelSeq::UH),
         },
@@ -176,11 +172,10 @@ pub fn get_table() -> VowelSeqTable {
             vowels: vec!['ư'],
             tone_positions: vec![0],
             roof_pos: None,
-            hook_pos: None,  // Already has hook
+            hook_pos: None, // Already has hook
             with_roof: None,
             with_hook: None,
         },
-        
         // y
         VowelSeqInfo {
             sequence: "y".to_string(),
@@ -193,425 +188,393 @@ pub fn get_table() -> VowelSeqTable {
             with_roof: None,
             with_hook: None,
         },
-        
         // ========================================
         // DOUBLE VOWELS (28)
         // ========================================
-        
+
         // ai
         VowelSeqInfo {
             sequence: "ai".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['a', 'i'],
-            tone_positions: vec![0],  // Tone on 'a': "ái"
-            roof_pos: Some(0),  // ai + ^ → âi
+            tone_positions: vec![0], // Tone on 'a': "ái"
+            roof_pos: Some(0),       // ai + ^ → âi
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ao
         VowelSeqInfo {
             sequence: "ao".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['a', 'o'],
-            tone_positions: vec![0],  // Tone on 'a': "áo"
-            roof_pos: Some(0),  // ao + ^ → âo
+            tone_positions: vec![0], // Tone on 'a': "áo"
+            roof_pos: Some(0),       // ao + ^ → âo
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // au
         VowelSeqInfo {
             sequence: "au".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['a', 'u'],
-            tone_positions: vec![0],  // Tone on 'a': "áu"
-            roof_pos: Some(0),  // au + ^ → âu
+            tone_positions: vec![0], // Tone on 'a': "áu"
+            roof_pos: Some(0),       // au + ^ → âu
             hook_pos: None,
             with_roof: Some(VowelSeq::ARU),
             with_hook: None,
         },
-        
         // âu
         VowelSeqInfo {
             sequence: "âu".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['â', 'u'],
-            tone_positions: vec![0],  // Tone on 'â': "ấu"
+            tone_positions: vec![0], // Tone on 'â': "ấu"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ay
         VowelSeqInfo {
             sequence: "ay".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['a', 'y'],
-            tone_positions: vec![0],  // Tone on 'a': "áy"
-            roof_pos: Some(0),  // ay + ^ → ây
+            tone_positions: vec![0], // Tone on 'a': "áy"
+            roof_pos: Some(0),       // ay + ^ → ây
             hook_pos: None,
             with_roof: Some(VowelSeq::ARY),
             with_hook: None,
         },
-        
         // ây
         VowelSeqInfo {
             sequence: "ây".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['â', 'y'],
-            tone_positions: vec![0],  // Tone on 'â': "ấy"
+            tone_positions: vec![0], // Tone on 'â': "ấy"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // eo
         VowelSeqInfo {
             sequence: "eo".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['e', 'o'],
-            tone_positions: vec![0],  // Tone on 'e': "éo"
-            roof_pos: Some(0),  // eo + ^ → êo
+            tone_positions: vec![0], // Tone on 'e': "éo"
+            roof_pos: Some(0),       // eo + ^ → êo
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // êu
         VowelSeqInfo {
             sequence: "êu".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['ê', 'u'],
-            tone_positions: vec![0],  // Tone on 'ê': "ếu"
+            tone_positions: vec![0], // Tone on 'ê': "ếu"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ia
         VowelSeqInfo {
             sequence: "ia".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['i', 'a'],
-            tone_positions: vec![0],  // Tone on 'i': "ía"
+            tone_positions: vec![0], // Tone on 'i': "ía"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // iê
         VowelSeqInfo {
             sequence: "iê".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['i', 'ê'],
-            tone_positions: vec![1],  // Tone on 'ê': "iế"
+            tone_positions: vec![1], // Tone on 'ê': "iế"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // iu
         VowelSeqInfo {
             sequence: "iu".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['i', 'u'],
-            tone_positions: vec![0],  // Tone on 'i': "íu"
+            tone_positions: vec![0], // Tone on 'i': "íu"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // oa (modern style: tone on 'a')
         VowelSeqInfo {
             sequence: "oa".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['o', 'a'],
-            tone_positions: vec![1, 0],  // Modern: 'a', Old: 'o'
-            roof_pos: Some(0),  // oa + ^ → ôa
+            tone_positions: vec![1, 0], // Modern: 'a', Old: 'o'
+            roof_pos: Some(0),          // oa + ^ → ôa
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // oă
         VowelSeqInfo {
             sequence: "oă".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['o', 'ă'],
-            tone_positions: vec![1],  // Tone on 'ă': "oắ"
+            tone_positions: vec![1], // Tone on 'ă': "oắ"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // oe (modern style: tone on 'e')
         VowelSeqInfo {
             sequence: "oe".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['o', 'e'],
-            tone_positions: vec![1, 0],  // Modern: 'e', Old: 'o'
-            roof_pos: Some(0),  // oe + ^ → ôe
+            tone_positions: vec![1, 0], // Modern: 'e', Old: 'o'
+            roof_pos: Some(0),          // oe + ^ → ôe
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // oi
         VowelSeqInfo {
             sequence: "oi".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['o', 'i'],
-            tone_positions: vec![0],  // Tone on 'o': "ói"
-            roof_pos: Some(0),  // oi + ^ → ôi
-            hook_pos: Some(0),  // oi + + → ơi
+            tone_positions: vec![0], // Tone on 'o': "ói"
+            roof_pos: Some(0),       // oi + ^ → ôi
+            hook_pos: Some(0),       // oi + + → ơi
             with_roof: Some(VowelSeq::ORI),
             with_hook: Some(VowelSeq::OHI),
         },
-        
         // ôi
         VowelSeqInfo {
             sequence: "ôi".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['ô', 'i'],
-            tone_positions: vec![0],  // Tone on 'ô': "ối"
+            tone_positions: vec![0], // Tone on 'ô': "ối"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ơi
         VowelSeqInfo {
             sequence: "ơi".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['ơ', 'i'],
-            tone_positions: vec![0],  // Tone on 'ơ': "ới"
+            tone_positions: vec![0], // Tone on 'ơ': "ới"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ua
         VowelSeqInfo {
             sequence: "ua".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['u', 'a'],
-            tone_positions: vec![1],  // Tone on 'a': "uá"
-            roof_pos: Some(1),  // ua + ^ → uâ
-            hook_pos: Some(0),  // ua + + → ưa
+            tone_positions: vec![1], // Tone on 'a': "uá"
+            roof_pos: Some(1),       // ua + ^ → uâ
+            hook_pos: Some(0),       // ua + + → ưa
             with_roof: Some(VowelSeq::UAR),
             with_hook: Some(VowelSeq::UHA),
         },
-        
         // uâ
         VowelSeqInfo {
             sequence: "uâ".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['u', 'â'],
-            tone_positions: vec![1],  // Tone on 'â': "uấ"
+            tone_positions: vec![1], // Tone on 'â': "uấ"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // uê
         VowelSeqInfo {
             sequence: "uê".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['u', 'ê'],
-            tone_positions: vec![1],  // Tone on 'ê': "uế"
+            tone_positions: vec![1], // Tone on 'ê': "uế"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ui
         VowelSeqInfo {
             sequence: "ui".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['u', 'i'],
-            tone_positions: vec![0],  // Tone on 'u': "úi"
+            tone_positions: vec![0], // Tone on 'u': "úi"
             roof_pos: None,
-            hook_pos: Some(0),  // ui + + → ưi
+            hook_pos: Some(0), // ui + + → ưi
             with_roof: None,
             with_hook: None,
         },
-        
         // ưa
         VowelSeqInfo {
             sequence: "ưa".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['ư', 'a'],
-            tone_positions: vec![1],  // Tone on 'a': "ưá"
+            tone_positions: vec![1], // Tone on 'a': "ưá"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ươ (IMPORTANT: Compound UO)
         VowelSeqInfo {
             sequence: "ươ".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['ư', 'ơ'],
-            tone_positions: vec![1, 0],  // Prefer 'ơ', fallback 'ư'
+            tone_positions: vec![1, 0], // Prefer 'ơ', fallback 'ư'
             roof_pos: None,
-            hook_pos: None,  // Already has hooks
+            hook_pos: None, // Already has hooks
             with_roof: None,
             with_hook: None,
         },
-        
         // ưu
         VowelSeqInfo {
             sequence: "ưu".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['ư', 'u'],
-            tone_positions: vec![0],  // Tone on 'ư': "ứu"
+            tone_positions: vec![0], // Tone on 'ư': "ứu"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // uy (modern style: tone on 'y')
         VowelSeqInfo {
             sequence: "uy".to_string(),
             len: 2,
             complete: true,
             vowels: vec!['u', 'y'],
-            tone_positions: vec![1, 0],  // Modern: 'y', Old: 'u'
+            tone_positions: vec![1, 0], // Modern: 'y', Old: 'u'
             roof_pos: None,
-            hook_pos: Some(0),  // uy + + → ưy
+            hook_pos: Some(0), // uy + + → ưy
             with_roof: None,
             with_hook: None,
         },
-        
         // uôi
         VowelSeqInfo {
             sequence: "uôi".to_string(),
             len: 3,
             complete: true,
             vowels: vec!['u', 'ô', 'i'],
-            tone_positions: vec![1],  // Tone on 'ô': "uối"
+            tone_positions: vec![1], // Tone on 'ô': "uối"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ươi (IMPORTANT: Triple with compound)
         VowelSeqInfo {
             sequence: "ươi".to_string(),
             len: 3,
             complete: true,
             vowels: vec!['ư', 'ơ', 'i'],
-            tone_positions: vec![1],  // Tone on 'ơ': "ười"
+            tone_positions: vec![1], // Tone on 'ơ': "ười"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // ========================================
         // TRIPLE VOWELS (8)
         // ========================================
-        
+
         // oai
         VowelSeqInfo {
             sequence: "oai".to_string(),
             len: 3,
             complete: true,
             vowels: vec!['o', 'a', 'i'],
-            tone_positions: vec![1],  // Tone on 'a' (middle): "oái"
+            tone_positions: vec![1], // Tone on 'a' (middle): "oái"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // oao
         VowelSeqInfo {
             sequence: "oao".to_string(),
             len: 3,
             complete: true,
             vowels: vec!['o', 'a', 'o'],
-            tone_positions: vec![1],  // Tone on 'a' (middle): "oáo"
+            tone_positions: vec![1], // Tone on 'a' (middle): "oáo"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // oay
         VowelSeqInfo {
             sequence: "oay".to_string(),
             len: 3,
             complete: true,
             vowels: vec!['o', 'a', 'y'],
-            tone_positions: vec![1],  // Tone on 'a' (middle): "oáy"
+            tone_positions: vec![1], // Tone on 'a' (middle): "oáy"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // uya
         VowelSeqInfo {
             sequence: "uya".to_string(),
             len: 3,
             complete: true,
             vowels: vec!['u', 'y', 'a'],
-            tone_positions: vec![1],  // Tone on 'y' (middle): "uýa"
+            tone_positions: vec![1], // Tone on 'y' (middle): "uýa"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
             with_hook: None,
         },
-        
         // uyê
         VowelSeqInfo {
             sequence: "uyê".to_string(),
             len: 3,
             complete: true,
             vowels: vec!['u', 'y', 'ê'],
-            tone_positions: vec![2],  // Tone on 'ê': "uyế"
+            tone_positions: vec![2], // Tone on 'ê': "uyế"
             roof_pos: None,
             hook_pos: None,
             with_roof: None,
@@ -619,4 +582,3 @@ pub fn get_table() -> VowelSeqTable {
         },
     ])
 }
-

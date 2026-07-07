@@ -21,9 +21,9 @@
 //! buttre follows a permissive philosophy by default: we don't block user input
 //! during typing. Strict validation can be enabled for spell-checking features.
 
-use crate::pipeline::{PipelineStage, StageResult, TypingContext};
 use crate::pipeline::validation::SyllableStructure;
-use tracing::{instrument, debug, trace, warn};
+use crate::pipeline::{PipelineStage, StageResult, TypingContext};
+use tracing::{debug, instrument, trace, warn};
 
 /// Stage 3: Structure Validation
 ///
@@ -81,9 +81,7 @@ pub struct ValidationStage {
 impl ValidationStage {
     /// Create a new validation stage (permissive mode)
     pub fn new() -> Self {
-        Self {
-            strict_mode: false,
-        }
+        Self { strict_mode: false }
     }
 
     /// Create a validation stage from config
@@ -131,7 +129,7 @@ impl ValidationStage {
 
         // Parse syllable structure
         let structure = SyllableStructure::parse(syllable);
-        
+
         // Check if valid Vietnamese syllable
         structure.is_valid()
     }
@@ -155,9 +153,12 @@ impl PipelineStage for ValidationStage {
             if input == ' ' && ctx.showing_candidates {
                 return StageResult::Continue;
             }
-            
+
             // Non-alphabetic, non-numeric should have been handled by Gatekeeper
-            warn!("Non-alphabetic, non-numeric character '{}' passed through gatekeeper", input);
+            warn!(
+                "Non-alphabetic, non-numeric character '{}' passed through gatekeeper",
+                input
+            );
             return StageResult::PassThrough;
         }
 
@@ -167,15 +168,18 @@ impl PipelineStage for ValidationStage {
             // Build hypothetical syllable with new input
             let mut test_syllable = ctx.syllable_buffer.clone();
             test_syllable.push(input);
-            
+
             if !self.is_valid_syllable(&test_syllable) {
                 // Invalid syllable in strict mode
-                debug!("Invalid syllable '{}' in strict mode, passing through", test_syllable);
+                debug!(
+                    "Invalid syllable '{}' in strict mode, passing through",
+                    test_syllable
+                );
                 return StageResult::PassThrough;
             }
             trace!("Valid syllable '{}' in strict mode", test_syllable);
         }
-        
+
         // Algorithm Step 3: Continue (permissive or valid in strict)
         StageResult::Continue
     }
@@ -188,4 +192,3 @@ impl PipelineStage for ValidationStage {
         // No internal state to reset
     }
 }
-

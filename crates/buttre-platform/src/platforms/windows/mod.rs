@@ -5,9 +5,9 @@ pub mod hook;
 pub mod tsf;
 
 use crate::PlatformBackend;
-use buttre_core::Action;
-use buttre_core::state::{StateObserver, Settings};
 use anyhow::Result;
+use buttre_core::state::{Settings, StateObserver};
+use buttre_core::Action;
 use log::{info, warn};
 use std::sync::{Arc, Mutex, RwLock};
 
@@ -28,7 +28,7 @@ impl WindowsBackend {
     /// Create Windows backend with TSF-first fallback
     pub fn new() -> Result<Self> {
         info!("Creating Windows backend with TSF-first fallback");
-        
+
         let mode = match tsf::TsfBackend::new() {
             Ok(tsf) => {
                 info!("✓ TSF backend initialized");
@@ -56,12 +56,15 @@ impl PlatformBackend for WindowsBackend {
     }
 
     fn init(&mut self, keyboard: Arc<RwLock<Option<buttre_core::Keyboard>>>) -> Result<()> {
-        let mode_name = match &self.mode { 
-            BackendMode::Tsf(_) => "TSF", 
-            BackendMode::Hook(_) => "Hook" 
+        let mode_name = match &self.mode {
+            BackendMode::Tsf(_) => "TSF",
+            BackendMode::Hook(_) => "Hook",
         };
-        info!("Initializing Windows platform backend (mode: {})", mode_name);
-        
+        info!(
+            "Initializing Windows platform backend (mode: {})",
+            mode_name
+        );
+
         match &mut self.mode {
             BackendMode::Tsf(tsf) => tsf.init(keyboard),
             BackendMode::Hook(hook) => hook.init(keyboard),
@@ -74,14 +77,17 @@ impl PlatformBackend for WindowsBackend {
     }
 
     fn set_enabled(&mut self, enabled: bool) {
-        let mode_name = match &self.mode { 
-            BackendMode::Tsf(_) => "TSF", 
-            BackendMode::Hook(_) => "Hook" 
+        let mode_name = match &self.mode {
+            BackendMode::Tsf(_) => "TSF",
+            BackendMode::Hook(_) => "Hook",
         };
-        info!("Windows backend (mode: {}) toggling enabled state: {}", mode_name, enabled);
-            
+        info!(
+            "Windows backend (mode: {}) toggling enabled state: {}",
+            mode_name, enabled
+        );
+
         *self.enabled.lock().unwrap() = enabled;
-        
+
         match &mut self.mode {
             BackendMode::Tsf(tsf) => tsf.set_enabled(enabled),
             BackendMode::Hook(hook) => hook.set_enabled(enabled),
@@ -99,11 +105,14 @@ impl PlatformBackend for WindowsBackend {
 
 impl StateObserver for WindowsBackend {
     fn on_method_changed(&self, method: &str, enabled: bool) {
-        info!("WindowsBackend (Observer): Method changed to {} (enabled: {})", method, enabled);
-        
+        info!(
+            "WindowsBackend (Observer): Method changed to {} (enabled: {})",
+            method, enabled
+        );
+
         *self.current_method.lock().unwrap() = method.to_string();
         *self.enabled.lock().unwrap() = enabled;
-        
+
         // Update backend state based on mode
         // Since &self is immutable, we use lock-free functions for Hook
         match &self.mode {

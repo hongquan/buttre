@@ -4,12 +4,12 @@
 //! - find_transformation() - HashMap lookup
 //! - find_transformation_optimized() - Match statement
 
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
 // Mock simplified transform functions for isolated testing
 fn find_with_hashmap(last: char, input: char) -> Option<&'static str> {
     use std::collections::HashMap;
-    
+
     let mut map = HashMap::new();
     map.insert("aa", "â");
     map.insert("aw", "ă");
@@ -18,7 +18,7 @@ fn find_with_hashmap(last: char, input: char) -> Option<&'static str> {
     map.insert("oo", "ô");
     map.insert("ow", "ơ");
     map.insert("uw", "ư");
-    
+
     let sequence = format!("{}{}", last, input);
     map.get(sequence.as_str()).copied()
 }
@@ -38,7 +38,7 @@ fn find_with_match(last: char, input: char) -> Option<&'static str> {
 
 fn bench_lookup_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("lookup_method");
-    
+
     let test_cases = vec![
         ('a', 'a'),
         ('a', 'w'),
@@ -48,33 +48,29 @@ fn bench_lookup_comparison(c: &mut Criterion) {
         ('o', 'w'),
         ('u', 'w'),
     ];
-    
+
     for (last, input) in test_cases {
         let name = format!("{}{}", last, input);
-        
+
         // Benchmark HashMap
         group.bench_with_input(
             BenchmarkId::new("HashMap", &name),
             &(last, input),
             |b, (l, i)| {
-                b.iter(|| {
-                    find_with_hashmap(black_box(*l), black_box(*i))
-                });
+                b.iter(|| find_with_hashmap(black_box(*l), black_box(*i)));
             },
         );
-        
+
         // Benchmark Match
         group.bench_with_input(
             BenchmarkId::new("Match", &name),
             &(last, input),
             |b, (l, i)| {
-                b.iter(|| {
-                    find_with_match(black_box(*l), black_box(*i))
-                });
+                b.iter(|| find_with_match(black_box(*l), black_box(*i)));
             },
         );
     }
-    
+
     group.finish();
 }
 

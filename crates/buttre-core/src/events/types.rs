@@ -17,7 +17,6 @@ pub enum AppEvent {
     // ========================================================================
     // State Events - Application state changes
     // ========================================================================
-    
     /// Input method changed
     ///
     /// Published when user switches between input methods (telex, vni, nom, english)
@@ -27,49 +26,46 @@ pub enum AppEvent {
         /// Whether Vietnamese input is enabled (false for "english")
         enabled: bool,
     },
-    
+
     /// Settings updated
     ///
     /// Published when application settings are modified and saved
     SettingsChanged(Settings),
-    
+
     /// Application enabled/disabled state changed
     ///
     /// Published when Vietnamese input is toggled on/off
     EnabledChanged(bool),
-    
+
     // ========================================================================
     // Keyboard Events - Input processing
     // ========================================================================
-    
     /// Key input received
     ///
     /// Published when a keystroke is received for processing
     KeyboardInput(char),
-    
+
     /// Action produced by keyboard processing
     ///
     /// Published after processing a keystroke, contains the action to execute
     KeyboardOutput(Action),
-    
+
     /// Keyboard buffer reset
     ///
     /// Published when the input buffer is cleared (e.g., word boundary)
     KeyboardReset,
-    
+
     // ========================================================================
     // Hotkey Events - Global hotkey actions
     // ========================================================================
-    
     /// Global hotkey pressed
     ///
     /// Published when a registered hotkey combination is detected
     HotkeyPressed(HotkeyAction),
-    
+
     // ========================================================================
     // Config Events - Configuration management
     // ========================================================================
-    
     /// Configuration loaded
     ///
     /// Published when a keyboard config is successfully loaded
@@ -77,21 +73,20 @@ pub enum AppEvent {
         /// Config ID (e.g., "telex", "vni", "custom_method")
         id: String,
     },
-    
+
     /// Custom method added
     ///
     /// Published when a new custom input method is detected
     MethodAdded(MethodInfo),
-    
+
     /// Custom method removed
     ///
     /// Published when a custom input method is removed
     MethodRemoved(String),
-    
+
     // ========================================================================
     // System Events - Errors and logging
     // ========================================================================
-    
     /// Error occurred
     ///
     /// Published when an error happens during operation
@@ -101,7 +96,7 @@ pub enum AppEvent {
         /// Error message
         message: String,
     },
-    
+
     /// Log message
     ///
     /// Published for debugging and monitoring
@@ -182,7 +177,7 @@ impl AppEvent {
             enabled,
         }
     }
-    
+
     /// Helper: Create an error event
     pub fn error(source: impl Into<String>, message: impl Into<String>) -> Self {
         AppEvent::Error {
@@ -190,7 +185,7 @@ impl AppEvent {
             message: message.into(),
         }
     }
-    
+
     /// Helper: Create a log event
     pub fn log(level: LogLevel, message: impl Into<String>) -> Self {
         AppEvent::Log {
@@ -198,20 +193,19 @@ impl AppEvent {
             message: message.into(),
         }
     }
-    
+
     /// Helper: Create an info log event
     pub fn info(message: impl Into<String>) -> Self {
         Self::log(LogLevel::Info, message)
     }
-    
+
     /// Helper: Create a debug log event
     pub fn debug(message: impl Into<String>) -> Self {
         Self::log(LogLevel::Debug, message)
     }
-    
+
     /// Helper: Create a warning log event
     pub fn warn(message: impl Into<String>) -> Self {
         Self::log(LogLevel::Warn, message)
     }
 }
-

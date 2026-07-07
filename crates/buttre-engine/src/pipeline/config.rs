@@ -3,10 +3,10 @@
 //! This module defines the configuration structure for input methods.
 //! Instead of hardcoding Telex/VNI logic, we define them as configurations.
 
+use crate::pipeline::dictionary::DictionaryProvider;
+use crate::vowel::{TonePositioningMode, VowelSeqTable};
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::pipeline::dictionary::DictionaryProvider;
-use crate::vowel::{VowelSeqTable, TonePositioningMode};
 
 /// Tone mark types
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -52,7 +52,7 @@ pub struct PipelineSettings {
     /// Possible values: "validation", "transform", "tone", "retrofix", "orthography", "lookup"
     /// Note: "normalization", "gatekeeper", "output" are always enabled
     pub enabled: Vec<String>,
-    
+
     /// Enable TSF composition events (UpdateComposition) instead of Replace
     pub use_composition: bool,
 }
@@ -62,7 +62,7 @@ pub struct PipelineSettings {
 pub struct ValidationSettings {
     /// Syllable structure type: "vietnamese", "hmong", "custom", "none"
     pub syllable_structure: String,
-    
+
     /// Allow invalid syllables to pass through
     pub allow_invalid: bool,
 }
@@ -81,7 +81,7 @@ impl Default for ValidationSettings {
 pub struct OrthographySettings {
     /// Tone style: "modern" or "traditional"
     pub tone_style: String,
-    
+
     /// Unicode form: "nfc" or "nfd"
     pub unicode_form: String,
 }
@@ -100,20 +100,20 @@ impl Default for OrthographySettings {
 pub struct LookupSettings {
     /// Database file path
     pub database: String,
-    
+
     /// Maximum number of candidates to return
     pub max_candidates: usize,
-    
+
     /// Auto replace buffer with top candidate
     pub auto_replace: bool,
-    
+
     /// Space behavior when candidates are shown
     /// - "auto_select_single": Auto-select if exactly 1 candidate, otherwise add to search
     /// - "always_select": Always select first candidate (if available)
     /// - "always_search": Always add space to search keywords
     /// - "passthrough": Let space pass through normally
     pub space_behavior: String,
-    
+
     /// Enter behavior when candidates are shown
     /// - "select_first": Select first candidate
     /// - "select_current": Select currently highlighted candidate
@@ -150,7 +150,7 @@ pub struct ToneConfig {
     /// - More flexible but may create non-standard orthography
     /// - Useful for typing non-standard words, names, or dialects
     pub free_marking: bool,
-    
+
     /// Allow permutation matching (flexible typing order)
     ///
     /// When `false` (default): Strict input order
@@ -160,7 +160,7 @@ pub struct ToneConfig {
     /// - Can type: truongwf, truwongf, truowfng → all produce "trường"
     /// - Stage 4 uses permutation matcher
     pub allow_permutation: bool,
-    
+
     /// Maximum characters to search backward for marking (Unikey: MAX_MODIFY_LENGTH = 6)
     ///
     /// Controls how far back the algorithm searches for vowels to modify.
@@ -169,7 +169,7 @@ pub struct ToneConfig {
     ///
     /// This prevents accidental modification of distant characters in long words.
     pub max_modify_length: usize,
-    
+
     /// Auto-correct "uo" to "ươ" when applying tone (Unikey algorithm)
     ///
     /// When `true`: "nguoif" → "người" (not "nguòi")
@@ -178,7 +178,7 @@ pub struct ToneConfig {
     ///
     /// When `false`: "nguoif" → "nguòi" (literal interpretation)
     pub auto_correct_uo: bool,
-    
+
     /// Vowel sequence table (73 Vietnamese sequences)
     ///
     /// This table is populated by the keyboard config layer (buttre-core)
@@ -186,7 +186,7 @@ pub struct ToneConfig {
     ///
     /// Empty by default - config builders should populate this.
     pub vowel_sequences: VowelSeqTable,
-    
+
     /// Tone positioning mode
     ///
     /// Determines the algorithm for finding where to place tone marks.
@@ -202,7 +202,7 @@ impl Default for LookupSettings {
             max_candidates: 9,
             auto_replace: false,
             space_behavior: "auto_select_single".to_string(), // Nôm default
-            enter_behavior: "passthrough".to_string(), // Let Enter work normally (new line)
+            enter_behavior: "passthrough".to_string(),        // Let Enter work normally (new line)
         }
     }
 }
@@ -210,11 +210,11 @@ impl Default for LookupSettings {
 impl Default for ToneConfig {
     fn default() -> Self {
         Self {
-            free_marking: false,  // Default: strict phonology rules
-            allow_permutation: false,  // Default: strict input order
-            max_modify_length: 6,  // Unikey's MAX_MODIFY_LENGTH = 6
-            auto_correct_uo: false,  // Default: disabled for backward compatibility
-            vowel_sequences: VowelSeqTable::empty(),  // Empty by default
+            free_marking: false,                     // Default: strict phonology rules
+            allow_permutation: false,                // Default: strict input order
+            max_modify_length: 6,                    // Unikey's MAX_MODIFY_LENGTH = 6
+            auto_correct_uo: false,                  // Default: disabled for backward compatibility
+            vowel_sequences: VowelSeqTable::empty(), // Empty by default
             positioning_mode: TonePositioningMode::Phonology,
         }
     }
@@ -251,12 +251,12 @@ impl Default for ToneConfig {
 ///         'f' => ToneMark::Grave,
 ///     },
 ///     context_rules: vec![
-///         ContextRule::new("telex_w_after_ư", 
+///         ContextRule::new("telex_w_after_ư",
 ///             RuleMatcher::And(vec![...]),
 ///             RuleAction::Skip),
 ///     ],
 ///     conditional_rules: vec![
-///         ConditionalRule::with_condition("aa", "â", 
+///         ConditionalRule::with_condition("aa", "â",
 ///             RuleMatcher::Not(Box::new(RuleMatcher::StartsWith("q")))),
 ///     ],
 ///     validation: Some(ValidationSettings::default()),
@@ -288,25 +288,23 @@ pub struct PipelineConfig {
     // ========================================
     // Enhanced Rules (Phase 1)
     // ========================================
-
     /// Context rules with custom closures
     /// Used for complex logic like Telex W handling, OEO blocking, etc.
     /// These rules are evaluated during transformation stages
-    /// 
+    ///
     /// Wrapped in Arc to allow cloning (closures can't be cloned)
     pub context_rules: Arc<Vec<crate::pipeline::rules::ContextRule>>,
 
     /// Conditional transformation rules
     /// Transform rules that only apply when certain conditions are met
     /// Example: "aa → â" but not after "q"
-    /// 
+    ///
     /// Wrapped in Arc to allow cloning (closures can't be cloned)
     pub conditional_rules: Arc<Vec<crate::pipeline::rules::ConditionalRule>>,
 
     // ========================================
     // Stage Settings
     // ========================================
-
     /// Validation settings (NEW: enhanced format)
     pub validation: Option<ValidationSettings>,
 
@@ -324,10 +322,29 @@ pub struct PipelineConfig {
     /// When true, enables single-char transforms, double-key patterns, etc.
     pub native_script_mode: bool,
 
+    /// Word-boundary final repair (event-sourcing-completion Phase 3).
+    ///
+    /// At a word boundary (separator commit, Enter, or another reset-key
+    /// commit), recompute the just-finished word with the CLOSED projection
+    /// (`compose::compose_closed`) and adopt it when it differs from what's
+    /// displayed — restores the literal raw for an inferred non-adjacent
+    /// mark whose tone never arrived (VNI `"nhat6"` + space → `"nhat6 "`,
+    /// not `"nhât "`).
+    ///
+    /// Default ON for BOTH backends (user decision 2026-07-02, overriding
+    /// the red-team F7 recommendation to default the TSF backend OFF):
+    /// shape-only inferred forms are rare, and retyping the affected word is
+    /// the accepted escape on TSF until a TSF-side toggle exists (Phase 4,
+    /// not yet implemented — TSF has no per-word undo affordance of its own
+    /// today). Only takes effect when the compose stage's validator is
+    /// `compose::Validator::Vietnamese` — there is no attested-syllable
+    /// table to gate against for Hmong/Custom/None, so the flag is a no-op
+    /// there regardless of this setting.
+    pub boundary_repair: bool,
+
     // ========================================================================
     // Legacy fields (for backward compatibility)
     // ========================================================================
-
     /// Enable dictionary lookup (Stage 8)
     /// LEGACY: Use lookup.is_some() instead
     pub enable_lookup: bool,
@@ -360,33 +377,34 @@ impl PipelineConfig {
             validation: None,
             orthography: None,
             lookup: None,
-            tone: ToneConfig::default(),  // NEW: flexible typing config
-            native_script_mode: false,    // NEW: disabled by default for Telex/VNI
+            tone: ToneConfig::default(), // NEW: flexible typing config
+            native_script_mode: false,   // NEW: disabled by default for Telex/VNI
+            boundary_repair: true,       // Phase 3: default ON for both backends
             // Legacy fields
             enable_lookup: false,
             dictionary: None,
-            tone_style: ToneStyle::Old,  // Default: kiểu cũ (óa, úy)
+            tone_style: ToneStyle::Old, // Default: kiểu cũ (óa, úy)
             unicode_form: UnicodeForm::NFC,
         }
     }
-    
+
     /// Check if a stage is enabled
     pub fn is_stage_enabled(&self, stage: &str) -> bool {
         self.pipeline.enabled.iter().any(|s| s == stage)
     }
-    
+
     /// Get tone style (from new or legacy field)
     pub fn get_tone_style(&self) -> ToneStyle {
         if let Some(ref ortho) = self.orthography {
             match ortho.tone_style.as_str() {
                 "modern" | "new" => ToneStyle::New,
-                _ => ToneStyle::Old,  // Default: kiểu cũ
+                _ => ToneStyle::Old, // Default: kiểu cũ
             }
         } else {
             self.tone_style
         }
     }
-    
+
     /// Get unicode form (from new or legacy field)
     pub fn get_unicode_form(&self) -> UnicodeForm {
         if let Some(ref ortho) = self.orthography {
@@ -452,7 +470,7 @@ mod tests {
     fn test_add_transform() {
         let mut config = PipelineConfig::new("test");
         config.add_transform("aa", "â");
-        
+
         assert_eq!(config.transform_rules.get("aa"), Some(&"â".to_string()));
     }
 
@@ -460,7 +478,7 @@ mod tests {
     fn test_add_tone() {
         let mut config = PipelineConfig::new("test");
         config.add_tone('s', ToneMark::Acute);
-        
+
         assert!(config.is_tone_key('s'));
         assert_eq!(config.get_tone('s'), Some(ToneMark::Acute));
         assert!(!config.is_tone_key('x'));

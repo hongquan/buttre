@@ -1,38 +1,59 @@
 //! IBus Engine Implementation
 //!
-//! **Tests**: Integration tests for this module are located in `crates/buttre-platform/tests/platform_linux_tests.rs`.
+//! **Tests**: `crates/buttre-platform/tests/platform_linux_tests.rs` (thin
+//! layer) and `platform_linux_bridge_tests.rs` (composition semantics).
 //!
-//! D-Bus service for Vietnamese input via IBus (zbus 3).
+//! Thin D-Bus adapter over [`EngineBridge`] — ALL composition semantics live
+//! in `engine_bridge.rs`, shared with the Wayland-native backend so the two
+//! cannot drift. The component lifecycle (private-bus connection, Factory,
+//! name request) lives in `ibus_bus.rs`; method-file sync in `method_sync.rs`.
+//!
+//! Protocol notes (learned against a live ibus-daemon 1.5.29):
+//! - Signal signatures MUST match libibus's engine introspection XML — the
+//!   daemon subscribes by signature and silently drops mismatches. Engine
+//!   `UpdatePreeditText` is 4-arg `(text, cursor_pos, visible, mode)`.
+//! - There is no engine-side `HidePreeditText` signal (that's a Panel
+//!   method); hide is an update with `visible=false`.
+//! - `ContentType` is a write-only property `(uu)`, not a method.
+//! - `delete_surrounding_text` is deliberately absent: in the preedit model
+//!   the composition is not yet real text (debug report B1).
 
-use anyhow::Result;
+use super::engine_bridge::{is_break_keysym, is_modifier_keysym, keysym_to_char, EngineBridge};
+use super::method_sync::MethodState;
 use std::sync::{Arc, Mutex};
-use buttre_core::Action;
-use buttre_core::{Keyboard, KeyboardBuilder};
-use zbus::{dbus_interface, ConnectionBuilder, SignalContext};
 use zbus::zvariant;
+use zbus::{dbus_interface, SignalContext};
 
 // ============================================================================
 // IBus modifier state bitmask (ibus.h)
 // ============================================================================
 
-const IBUS_SHIFT_MASK:   u32 = 0x01;
-const IBUS_LOCK_MASK:    u32 = 0x02; // Caps Lock
 const IBUS_CONTROL_MASK: u32 = 0x04;
-const IBUS_MOD1_MASK:    u32 = 0x08; // Alt
-const IBUS_SUPER_MASK:   u32 = 0x40;
+const IBUS_MOD1_MASK: u32 = 0x08; // Alt
+const IBUS_SUPER_MASK: u32 = 0x40;
+/// Key-release events carry this bit; engines act on presses only —
+/// processing releases would double every keystroke.
+const IBUS_RELEASE_MASK: u32 = 1 << 30;
+
+/// IBusPreeditFocusMode::COMMIT — the client commits a visible preedit when
+/// focus changes, so a mouse click elsewhere never eats the current word.
+const PREEDIT_FOCUS_COMMIT: u32 = 1;
 
 // ============================================================================
 // IBus Engine
 // ============================================================================
 
-/// IBus Engine for Vietnamese input.
-///
-/// `Keyboard` owns its internal buffer; we hold it behind an `Arc<Mutex<>>` so
-/// the `#[derive(Clone)]` on this struct works correctly with zbus.
+/// IBus Engine for Vietnamese input — one instance per input context,
+/// created by the Factory in `ibus_bus.rs`.
 #[derive(Clone)]
 pub struct ButtreEngine {
-    keyboard: Arc<Mutex<Keyboard>>,
-    pub preedit: Arc<Mutex<String>>,
+    bridge: Arc<Mutex<EngineBridge>>,
+    /// Shared with the method-file watcher (B5). `None` in standalone
+    /// construction (tests) — no live method switching there.
+    method_state: Option<Arc<MethodState>>,
+    /// Last [`MethodState::generation`] this engine applied; compared per
+    /// keystroke (one atomic load) for lazy keyboard rebuild on switch.
+    seen_generation: u64,
 }
 
 impl ButtreEngine {
@@ -41,14 +62,25 @@ impl ButtreEngine {
     }
 
     pub fn new_with_method(method_name: &str) -> Self {
-        let keyboard = match method_name {
-            "vni" => KeyboardBuilder::vni().expect("Failed to create VNI keyboard"),
-            _     => KeyboardBuilder::telex().expect("Failed to create Telex keyboard"),
-        };
         Self {
-            keyboard: Arc::new(Mutex::new(keyboard)),
-            preedit:  Arc::new(Mutex::new(String::new())),
+            bridge: Arc::new(Mutex::new(EngineBridge::new(method_name))),
+            method_state: None,
+            seen_generation: 0,
         }
+    }
+
+    /// Factory constructor: builds from the CURRENT shared method and keeps
+    /// the state handle for per-keystroke switch detection.
+    pub fn new_with_state(state: Arc<MethodState>) -> Self {
+        let mut engine = Self::new_with_method(&state.method());
+        engine.seen_generation = state.generation();
+        engine.method_state = Some(state);
+        engine
+    }
+
+    /// Current preedit text (test/diagnostic accessor).
+    pub fn preedit_text(&self) -> String {
+        self.bridge.lock().unwrap().preedit().to_string()
     }
 }
 
@@ -58,72 +90,10 @@ impl Default for ButtreEngine {
     }
 }
 
-// ============================================================================
-// Key classification helpers
-// ============================================================================
-
 /// True when a control modifier (Ctrl / Alt / Super) is active.
 /// We pass these through without engine processing to preserve shortcuts.
 fn is_control_combo(state: u32) -> bool {
     state & (IBUS_CONTROL_MASK | IBUS_MOD1_MASK | IBUS_SUPER_MASK) != 0
-}
-
-/// True for modifier-only keyvals (Shift_L/R, Ctrl_L/R, Caps_Lock, …).
-fn is_modifier_keyval(keyval: u32) -> bool {
-    matches!(keyval, 0xFFE1..=0xFFEE | 0xFE01..=0xFE0F)
-}
-
-/// True for non-character keys that should reset and pass through.
-fn is_break_keyval(keyval: u32) -> bool {
-    matches!(keyval,
-        0xFF09 // Tab
-        | 0xFF1B // Escape
-        | 0xFF50 // Home
-        | 0xFF51..=0xFF54 // Left/Up/Right/Down
-        | 0xFF55 // Page_Up
-        | 0xFF56 // Page_Down
-        | 0xFF57 // End
-        | 0xFF63 // Insert
-        | 0xFFFF // Delete
-    )
-}
-
-/// True for punctuation / whitespace chars that break the composition.
-fn is_break_char(ch: char) -> bool {
-    matches!(ch,
-        ' ' | '\n' | '\t'
-        | '.' | ',' | ';' | ':' | '!' | '?' | '\'' | '"'
-        | '(' | ')' | '[' | ']' | '{' | '}'
-        | '/' | '\\' | '|' | '`' | '~'
-        | '@' | '#' | '$' | '%' | '^' | '&' | '*'
-        | '+' | '=' | '-' | '_' | '<' | '>'
-    )
-}
-
-/// Convert GDK keyval + state to a character, applying CapsLock XOR Shift for letters.
-pub fn keyval_to_char(keyval: u32, state: u32) -> Option<char> {
-    let shift = state & IBUS_SHIFT_MASK != 0;
-    let caps  = state & IBUS_LOCK_MASK  != 0;
-    let upper = shift ^ caps;
-
-    match keyval {
-        // a-z
-        0x0061..=0x007a => {
-            let ch = (keyval as u8) as char;
-            Some(if upper { ch.to_ascii_uppercase() } else { ch })
-        }
-        // A-Z (keyval already uppercase — respect it)
-        0x0041..=0x005A => Some((keyval as u8) as char),
-        // 0-9
-        0x0030..=0x0039 => Some((keyval as u8) as char),
-        // Space
-        0x0020 => Some(' '),
-        // Return
-        0xFF0D => Some('\n'),
-        // Backspace
-        0xFF08 => Some('\x08'),
-        _ => None,
-    }
 }
 
 // ============================================================================
@@ -137,8 +107,6 @@ pub fn keyval_to_char(keyval: u32, state: u32) -> Option<char> {
 /// - {} (empty attachments dict)
 /// - text (the actual string)
 /// - variant containing IBusAttrList `(sa{sv}av)` with no attributes
-///
-/// NOTE: Verify output against `dbus-monitor --session` before shipping.
 fn build_ibus_text(text: &str) -> zvariant::Value<'static> {
     use std::collections::HashMap;
     use zbus::zvariant::Value;
@@ -153,12 +121,7 @@ fn build_ibus_text(text: &str) -> zvariant::Value<'static> {
     ));
 
     // IBusText: ("IBusText", a{sv}={}, text, v=attr_list)
-    Value::from((
-        "IBusText".to_string(),
-        empty,
-        text.to_string(),
-        attr_list,
-    ))
+    Value::from(("IBusText".to_string(), empty, text.to_string(), attr_list))
 }
 
 // ============================================================================
@@ -172,23 +135,15 @@ impl ButtreEngine {
     #[dbus_interface(signal)]
     async fn commit_text(ctx: &SignalContext<'_>, text: zvariant::Value<'_>) -> zbus::Result<()>;
 
+    /// 4-arg per libibus XML; `mode` is IBusPreeditFocusMode (see const).
     #[dbus_interface(signal)]
     async fn update_preedit_text(
         ctx: &SignalContext<'_>,
         text: zvariant::Value<'_>,
         cursor_pos: u32,
         visible: bool,
+        mode: u32,
     ) -> zbus::Result<()>;
-
-    #[dbus_interface(signal)]
-    async fn delete_surrounding_text(
-        ctx: &SignalContext<'_>,
-        offset: i32,
-        n_chars: u32,
-    ) -> zbus::Result<()>;
-
-    #[dbus_interface(signal)]
-    async fn hide_preedit_text(ctx: &SignalContext<'_>) -> zbus::Result<()>;
 
     // --- Method handlers ---
 
@@ -200,124 +155,66 @@ impl ButtreEngine {
         _keycode: u32,
         state: u32,
     ) -> bool {
-        tracing::debug!("ProcessKeyEvent: keyval=0x{:x}, state=0x{:x}", keyval, state);
+        tracing::debug!(
+            "ProcessKeyEvent: keyval=0x{:x}, state=0x{:x}",
+            keyval,
+            state
+        );
 
-        // Pass through modifier combos (Ctrl+C, Alt+F4, etc.)
+        // Key releases would double every keystroke — presses only.
+        if state & IBUS_RELEASE_MASK != 0 {
+            return false;
+        }
+
+        // Apply a pending tray-side method switch before processing (B5).
+        self.sync_method(&ctx).await;
+
+        // Shortcuts (Ctrl+C, Alt+F4, …): commit the pending word so it isn't
+        // lost, then let the app receive the combo.
         if is_control_combo(state) {
+            let outcome = self.bridge.lock().unwrap().flush_pending();
+            self.emit_ops(&ctx, outcome.ops).await;
             return false;
         }
 
-        // Pass through bare modifier keyvals
-        if is_modifier_keyval(keyval) {
+        // Bare modifier presses don't touch the composition.
+        if is_modifier_keysym(keyval) {
             return false;
         }
 
-        // Pass through non-character break keys (arrows, Tab, Escape, …)
-        if is_break_keyval(keyval) {
-            let preedit_text = {
-                let p = self.preedit.lock().unwrap();
-                if p.is_empty() { None } else { Some(p.clone()) }
-            };
-            if let Some(text) = preedit_text {
-                self.reset();
-                Self::commit_text(&ctx, build_ibus_text(&text)).await.ok();
-            }
+        // Navigation/editing keys end the word and pass through.
+        if is_break_keysym(keyval) {
+            let outcome = self.bridge.lock().unwrap().flush_pending();
+            self.emit_ops(&ctx, outcome.ops).await;
             return false;
         }
 
-        let ch = match keyval_to_char(keyval, state) {
-            Some(c) => c,
-            None => return false,
+        let Some(ch) = keysym_to_char(keyval) else {
+            return false;
         };
 
-        // Backspace
-        if ch == '\x08' {
-            let action = {
-                let mut kb = self.keyboard.lock().unwrap();
-                match kb.backspace() {
-                    Ok(a) => a,
-                    Err(e) => {
-                        tracing::warn!("Keyboard backspace error: {}", e);
-                        Action::DoNothing
-                    }
-                }
-            };
-            match action {
-                Action::Replace { text, .. } => {
-                    let cursor = text.chars().count() as u32;
-                    {
-                        let mut p = self.preedit.lock().unwrap();
-                        *p = text.clone();
-                    }
-                    let visible = !text.is_empty();
-                    if visible {
-                        Self::update_preedit_text(&ctx, build_ibus_text(&text), cursor, true)
-                            .await.ok();
-                    } else {
-                        Self::hide_preedit_text(&ctx).await.ok();
-                    }
-                    return true;
-                }
-                _ => return false,
-            }
-        }
-
-        // Break chars (space, punctuation) — commit preedit and pass through
-        if is_break_char(ch) {
-            let preedit_text = {
-                let p = self.preedit.lock().unwrap();
-                if p.is_empty() { None } else { Some(p.clone()) }
-            };
-            if let Some(text) = preedit_text {
-                self.reset();
-                Self::commit_text(&ctx, build_ibus_text(&text)).await.ok();
-            }
-            return false;
-        }
-
-        // Normal character — process through engine
-        let action = {
-            let mut kb = self.keyboard.lock().unwrap();
-            match kb.process(ch) {
-                Ok(actions) => actions.into_iter().next().unwrap_or(Action::DoNothing),
-                Err(e) => {
-                    tracing::warn!("Keyboard process error: {}", e);
-                    Action::DoNothing
-                }
+        let outcome = {
+            let mut bridge = self.bridge.lock().unwrap();
+            if ch == '\x08' {
+                bridge.backspace()
+            } else {
+                bridge.process_char(ch)
             }
         };
-
-        match action {
-            Action::Replace { text, backspace_count, .. } => {
-                let cursor = text.chars().count() as u32;
-                {
-                    let mut p = self.preedit.lock().unwrap();
-                    *p = text.clone();
-                }
-                if backspace_count > 0 {
-                    let n = backspace_count as u32;
-                    Self::delete_surrounding_text(&ctx, -(n as i32), n).await.ok();
-                }
-                Self::update_preedit_text(&ctx, build_ibus_text(&text), cursor, true)
-                    .await.ok();
-                true
-            }
-            Action::Commit(text) => {
-                self.reset();
-                Self::commit_text(&ctx, build_ibus_text(&text)).await.ok();
-                true
-            }
-            _ => false,
-        }
+        self.emit_ops(&ctx, outcome.ops).await;
+        outcome.handled
     }
 
     fn focus_in(&mut self) {
         tracing::info!("FocusIn");
     }
 
+    /// Focus loss: the CLIENT commits the visible preedit itself (we send
+    /// every preedit update with mode=COMMIT), so the engine only resets its
+    /// state — emitting our own commit here would double the word.
     fn focus_out(&mut self) {
         tracing::info!("FocusOut");
-        self.reset();
+        self.bridge.lock().unwrap().discard();
     }
 
     fn enable(&mut self) {
@@ -326,14 +223,14 @@ impl ButtreEngine {
 
     fn disable(&mut self) {
         tracing::info!("Disable");
-        self.reset();
+        self.bridge.lock().unwrap().discard();
     }
 
-    fn reset(&mut self) {
-        let mut kb = self.keyboard.lock().unwrap();
-        let mut preedit = self.preedit.lock().unwrap();
-        kb.reset();
-        preedit.clear();
+    /// Daemon-initiated reset: discard the composition WITHOUT committing.
+    async fn reset(&mut self, #[zbus(signal_context)] ctx: SignalContext<'_>) {
+        tracing::debug!("Reset");
+        let outcome = self.bridge.lock().unwrap().discard();
+        self.emit_ops(&ctx, outcome.ops).await;
     }
 
     fn set_cursor_location(&mut self, x: i32, y: i32, w: i32, h: i32) {
@@ -343,79 +240,79 @@ impl ButtreEngine {
     fn set_capabilities(&mut self, caps: u32) {
         tracing::debug!("SetCapabilities: {}", caps);
     }
+
+    /// `ContentType` is a write-only PROPERTY `(uu)` in the engine
+    /// interface (purpose, hints; purpose 8 = password). Reserved for
+    /// suppressing learning in sensitive fields.
+    #[dbus_interface(property)]
+    fn content_type(&self) -> (u32, u32) {
+        (0, 0)
+    }
+
+    #[dbus_interface(property)]
+    fn set_content_type(&mut self, content_type: (u32, u32)) {
+        tracing::debug!(
+            "ContentType: purpose={}, hints={}",
+            content_type.0,
+            content_type.1
+        );
+    }
 }
 
 // ============================================================================
-// Method config loading
+// Signal-emission helpers
 // ============================================================================
 
-/// Load input method name from `~/.config/buttre/method`.
-///
-/// Returns "vni" if the file contains "vni" (trimmed, case-insensitive),
-/// "telex" for any other content or on read failure.
-fn load_method_config() -> String {
-    let path = dirs::config_dir()
-        .map(|p| p.join("buttre/method"));
-    if let Some(path) = path {
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            let method = content.trim().to_lowercase();
-            if method == "vni" {
-                tracing::info!("Loaded method config: vni");
-                return "vni".to_string();
+impl ButtreEngine {
+    /// Emit bridge operations as IBus signals, in order. Signals are queued
+    /// before the ProcessKeyEvent reply, so a Commit always lands before a
+    /// forwarded (unhandled) key.
+    async fn emit_ops(&self, ctx: &SignalContext<'_>, ops: Vec<super::engine_bridge::ImeOp>) {
+        use super::engine_bridge::ImeOp;
+        for op in ops {
+            match op {
+                ImeOp::Preedit(text) => {
+                    let cursor = text.chars().count() as u32;
+                    Self::update_preedit_text(
+                        ctx,
+                        build_ibus_text(&text),
+                        cursor,
+                        !text.is_empty(),
+                        PREEDIT_FOCUS_COMMIT,
+                    )
+                    .await
+                    .ok();
+                }
+                ImeOp::Commit(text) => {
+                    Self::commit_text(ctx, build_ibus_text(&text)).await.ok();
+                }
             }
-        } else {
-            tracing::debug!("No method config at {:?}, defaulting to telex", path);
         }
     }
-    "telex".to_string()
-}
 
-// ============================================================================
-// Engine entry points
-// ============================================================================
-
-/// Run the IBus engine service (runs until process exits).
-pub async fn run_engine() -> Result<()> {
-    let method = load_method_config();
-    tracing::info!("Starting buttre IBus Engine (method={})", method);
-
-    let engine = ButtreEngine::new_with_method(&method);
-
-    ConnectionBuilder::session()?
-        .name("org.freedesktop.IBus.buttre")?
-        .serve_at("/org/freedesktop/IBus/Engine/buttre", engine)?
-        .build()
-        .await?;
-
-    tracing::info!("Engine running on D-Bus");
-    std::future::pending::<()>().await;
-    Ok(())
-}
-
-/// Run the IBus engine service with a graceful shutdown channel.
-///
-/// Used by `LinuxBackend::init` so the engine thread can be stopped cleanly.
-pub async fn run_engine_with_shutdown(
-    shutdown: tokio::sync::oneshot::Receiver<()>,
-) -> Result<()> {
-    let method = load_method_config();
-    tracing::info!("Starting buttre IBus Engine (method={}, managed)", method);
-
-    let engine = ButtreEngine::new_with_method(&method);
-
-    ConnectionBuilder::session()?
-        .name("org.freedesktop.IBus.buttre")?
-        .serve_at("/org/freedesktop/IBus/Engine/buttre", engine)?
-        .build()
-        .await?;
-
-    tracing::info!("Engine running on D-Bus");
-
-    tokio::select! {
-        _ = std::future::pending::<()>() => {},
-        _ = shutdown => {
-            tracing::info!("Engine received shutdown signal");
+    /// Apply a pending tray-side method switch (B5).
+    async fn sync_method(&mut self, ctx: &SignalContext<'_>) {
+        let Some(state) = &self.method_state else {
+            return;
+        };
+        let generation = state.generation();
+        if generation == self.seen_generation {
+            return;
+        }
+        self.seen_generation = generation;
+        let method = state.method();
+        // rebuild returns owned Option — the lock guard is dropped at the
+        // end of this statement, so no lock is held across the await.
+        let outcome = self.bridge.lock().unwrap().rebuild(&method);
+        match outcome {
+            Some(outcome) => {
+                self.emit_ops(ctx, outcome.ops).await;
+                tracing::info!("Engine switched to method {method}");
+            }
+            // Build failed (already logged): keep the current keyboard
+            // rather than crash. seen_generation is advanced so we don't
+            // retry the same broken method every keystroke.
+            None => tracing::warn!("Method switch to {method} failed; keeping current"),
         }
     }
-    Ok(())
 }

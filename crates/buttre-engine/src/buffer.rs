@@ -101,11 +101,6 @@ impl InputBuffer {
         self.chars[start..].iter().copied()
     }
 
-    /// Get all characters as a string
-    pub fn to_string(&self) -> String {
-        self.chars.iter().collect()
-    }
-
     /// Throw buffer - keep only last KEYS_MAINTAIN characters
     /// Called when buffer is full
     fn throw_buffer(&mut self) {
@@ -155,3 +150,8 @@ impl Default for InputBuffer {
     }
 }
 
+impl std::fmt::Display for InputBuffer {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.chars.iter().collect::<String>().fmt(f)
+    }
+}

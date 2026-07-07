@@ -2,7 +2,7 @@
 
 > Tổng quan kiến trúc đầy đủ của buttre Vietnamese Input Method Engine
 
-**Cập nhật lần cuối**: 2026-06-14
+**Cập nhật lần cuối**: 2026-07-03 (event-sourcing-completion: un-latch, boundary repair, learning, controls)
 **Phiên bản**: 0.7.0-beta
 **Trạng thái**: Core sẵn sàng production, Tích hợp platform đang thực hiện
 
@@ -171,9 +171,9 @@ for action in actions {
 **Vị trí**: `crates/buttre-platform/`
 
 **Trách nhiệm**:
-- Windows: Cài đặt TSF (Text Services Framework)
-- macOS: Tích hợp IMKit (đang lên kế hoạch)
-- Linux: Tích hợp IBus/Fcitx5 (đang lên kế hoạch)
+- Windows: TSF (Text Services Framework) — hoạt động
+- Linux: IBus (GNOME/X11) + Wayland-native `zwp_input_method_v2` (sway/Hyprland/KDE) — hoạt động; semantics composition dùng chung qua `shared/engine_bridge.rs`
+- macOS: FFI (`ButtreKeyResult`) sẵn sàng; IMKit host đang phát triển
 - UI system tray
 - Quản lý cài đặt
 
@@ -205,8 +205,8 @@ buttre-platform/
 
 **Tích Hợp Platform**:
 - **Windows**: Biên dịch thành DLL, đăng ký qua `regsvr32`
-- **macOS**: Bundle framework với Objective-C bridge (đang lên kế hoạch)
-- **Linux**: Shared object được IBus tải (đang lên kế hoạch)
+- **macOS**: dylib + FFI cho IMKit host (host đang phát triển)
+- **Linux**: binary chạy 2 chế độ — `--ibus` (ibus-daemon spawn) và `--ime` (Wayland-native tự dò, fallback IBus)
 
 ---
 
@@ -254,6 +254,9 @@ Phím Đầu Vào
 │  2. segment — base + transforms + tones   │
 │  3. transform — áp dụng dấu phụ (gated)  │
 │  4. assemble — đặt tone lên nucleus       │
+│  5. attestation gate — non-adjacent marks  │
+│     phải match attested syllables          │
+│  6. English fallback — nếu không phải VN  │
 │ Ghi syllable_buffer; đặt temp_english     │
 └────────────────┬───────────────────────────┘
                  ↓
@@ -282,6 +285,36 @@ Phím Đầu Vào
                  ↓
                 Action Đầu Ra
 ```
+
+### Giai Đoạn 3: Compose — Recompute-From-Raw Engine
+
+**Mô đun**: `crates/buttre-engine/src/compose/`
+
+Giai đoạn này là **lõi xử lý của buttre**. Khác với các pipeline tinh chỉnh từng bước, compose **tái tính toán toàn bộ âm tiết từ raw key buffer** trên mỗi phím bấm:
+
+- **Quy trình**: Segment → Transform (validation-gated) → Assemble → **Attestation Gate** → English Fallback
+- **Attestation Gate**: Non-adjacent marks (delayed diacritics like Telex 'viete' → 'việt') chỉ được chấp nhận nếu âm tiết cuối cùng là một **từ tiếng Việt có thực** trong bảng attested-syllables. Điều này sửa lỗi `"data"` → `"dât"` (falsepositive) mà không ảnh hưởng đến gõ adjacent/thông thường.
+
+**Bảng Attested Syllables**:
+- **Nguồn**: ibus-bamboo vietnamese.cm.dict (GPLv3); 7,642 âm tiết sau khi lọc vowel-less/k-coda
+- **Format**: Bitset (~13 KB) tối ưu `(onset_id, nucleus_id, coda_id, tone_id)`
+- **File**: `crates/buttre-engine/src/pipeline/attested_data.rs` (generated)
+- **Tạo lại**: `cargo run -p buttre-engine --example gen_attested_syllables`
+- **Accessors**: `validation::is_attested(text)` (exact tone) + `validation::is_shape_attested(text)` (any tone)
+
+**Trade-off**: Delayed-mark Telex (không tone) không hiển thị dấu live — thay vào đó dấu xuất hiện sau khi gõ tone key. Ví dụ: `viete` → `viete` (literal) + `j` (tone sắc) → `việt`. Đây là cách duy nhất để chặn `data→dât` mà không mở lại lỗi trong VNI/VIQR.
+
+#### Un-Latch Dựa Trên Bằng Chứng (event-sourcing-completion Phase 2)
+
+`temp_english_mode` không còn là latch một chiều — mỗi phím bấm thuộc lớp trigger (tone key hoặc transform trigger) sẽ re-probe `compose(&full_raw)`. Un-latch tự động khi CẢ BỐN điều kiện đúng: probe không tự phân loại là tiếng Anh; text khớp âm tiết đã xác nhận trong bảng; trigger là ký tự cuối cùng trong raw buffer; từ không ở trạng thái vừa hoàn tác. Sửa lỗi như `"vietj"+"e"` → `"việt"` thay vì kẹt `"vietje"`.
+
+#### Word-Boundary Repair (event-sourcing-completion Phase 3)
+
+`compose_closed()` ép buộc khớp CHÍNH XÁC cho mọi lớp trigger tại ranh giới từ (separator/Enter/reset-key), không nới lỏng theo hình dạng. VNI `"nhat6"` hiển thị `"nhât"` khi đang gõ (open) nhưng phục hồi về literal `"nhat6"` tại khóa từ (closed). Áp dụng đồng nhất cho Hook (multiword) và TSF (ConfirmComposition).
+
+#### Coda-k & Nâng Cấp Bảng Âm Vị
+
+Mở rộng coda để bao gồm `"k"` cho các lớp địa danh như Đắk Lắk (`đắk`, `lắk`, `búk`). Làm chặt lớp trigger của attestation gate — chỉ số VNI nới lỏng theo hình dạng; mọi trigger khác đòi hỏi khớp chính xác.
 
 ### Kết Quả Giai Đoạn
 
@@ -331,7 +364,7 @@ pub struct TypingContext {
     /// Âm tiết đang được xây dựng
     pub current_syllable: Syllable,
 
-    /// Chế độ tiếng Anh fallback (sau undo)
+    /// Chế độ tiếng Anh fallback (DERIVED từ evidence-based un-latch, không phải latch một chiều)
     pub temp_english_mode: bool,
 
     /// Biến đổi cuối cùng được áp dụng
@@ -345,6 +378,12 @@ pub struct TypingContext {
 
     /// Candidates (cho Hán Nôm)
     pub candidates: Vec<Candidate>,
+
+    /// Học tập được bật (từ Settings::learning_enabled)
+    pub learning_enabled: bool,
+
+    /// Đang hiển thị candidates từ tra cứu từ điển
+    pub showing_candidates: bool,
 }
 ```
 

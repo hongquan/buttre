@@ -20,7 +20,7 @@ use std::collections::HashMap;
 /// - 'j' → Dot (nặng)
 pub fn get_map() -> HashMap<char, ToneMark> {
     let mut map = HashMap::new();
-    
+
     // Lowercase
     map.insert('s', ToneMark::Acute);
     map.insert('f', ToneMark::Grave);
@@ -43,4 +43,3 @@ pub fn get_map() -> HashMap<char, ToneMark> {
 
     map
 }
-

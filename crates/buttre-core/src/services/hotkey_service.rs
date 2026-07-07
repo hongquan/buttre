@@ -5,8 +5,8 @@
 //! This service wraps the ButtreHotkeyManager and integrates it with the event bus,
 //! automatically publishing hotkey events when keys are pressed.
 
+use crate::events::{AppEvent, HotkeyAction, SharedEventBus};
 use crate::hotkey::{ButtreHotkeyManager, HotkeyAction as CoreHotkeyAction};
-use crate::events::{SharedEventBus, AppEvent, HotkeyAction};
 use anyhow::Result;
 
 /// Hotkey Service - Manages global hotkeys with event bus integration
@@ -29,7 +29,7 @@ use anyhow::Result;
 pub struct HotkeyService {
     /// Underlying hotkey manager
     manager: ButtreHotkeyManager,
-    
+
     /// Event bus for publishing events
     event_bus: SharedEventBus,
 }
@@ -48,13 +48,10 @@ impl HotkeyService {
     /// * `event_bus` - Shared event bus for publishing events
     pub fn new(event_bus: SharedEventBus) -> Result<Self> {
         let manager = ButtreHotkeyManager::new()?;
-        
-        Ok(Self {
-            manager,
-            event_bus,
-        })
+
+        Ok(Self { manager, event_bus })
     }
-    
+
     /// Poll for hotkey events
     ///
     /// This should be called regularly (e.g., in your event loop).
@@ -64,20 +61,28 @@ impl HotkeyService {
     /// This method is non-blocking and will return immediately.
     pub fn poll(&self) {
         if let Some(action) = self.manager.check_hotkey() {
-            // Convert core hotkey action to event hotkey action
+            // Convert core hotkey action to event hotkey action.
+            // `ToggleLastWord` (event-sourcing-completion Phase 4) has no
+            // event-bus equivalent yet — this event-bus service is not
+            // wired into the running app (buttre-platform/src/main.rs polls
+            // `ButtreHotkeyManager` directly instead), so skip publishing
+            // for it rather than invent a lossy mapping onto an unrelated
+            // `events::HotkeyAction` variant.
             let event_action = match action {
                 CoreHotkeyAction::Toggle => HotkeyAction::Toggle,
                 CoreHotkeyAction::Telex => HotkeyAction::Telex,
                 CoreHotkeyAction::Vni => HotkeyAction::Vni,
                 CoreHotkeyAction::Nom => HotkeyAction::Nom,
                 CoreHotkeyAction::Custom(i) => HotkeyAction::Custom(i),
+                CoreHotkeyAction::ToggleLastWord => return,
             };
-            
+
             // Publish event
-            self.event_bus.publish(AppEvent::HotkeyPressed(event_action));
+            self.event_bus
+                .publish(AppEvent::HotkeyPressed(event_action));
         }
     }
-    
+
     /// Register custom method hotkeys
     ///
     /// This will register hotkeys for custom methods:
@@ -90,8 +95,8 @@ impl HotkeyService {
     ///
     /// * `count` - Number of custom methods to register (max 7)
     pub fn register_custom_methods(&mut self, count: usize) -> Result<()> {
-        self.manager.register_custom_methods(count)
+        self.manager
+            .register_custom_methods(count)
             .map_err(|e| anyhow::anyhow!("Failed to register custom methods: {}", e))
     }
 }
-

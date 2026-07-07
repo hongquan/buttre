@@ -22,4 +22,3 @@ pub fn get_rules() -> Vec<ContextRule> {
     // For now, return empty vector
     Vec::new()
 }
-

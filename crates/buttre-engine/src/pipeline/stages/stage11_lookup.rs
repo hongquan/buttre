@@ -19,8 +19,8 @@
 //! - Auto-completion
 //! - Spelling correction
 
-use crate::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig, Candidate};
 use crate::pipeline::dictionary::DictionaryProvider;
+use crate::pipeline::{Candidate, PipelineConfig, PipelineStage, StageResult, TypingContext};
 use crate::types::Action;
 use std::sync::Arc;
 
@@ -61,17 +61,17 @@ use std::sync::Arc;
 pub struct LookupStage {
     /// Whether dictionary lookup is enabled
     pub enabled: bool,
-    
+
     /// Dictionary provider (optional)
     /// If None, lookup is disabled
     pub dictionary: Option<Arc<dyn DictionaryProvider>>,
-    
+
     /// Auto replace buffer with top candidate
     auto_replace: bool,
-    
+
     /// Space key behavior
     space_behavior: SpaceBehavior,
-    
+
     /// Enter key behavior
     enter_behavior: EnterBehavior,
 }
@@ -101,7 +101,8 @@ enum EnterBehavior {
 impl LookupStage {
     /// Create a new lookup stage from config
     pub fn from_config(config: &PipelineConfig) -> Self {
-        let (auto_replace, space_behavior, enter_behavior) = if let Some(ref lookup) = config.lookup {
+        let (auto_replace, space_behavior, enter_behavior) = if let Some(ref lookup) = config.lookup
+        {
             let space = match lookup.space_behavior.as_str() {
                 "auto_select_single" => SpaceBehavior::AutoSelectSingle,
                 "always_select" => SpaceBehavior::AlwaysSelect,
@@ -115,7 +116,11 @@ impl LookupStage {
             };
             (lookup.auto_replace, space, enter)
         } else {
-            (false, SpaceBehavior::PassThrough, EnterBehavior::PassThrough)
+            (
+                false,
+                SpaceBehavior::PassThrough,
+                EnterBehavior::PassThrough,
+            )
         };
 
         Self {
@@ -129,7 +134,7 @@ impl LookupStage {
 
     /// Create a new lookup stage with custom settings
     pub fn new(enabled: bool) -> Self {
-        Self { 
+        Self {
             enabled,
             dictionary: None,
             auto_replace: false,
@@ -137,7 +142,7 @@ impl LookupStage {
             enter_behavior: EnterBehavior::PassThrough,
         }
     }
-    
+
     /// Create a lookup stage with dictionary provider
     pub fn with_dictionary(dictionary: Arc<dyn DictionaryProvider>) -> Self {
         Self {
@@ -148,7 +153,7 @@ impl LookupStage {
             enter_behavior: EnterBehavior::PassThrough,
         }
     }
-    
+
     /// Set auto-replace mode
     pub fn with_auto_replace(mut self, auto_replace: bool) -> Self {
         self.auto_replace = auto_replace;
@@ -168,7 +173,7 @@ impl LookupStage {
             Vec::new()
         }
     }
-    
+
     /// Public method for direct dictionary lookup
     /// Used by PipelineExecutor for multi-keyword search
     pub fn lookup_query(&self, query: &str) -> Vec<Candidate> {
@@ -203,12 +208,12 @@ impl PipelineStage for LookupStage {
                             // Exactly 1 candidate - auto-select it
                             let selected = ctx.candidates[0].get_value().to_string();
                             let backspace_count = ctx.syllable_buffer.chars().count();
-                            
+
                             // Hide candidates and reset
                             ctx.candidates.clear();
                             ctx.showing_candidates = false;
                             ctx.clear();
-                            
+
                             // Return Replace action
                             return StageResult::Output(vec![
                                 Action::HideCandidates,
@@ -226,11 +231,11 @@ impl PipelineStage for LookupStage {
                         // Always select first candidate
                         let selected = ctx.candidates[0].get_value().to_string();
                         let backspace_count = ctx.syllable_buffer.chars().count();
-                        
+
                         ctx.candidates.clear();
                         ctx.showing_candidates = false;
                         ctx.clear();
-                        
+
                         return StageResult::Output(vec![
                             Action::HideCandidates,
                             Action::Replace {
@@ -248,7 +253,7 @@ impl PipelineStage for LookupStage {
                     }
                 }
             }
-            
+
             // Handle Enter key
             if input == '\n' || input == '\r' {
                 match self.enter_behavior {
@@ -256,11 +261,11 @@ impl PipelineStage for LookupStage {
                         // Select first candidate
                         let selected = ctx.candidates[0].get_value().to_string();
                         let backspace_count = ctx.syllable_buffer.chars().count();
-                        
+
                         ctx.candidates.clear();
                         ctx.showing_candidates = false;
                         ctx.clear();
-                        
+
                         return StageResult::Output(vec![
                             Action::HideCandidates,
                             Action::Replace {
@@ -275,11 +280,11 @@ impl PipelineStage for LookupStage {
                         if let Some(candidate) = ctx.candidates.get(index) {
                             let selected = candidate.get_value().to_string();
                             let backspace_count = ctx.syllable_buffer.chars().count();
-                            
+
                             ctx.candidates.clear();
                             ctx.showing_candidates = false;
                             ctx.clear();
-                            
+
                             return StageResult::Output(vec![
                                 Action::HideCandidates,
                                 Action::Replace {
@@ -299,7 +304,7 @@ impl PipelineStage for LookupStage {
 
         // Algorithm Step 3: Perform lookup
         let candidates = self.lookup(&ctx.syllable_buffer);
-        
+
         // Algorithm Step 4: Store candidates in context
         if !candidates.is_empty() {
             if self.auto_replace {
@@ -319,7 +324,7 @@ impl PipelineStage for LookupStage {
             ctx.candidates.clear();
             ctx.showing_candidates = false;
         }
-        
+
         // Algorithm Step 5: Return result
         StageResult::Continue
     }
@@ -332,4 +337,3 @@ impl PipelineStage for LookupStage {
         // No internal state to reset
     }
 }
-

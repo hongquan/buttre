@@ -10,8 +10,8 @@
 //! - Key→ToneMark mapping (lives in `PipelineConfig::tone_map` and in each stage).
 //! - Syllable parsing / final-consonant detection (caller responsibility).
 
-mod tables;
 mod placement;
+mod tables;
 
-pub use tables::{apply, strip};
 pub use placement::place;
+pub use tables::{apply, strip};

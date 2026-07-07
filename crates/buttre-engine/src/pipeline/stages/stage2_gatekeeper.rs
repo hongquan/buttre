@@ -118,7 +118,8 @@ impl GatekeeperStage {
     /// Check if a character is a vowel (basic Vietnamese vowels)
     pub fn is_vowel(&self, ch: char) -> bool {
         let lower = ch.to_lowercase().next().unwrap_or(ch);
-        matches!(lower, 
+        matches!(
+            lower,
             // Base vowels
             'a' | 'e' | 'i' | 'o' | 'u' | 'y' |
             // Transformed vowels
@@ -154,7 +155,7 @@ impl PipelineStage for GatekeeperStage {
             // NATIVE SCRIPT FIX: If native script mode, IGNORE temp_english_mode for alphabetic chars.
             // We want to process them regardless of undo history.
             if self.native_script_mode && input.is_alphabetic() {
-                 // Fall through to normal processing (don't return PassThrough)
+                // Fall through to normal processing (don't return PassThrough)
             } else {
                 // Check if we should exit temp English mode.
                 // Numbers are intentionally NOT reset triggers: after a VNI undo, the user
@@ -168,7 +169,7 @@ impl PipelineStage for GatekeeperStage {
                     // PassThrough for separators/symbols (triggers context reset in executor)
                     return StageResult::PassThrough;
                 }
-                
+
                 // CRITICAL: For alphabetic chars in temp_english_mode:
                 // - Return CONTINUE to let Stage 4 handle the append
                 // - Don't append here - Stage 4 will append when no transformation is found
@@ -190,15 +191,27 @@ impl PipelineStage for GatekeeperStage {
         // 3. AND last character in syllable_buffer is a space/separator or buffer is empty
         // → This is likely part of a number (like "10", "2025"), not Vietnamese
         // → PassThrough to avoid transformation
+        // TECH-DEBT: hardcoded to the "vni" method name / numeric triggers.
+        // The descoped VIQR preset (phase-07, preserved as a design record in
+        // `.agents/`) would have needed this same numeric-context detection
+        // generalized to an arbitrary config-driven trigger-class check (any
+        // non-alphabetic transform trigger, not just VNI digits) — descoped
+        // along with VIQR itself. Generalize here if a future preset adds a
+        // non-alphabetic, non-digit trigger set that also needs this guard.
         if self.method_name == "vni" && input.is_numeric() {
             // Check if we're starting a number (after space or at start)
-            if ctx.syllable_buffer.is_empty() || 
-               ctx.syllable_buffer.chars().last().map_or(false, |c| c.is_whitespace()) {
+            if ctx.syllable_buffer.is_empty()
+                || ctx
+                    .syllable_buffer
+                    .chars()
+                    .last()
+                    .is_some_and(char::is_whitespace)
+            {
                 // This is likely a number at the start of a word
                 // Example: "Windows 10", "năm 2025"
                 return StageResult::PassThrough;
             }
-            
+
             // Check if previous character is also a digit
             if let Some(last_char) = ctx.syllable_buffer.chars().last() {
                 if last_char.is_numeric() {
@@ -206,7 +219,7 @@ impl PipelineStage for GatekeeperStage {
                     // Scan backwards to find what this number is attached to
                     let chars: Vec<char> = ctx.syllable_buffer.chars().collect();
                     let mut is_attached_to_word = false;
-                    
+
                     // Iterate backwards from the character before the last digit
                     // chars has the full buffer content including the last digit
                     for i in (0..chars.len() - 1).rev() {
@@ -219,7 +232,7 @@ impl PipelineStage for GatekeeperStage {
                             break;
                         }
                     }
-                    
+
                     if is_attached_to_word {
                         // This is a number attached to a word (e.g. "H200", "a6")
                         // Allow it to proceed through pipeline for VNI processing
@@ -230,7 +243,7 @@ impl PipelineStage for GatekeeperStage {
                     }
                 }
             }
-            
+
             // Otherwise, this is VNI transformation (e.g., "a1" → "á")
             // Let it continue to transformation stages
         }
@@ -246,14 +259,14 @@ impl PipelineStage for GatekeeperStage {
             if !ctx.raw_buffer().is_empty() && input.is_numeric() {
                 return StageResult::Continue;
             }
-            
+
             // SPECIAL CASE: Space with candidates showing (for multi-keyword Nôm search)
             // When candidates are showing and space is pressed, let it continue
             // This allows "thien thuong" multi-keyword search
             if input == ' ' && ctx.showing_candidates {
                 return StageResult::Continue;
             }
-            
+
             // Otherwise, pass through (spaces, punctuation, etc.)
             return StageResult::PassThrough;
         }

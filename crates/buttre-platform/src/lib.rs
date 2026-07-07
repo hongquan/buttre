@@ -5,7 +5,9 @@
 //! This crate provides a unified interface for platform-specific backends.
 //! The correct backend is selected at **compile-time** based on the target OS.
 
-#![warn(clippy::all, clippy::pedantic, clippy::nursery)]
+// See buttre-engine/src/lib.rs's doc comment on this attribute — pedantic
+// and nursery are deliberately excluded, matching the workspace lint policy.
+#![warn(clippy::all)]
 #![deny(unsafe_op_in_unsafe_fn)]
 #![allow(clippy::module_name_repetitions, clippy::must_use_candidate)]
 #![allow(unsafe_code)] // Platform crate requires unsafe for FFI/system calls
@@ -48,27 +50,29 @@
 //! - Faster compilation
 //! - No runtime overhead
 
-use std::sync::{Arc, RwLock};
+use anyhow::Result;
 use buttre_core::Action;
 use buttre_core::Keyboard;
-use anyhow::Result;
+use std::sync::{Arc, RwLock};
 
 /// Platform backend trait
 ///
 /// All platform-specific backends must implement this trait.
 pub trait PlatformBackend {
     /// Create a new backend instance
-    fn new() -> Result<Self> where Self: Sized;
-    
+    fn new() -> Result<Self>
+    where
+        Self: Sized;
+
     /// Initialize the backend with the keyboard (Phase 4, Task 3: Using RwLock)
     fn init(&mut self, keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()>;
-    
+
     /// Process a keystroke
     fn process_key(&mut self, key: char) -> Action;
-    
+
     /// Enable or disable the backend
     fn set_enabled(&mut self, enabled: bool);
-    
+
     /// Cleanup resources
     fn cleanup(&mut self);
 }
@@ -96,11 +100,11 @@ pub mod shared;
 pub use platforms::Backend;
 
 // Re-export shared utilities for convenience
-pub use shared::{
-    KeyboardManager, UIObserver, MainUICallback, UIEvent, KeyboardObserver,
-    MethodRegistry, MethodInfo, MethodSource
-};
 pub use shared::ui::{build_menu, create_tray_icon, show_help_dialog, MenuItems};
+pub use shared::{
+    KeyboardManager, KeyboardObserver, MainUICallback, MethodInfo, MethodRegistry, MethodSource,
+    UIEvent, UIObserver,
+};
 
 // ============================================================================
 // Compile-time platform check
@@ -120,10 +124,10 @@ compile_error!(
 pub const fn platform_name() -> &'static str {
     #[cfg(platform_windows)]
     return "Windows";
-    
+
     #[cfg(platform_macos)]
     return "macOS";
-    
+
     #[cfg(platform_linux)]
     return "Linux";
 }
@@ -142,4 +146,3 @@ pub const fn is_macos() -> bool {
 pub const fn is_linux() -> bool {
     cfg!(platform_linux)
 }
-

@@ -52,7 +52,7 @@ impl EventBus {
             handlers: RwLock::new(Vec::new()),
         }
     }
-    
+
     /// Subscribe to all events
     ///
     /// The provided handler will be called for every event published to the bus.
@@ -76,12 +76,12 @@ impl EventBus {
     /// ```
     pub fn subscribe<F>(&self, handler: F)
     where
-        F: Fn(&AppEvent) + Send + Sync + 'static
+        F: Fn(&AppEvent) + Send + Sync + 'static,
     {
         let mut handlers = self.handlers.write().unwrap();
         handlers.push(Box::new(handler));
     }
-    
+
     /// Publish an event to all subscribers
     ///
     /// All registered handlers will be called synchronously with the event.
@@ -98,33 +98,33 @@ impl EventBus {
     /// ```
     pub fn publish(&self, event: AppEvent) {
         let handlers = self.handlers.read().unwrap();
-        
+
         for handler in handlers.iter() {
             // Catch panics to prevent one bad handler from breaking others
             let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                 handler(&event);
             }));
-            
+
             if let Err(e) = result {
                 eprintln!("Event handler panicked: {:?}", e);
             }
         }
     }
-    
+
     /// Emit an event (alias for publish)
     ///
     /// This is a convenience method that does the same as `publish`.
     pub fn emit(&self, event: AppEvent) {
         self.publish(event);
     }
-    
+
     /// Get the number of registered handlers
     ///
     /// Useful for debugging and testing.
     pub fn subscriber_count(&self) -> usize {
         self.handlers.read().unwrap().len()
     }
-    
+
     /// Clear all subscribers
     ///
     /// Removes all registered event handlers.
@@ -166,4 +166,3 @@ pub type SharedEventBus = Arc<EventBus>;
 pub fn create_event_bus() -> SharedEventBus {
     Arc::new(EventBus::new())
 }
-

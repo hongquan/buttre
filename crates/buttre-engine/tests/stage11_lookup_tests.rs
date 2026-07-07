@@ -1,6 +1,8 @@
-use buttre_engine::pipeline::{PipelineStage, StageResult, TypingContext, PipelineConfig, Candidate, CandidateType};
-use buttre_engine::pipeline::stages::stage11_lookup::LookupStage;
 use buttre_engine::pipeline::dictionary::SimpleDictionary;
+use buttre_engine::pipeline::stages::stage11_lookup::LookupStage;
+use buttre_engine::pipeline::{
+    CandidateType, PipelineConfig, PipelineStage, StageResult, TypingContext,
+};
 use std::sync::Arc;
 
 #[test]
@@ -84,7 +86,7 @@ fn test_from_config() {
 fn test_empty_buffer() {
     let mut dict = SimpleDictionary::new();
     dict.add("test", "test", CandidateType::Vietnamese, 1.0);
-    
+
     let stage = LookupStage::with_dictionary(Arc::new(dict));
     let mut ctx = TypingContext::new();
 
@@ -99,7 +101,7 @@ fn test_multiple_process_calls() {
     let mut dict = SimpleDictionary::new();
     dict.add("a", "á", CandidateType::Vietnamese, 1.0);
     dict.add("ab", "áb", CandidateType::Vietnamese, 1.0);
-    
+
     let stage = LookupStage::with_dictionary(Arc::new(dict));
     let mut ctx = TypingContext::new();
 

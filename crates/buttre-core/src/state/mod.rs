@@ -33,9 +33,10 @@
 //! ```
 
 mod app_state;
+pub mod learning;
 mod observer;
-mod settings;
 pub mod observers;
+mod settings;
 
 pub use app_state::AppState;
 pub use observer::StateObserver;
