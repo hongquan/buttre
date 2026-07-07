@@ -5,52 +5,63 @@
 #![cfg(target_os = "linux")]
 
 pub mod ibus;
+pub mod ibus_bus;
+pub mod method_sync;
+pub mod wayland;
+
+/// Composition semantics shared with the macOS FFI — see `shared/engine_bridge.rs`.
+pub use crate::shared::engine_bridge;
+
+/// Engine-mode entry with backend auto-detection (`buttre --ime`):
+/// Wayland-native `zwp_input_method_v2` when the compositor supports it and
+/// no other IME owns the seat; otherwise IBus (GNOME/Mutter, X11). The
+/// `--ibus` flag still forces the IBus component — that is what ibus-daemon
+/// spawns per the component XML.
+pub fn run_engine_auto() -> anyhow::Result<()> {
+    if std::env::var("WAYLAND_DISPLAY").is_ok() {
+        match wayland::run_engine() {
+            Err(e) if e.downcast_ref::<wayland::Unavailable>().is_some() => {
+                tracing::info!("{e}; falling back to IBus");
+            }
+            other => return other,
+        }
+    } else {
+        tracing::info!("No WAYLAND_DISPLAY; using the IBus backend");
+    }
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
+    rt.block_on(ibus_bus::run_engine())
+}
 
 use crate::PlatformBackend;
 use anyhow::Result;
 use buttre_core::state::{Settings, StateObserver};
 use buttre_core::{Action, Keyboard};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
-/// Linux backend — spawns the IBus engine in a background thread.
+/// Linux backend — tray-side only.
 ///
-/// Fields are wrapped in `Mutex` so the struct is `Sync`, satisfying the
-/// `StateObserver: Send + Sync` bound when registered as an observer.
+/// The IBus engine is NOT hosted here: ibus-daemon spawns `buttre --ibus`
+/// as its own process (see `ibus_bus::run_engine`) per the component XML
+/// and owns that process's lifecycle. Hosting the engine inside the tray
+/// app was part of the original "typing dead" bug — the daemon-spawned
+/// copy died on the single-instance lock while the tray copy sat invisible
+/// on the session bus.
 pub struct LinuxBackend {
     enabled: bool,
-    shutdown_tx: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
-    engine_thread: Mutex<Option<std::thread::JoinHandle<()>>>,
 }
 
 impl PlatformBackend for LinuxBackend {
     fn new() -> Result<Self> {
-        Ok(Self {
-            enabled: false,
-            shutdown_tx: Mutex::new(None),
-            engine_thread: Mutex::new(None),
-        })
+        Ok(Self { enabled: false })
     }
 
     fn init(&mut self, _keyboard: Arc<RwLock<Option<Keyboard>>>) -> Result<()> {
-        tracing::info!("Initializing Linux (IBus) backend");
-
-        let (tx, rx) = tokio::sync::oneshot::channel::<()>();
-        *self.shutdown_tx.lock().unwrap() = Some(tx);
-
-        let handle = std::thread::Builder::new()
-            .name("buttre-ibus-engine".to_string())
-            .spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .expect("Failed to build tokio runtime for IBus engine");
-                if let Err(e) = rt.block_on(ibus::run_engine_with_shutdown(rx)) {
-                    tracing::error!("IBus engine exited with error: {}", e);
-                }
-            })?;
-
-        *self.engine_thread.lock().unwrap() = Some(handle);
-        self.enabled = true;
+        tracing::info!(
+            "Linux backend: tray mode only — the IBus engine runs as a \
+             separate ibus-daemon-spawned process (`buttre --ibus`)"
+        );
         Ok(())
     }
 
@@ -62,21 +73,19 @@ impl PlatformBackend for LinuxBackend {
         self.enabled = enabled;
     }
 
-    fn cleanup(&mut self) {
-        if let Some(tx) = self.shutdown_tx.lock().unwrap().take() {
-            let _ = tx.send(());
-        }
-        if let Some(handle) = self.engine_thread.lock().unwrap().take() {
-            if let Err(e) = handle.join() {
-                tracing::warn!("IBus engine thread join error: {:?}", e);
-            }
-        }
-    }
+    fn cleanup(&mut self) {}
 }
 
 impl StateObserver for LinuxBackend {
-    fn on_method_changed(&self, _method: &str, enabled: bool) {
-        tracing::info!("LinuxBackend: method changed, enabled={}", enabled);
+    /// Tray-side half of the method sync (B5): persist the chosen method so
+    /// the daemon-spawned engine's watcher picks it up. "english" and custom
+    /// TOML ids are skipped by `write_method` — IBus enable/disable is the
+    /// OS input-source switcher's job.
+    fn on_method_changed(&self, method: &str, enabled: bool) {
+        tracing::info!("LinuxBackend: method changed to {method} (enabled={enabled})");
+        if let Err(e) = method_sync::write_method(method) {
+            tracing::warn!("LinuxBackend: method sync write failed: {e}");
+        }
     }
 
     fn on_settings_changed(&self, _settings: &Settings) {}
